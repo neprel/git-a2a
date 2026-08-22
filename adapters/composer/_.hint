@@ -1,0 +1,18 @@
+# decision Composer uses an addressable VCS repository and require pair
+
+The Composer adapter owns `repositories[<package-name>]` in Composer's named object form and
+`require[<package-name>]`. The repository remains `type: vcs`; a locked dependency uses
+`dev-<ref>#<full-commit>` and a floating dependency uses `dev-<ref>`. Named repositories let
+`set` replace the source without leaving stale VCS entries. Existing repository arrays and
+subdirectory exports return a typed not-wirable result because neither form is safely
+addressable with Composer's native VCS metadata.
+
+# decision composer.lock stays downstream
+
+Wiring never runs dependency resolution or rewrites `composer.lock`.
+
+# test Composer adapter
+
+- Fixture/golden wiring is idempotent and preserves unrelated JSON fields.
+- Drift checks the named VCS URL and locked revision.
+- Unwire removes only the package's repository and requirement.

@@ -1,0 +1,11 @@
+{
+  "name": "acme/consumer",
+  "require": {
+    "php": "^8.3",
+    "acme/lib-utils": "dev-main#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "extra": {"keep": true},
+  "repositories": {
+    "acme/lib-utils": {"type":"vcs","url":"https://github.com/acme/lib-utils.git"}
+  }
+}
