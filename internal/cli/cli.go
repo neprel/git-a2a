@@ -135,7 +135,7 @@ func (a *App) commandUsage(command string) {
 		"sync": "git-a2a sync [--check] [--brief] [--target FILE]", "who": "git-a2a who [ID] [--intent INTENT] [--path FILE] [--json]",
 		"contact": "git-a2a contact ID --intent INTENT --message FILE|- [--wait]", "ask": "git-a2a contact ID --intent INTENT --message FILE|- [--wait]",
 		"status": "git-a2a status [ID ...] [--offline] [--json] [-v]", "card": "git-a2a card <export|validate|show> [options]",
-		"fmt": "git-a2a fmt [--check]", "version": "git-a2a version [--check]", "upgrade": "git-a2a upgrade [--to VERSION]",
+		"fmt": "git-a2a fmt [--check] [PATH...]", "version": "git-a2a version [--check]", "upgrade": "git-a2a upgrade [--to VERSION]",
 	}
 	if line := usage[command]; line != "" {
 		fmt.Fprintln(a.Out, "usage: "+line)
@@ -200,6 +200,7 @@ func (a *App) init(args []string) int {
 	id := fs.String("id", "", "module id")
 	desc := fs.String("description", "", "description")
 	surface := fs.String("surface", "", "surface directory")
+	_ = fs.Bool("yes", false, "accept defaults (no-op)")
 	var exports stringList
 	fs.Var(&exports, "export", "ecosystem=name")
 	if fs.Parse(args) != nil {
@@ -1040,43 +1041,91 @@ func (a *App) show(args []string) int {
 
 func (a *App) format(args []string) int {
 	check := false
+	paths := make([]string, 0, len(args))
 	for _, arg := range args {
 		if arg == "--check" {
 			check = true
-		} else {
+		} else if strings.HasPrefix(arg, "-") {
 			fmt.Fprintf(a.Err, "fmt: unknown argument %q\n", arg)
 			return 2
+		} else {
+			paths = append(paths, arg)
 		}
 	}
-	p := filepath.Join(a.root(), "a2amodule.yml")
-	original, err := os.ReadFile(p)
-	if err != nil {
-		fmt.Fprintln(a.Err, "no manifest found")
-		return 2
+	if len(paths) == 0 {
+		paths = append(paths, "a2amodule.yml")
 	}
-	_, err = manifest.Parse(original)
-	if err != nil {
-		fmt.Fprintf(a.Err, "%s: %v\n", p, err)
-		return 1
+	resolved := make([]string, 0, len(paths))
+	for _, path := range paths {
+		p := path
+		if !filepath.IsAbs(p) {
+			p = filepath.Join(a.root(), p)
+		}
+		if info, err := os.Stat(p); err == nil && info.IsDir() {
+			p = filepath.Join(p, "a2amodule.yml")
+		}
+		resolved = append(resolved, p)
 	}
-	formatted, err := manifest.Format(original)
-	if err != nil {
-		fmt.Fprintf(a.Err, "fmt: %v\n", err)
-		return 1
+
+	type formatResult struct {
+		path      string
+		formatted []byte
+		changed   bool
 	}
-	if string(original) == string(formatted) {
-		fmt.Fprintln(a.Err, "manifest is canonical")
+	results := make([]formatResult, 0, len(resolved))
+	for _, p := range resolved {
+		original, err := os.ReadFile(p)
+		if err != nil {
+			if len(paths) == 1 && paths[0] == "a2amodule.yml" {
+				fmt.Fprintln(a.Err, "no manifest found")
+			} else {
+				fmt.Fprintf(a.Err, "fmt: %s: %v\n", p, err)
+			}
+			return 2
+		}
+		if _, err = manifest.Parse(original); err != nil {
+			fmt.Fprintf(a.Err, "%s: %v\n", p, err)
+			return 1
+		}
+		formatted, err := manifest.Format(original)
+		if err != nil {
+			fmt.Fprintf(a.Err, "fmt: %s: %v\n", p, err)
+			return 1
+		}
+		results = append(results, formatResult{path: p, formatted: formatted, changed: !bytes.Equal(original, formatted)})
+	}
+	nonCanonical := 0
+	for _, result := range results {
+		if result.changed {
+			nonCanonical++
+		}
+	}
+	if nonCanonical == 0 {
+		if len(results) == 1 {
+			fmt.Fprintln(a.Err, "manifest is canonical")
+		} else {
+			fmt.Fprintf(a.Err, "%d manifests are canonical\n", len(results))
+		}
 		return 0
 	}
 	if check {
 		fmt.Fprintln(a.Err, "manifest is not canonical")
 		return 1
 	}
-	if err := lockfile.Atomic(p, formatted, 0o644); err != nil {
-		fmt.Fprintf(a.Err, "fmt: %v\n", err)
-		return 1
+	for _, result := range results {
+		if !result.changed {
+			continue
+		}
+		if err := lockfile.Atomic(result.path, result.formatted, 0o644); err != nil {
+			fmt.Fprintf(a.Err, "fmt: %s: %v\n", result.path, err)
+			return 1
+		}
 	}
-	fmt.Fprintln(a.Err, "manifest formatted")
+	if len(results) == 1 {
+		fmt.Fprintln(a.Err, "manifest formatted")
+	} else {
+		fmt.Fprintf(a.Err, "%d manifest(s) formatted\n", nonCanonical)
+	}
 	return 0
 }
 

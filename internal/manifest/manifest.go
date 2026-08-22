@@ -241,11 +241,11 @@ func validateRelative(path, value string, errs *[]error) {
 }
 
 func Marshal(m *Manifest) ([]byte, error) {
-	b, err := yaml.Marshal(m)
-	if err != nil {
+	var node yaml.Node
+	if err := node.Encode(m); err != nil {
 		return nil, err
 	}
-	return append(bytes.TrimRight(b, "\n"), '\n'), nil
+	return encodeDocument(&node)
 }
 
 // UpdateDependencies edits only the dependencies sequence in an existing

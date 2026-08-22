@@ -41,12 +41,56 @@ func TestEveryCommandHasCommandSpecificHelp(t *testing.T) {
 	}
 }
 
-func TestInitRejectsRemovedYesOption(t *testing.T) {
+func TestInitAcceptsYesAsNoOp(t *testing.T) {
 	var out, errOut bytes.Buffer
 	app := New(&out, &errOut)
-	app.Root = t.TempDir()
-	if code := app.Run([]string{"init", "--yes"}); code != 2 || !strings.Contains(errOut.String(), "flag provided but not defined") {
+	root := t.TempDir()
+	app.Root = root
+	if code := app.Run([]string{"init", "--yes", "--id", "demo"}); code != 0 {
 		t.Fatalf("exit/output = %d, %q", code, errOut.String())
+	}
+	m, err := os.ReadFile(filepath.Join(root, "a2amodule.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(m), "id: demo") {
+		t.Fatalf("manifest = %q", m)
+	}
+	errOut.Reset()
+	if code := app.Run([]string{"fmt", "--check"}); code != 0 {
+		t.Fatalf("fresh manifest is not canonical: exit/output = %d, %q", code, errOut.String())
+	}
+}
+
+func TestFmtAcceptsFileAndDirectoryPaths(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "nested")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{filepath.Join(root, "one.yml"), filepath.Join(dir, "a2amodule.yml")} {
+		if err := os.WriteFile(path, []byte("schema: 1\nmodule:\n    id: demo\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var out, errOut bytes.Buffer
+	app := New(&out, &errOut)
+	app.Root = root
+	if code := app.Run([]string{"fmt", "one.yml", "nested"}); code != 0 {
+		t.Fatalf("exit/output = %d, %q", code, errOut.String())
+	}
+	for _, path := range []string{filepath.Join(root, "one.yml"), filepath.Join(dir, "a2amodule.yml")} {
+		got, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(got), "    id:") {
+			t.Fatalf("%s was not formatted:\n%s", path, got)
+		}
+	}
+	errOut.Reset()
+	if code := app.Run([]string{"fmt", "--check", "one.yml", "nested"}); code != 0 {
+		t.Fatalf("check exit/output = %d, %q", code, errOut.String())
 	}
 }
 
