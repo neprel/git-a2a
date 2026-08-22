@@ -2,6 +2,14 @@ name: Release
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing immutable release tag to recover
+        required: true
+        type: string
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 permissions: {}
 jobs:
   test:
@@ -10,8 +18,10 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ env.RELEASE_TAG }}
       - name: Verify release tag matches source version
-        run: .github/scripts/check-version.sh "$GITHUB_REF_NAME"
+        run: .github/scripts/check-version.sh "$RELEASE_TAG"
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: '1.24.x'
@@ -30,6 +40,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
+          ref: ${{ env.RELEASE_TAG }}
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: '1.24.x'
@@ -39,6 +50,7 @@ jobs:
       - name: Log in to GitHub Container Registry
         run: echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
         env:
+          GORELEASER_CURRENT_TAG: ${{ env.RELEASE_TAG }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Select configured publishers
         id: release_args
@@ -62,7 +74,7 @@ jobs:
       - name: Verify the linked GHCR package is public
         run: |
           docker logout ghcr.io
-          docker manifest inspect "ghcr.io/neprel/git-a2a:${GITHUB_REF_NAME#v}" >/dev/null
+          docker manifest inspect "ghcr.io/neprel/git-a2a:${RELEASE_TAG#v}" >/dev/null
   npm:
     needs: goreleaser
     runs-on: ubuntu-latest
@@ -74,14 +86,16 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ env.RELEASE_TAG }}
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22'
           registry-url: https://registry.npmjs.org
-      - run: gh release download "$GITHUB_REF_NAME" --dir release-artifacts
+      - run: gh release download "$RELEASE_TAG" --dir release-artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - run: python3 dist/npm/build_packages.py --artifacts release-artifacts --version "${GITHUB_REF_NAME#v}" --out npm-packages
+      - run: python3 dist/npm/build_packages.py --artifacts release-artifacts --version "${RELEASE_TAG#v}" --out npm-packages
       - name: Publish platform packages and launcher
         if: ${{ env.NPM_TOKEN != '' }}
         run: |
@@ -104,12 +118,14 @@ jobs:
       url: https://pypi.org/p/git-a2a
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - run: gh release download "$GITHUB_REF_NAME" --dir release-artifacts
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+      - run: gh release download "$RELEASE_TAG" --dir release-artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Build PyPI wheels
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${RELEASE_TAG#v}"
           pypi_version=$(printf '%s' "$version" | sed -E 's/-rc\.([0-9]+)$/rc\1/')
           python3 dist/pypi/build_wheels.py --artifacts release-artifacts --version "$pypi_version" --out wheelhouse
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
