@@ -61,6 +61,9 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	if strings.Contains(config, "exclude: ['^docs:'") {
 		t.Error("documentation changes must appear in categorized release notes")
 	}
+	if !strings.Contains(config, `'^[[:word:]-]+\(ci\)!?:'`) {
+		t.Error("CI-scoped commits must not appear as user-visible release changes")
+	}
 	installer := read("install.sh")
 	for _, required := range []string{"sha256sum", "url_effective", "mingw", "not writable", "version=\"v$version\""} {
 		if !strings.Contains(strings.ToLower(installer), strings.ToLower(required)) {

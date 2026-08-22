@@ -114,6 +114,7 @@ changelog:
       - '^chore(\([[:word:]-]+\))??!?:'
       - '^ci(\([[:word:]-]+\))??!?:'
       - '^test(\([[:word:]-]+\))??!?:'
+      - '^[[:word:]-]+\(ci\)!?:'
 release:
   prerelease: auto
   name_template: 'git-a2a {{ .Version }}'
