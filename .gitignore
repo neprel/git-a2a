@@ -11,7 +11,7 @@ dist/*
 !dist/npm/**
 !dist/pypi/
 !dist/pypi/**
-bin/
+/bin/
 *.test
 coverage/
 .venv/
