@@ -1,5 +1,7 @@
 # git-a2a
 
+[![built with HINT](https://img.shields.io/badge/built_with-HINT-5b4ee6)](https://openhint.dev/)
+
 **Import a Git repository together with the agents that own it.**
 
 git-a2a is an open standard plus a static Go CLI for micro-agent architectures. A repository
@@ -99,4 +101,18 @@ Maintainer setup is in [docs/releasing.md](docs/releasing.md).
 git-a2a does not run agents, host endpoints, or choose a chat platform. Unknown contact kinds,
 roles, intents, and ecosystems remain valid open vocabulary.
 
+## Specification as source (HINT)
+
+The repository's durable knowledge—decisions, invariants, and the normative standard in
+[`spec/_.hint`](spec/_.hint)—lives in `.hint` files beside the artifacts it governs; this is
+Spec-as-Source. `hint <path>` returns exactly the knowledge governing that path, `hint spec`
+prints the standard, and `hint status` checks for drift. [HINT](https://openhint.dev/) is an
+open, agent-neutral tool by the same author; install it with `npm install -g @openhint/cli` or
+run it with `npx @openhint/cli`. This repository's vocabulary comes from
+`hintbook-software-engineer`. Agents here run `hint` before editing; that requirement is the
+purpose of the `<hint>` block in [`AGENTS.md`](AGENTS.md), while [`hint.yml`](hint.yml) selects
+the hintbook.
+
 License: MIT.
+
+Built with [HINT](https://openhint.dev/).

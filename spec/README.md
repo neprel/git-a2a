@@ -5,7 +5,9 @@ monorepo—as reusable code with explicit agent ownership. The adjacent
 `a2amodule.lock` records the exact revision seen by a consumer. Local fetched data lives
 under `.git-a2a/` and is never committed.
 
-The normative source is [`_.hint`](./_.hint). The JSON Schemas in [`schema/`](./schema/)
+The normative source is [`_.hint`](./_.hint); see
+[Specification as source (HINT)](../README.md#specification-as-source-hint) for how HINT exposes
+the knowledge governing a path. The JSON Schemas in [`schema/`](./schema/)
 are the machine-readable form and are published at
 [`/schema/a2amodule.v1.json`](https://git-a2a.com/schema/a2amodule.v1.json) and
 [`/schema/a2amodule-lock.v1.json`](https://git-a2a.com/schema/a2amodule-lock.v1.json).

@@ -3,6 +3,8 @@
 Every command accepts the global `--timeout DURATION` option (default `120s`). Requested data is
 written to stdout; verdicts and advisories go to stderr. Exit `0` means success, `1` means a
 completed check found drift/failure, and `2` means invalid input or nothing resolved.
+The repository's `.hint` sources and the commands used to read them are explained in
+[Specification as source (HINT)](../README.md#specification-as-source-hint).
 
 ## init
 
