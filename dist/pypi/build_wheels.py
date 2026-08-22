@@ -18,8 +18,6 @@ TARGETS = {
     ("windows", "arm64"): "win_arm64",
 }
 
-LAUNCHER = '''from importlib.resources import files\nimport os, subprocess, sys\ndef main():\n    binary = files("git_a2a_bin").joinpath("git-a2a.exe" if os.name == "nt" else "git-a2a")\n    raise SystemExit(subprocess.call([str(binary), *sys.argv[1:]]))\n'''
-
 def binary_from(archive: Path, windows: bool) -> bytes:
     suffix = "git-a2a.exe" if windows else "git-a2a"
     if archive.suffix == ".zip":
@@ -38,12 +36,13 @@ def main() -> None:
     parser.add_argument("--version", required=True)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(); args.out.mkdir(parents=True, exist_ok=True)
+    launcher = Path(__file__).with_name("git_a2a.py").read_bytes()
     for (goos, goarch), platform in TARGETS.items():
         matches = list(args.artifacts.glob(f"git-a2a_pypi_*_{goos}_{goarch}.tar.gz")) + list(args.artifacts.glob(f"git-a2a_pypi_*_{goos}_{goarch}.zip"))
         if len(matches) != 1: raise SystemExit(f"expected one archive for {goos}/{goarch}, found {matches}")
         tag = f"py3-none-{platform}"; dist_info = f"git_a2a-{args.version}.dist-info"
         files = {
-            "git_a2a.py": LAUNCHER.encode(), "git_a2a_bin/__init__.py": b"",
+            "git_a2a.py": launcher, "git_a2a_bin/__init__.py": b"",
             "git_a2a_bin/" + ("git-a2a.exe" if goos == "windows" else "git-a2a"): binary_from(matches[0], goos == "windows"),
             f"{dist_info}/METADATA": f"Metadata-Version: 2.4\nName: git-a2a\nVersion: {args.version}\nSummary: Import git modules together with their owning agents\nLicense-Expression: MIT\nRequires-Python: >=3.9\n\n".encode(),
             f"{dist_info}/WHEEL": f"Wheel-Version: 1.0\nGenerator: git-a2a\nRoot-Is-Purelib: false\nTag: {tag}\n".encode(),
@@ -56,7 +55,8 @@ def main() -> None:
         with zipfile.ZipFile(wheel, "w", zipfile.ZIP_DEFLATED) as target:
             for name, data in files.items():
                 info = zipfile.ZipInfo(name, (1980, 1, 1, 0, 0, 0)); info.compress_type = zipfile.ZIP_DEFLATED
-                info.external_attr = (0o755 if name.endswith(("git-a2a", ".exe")) else 0o644) << 16
+                info.create_system = 3
+                info.external_attr = (0o100755 if name.endswith(("git-a2a", ".exe")) else 0o100644) << 16
                 target.writestr(info, data)
 
 if __name__ == "__main__":

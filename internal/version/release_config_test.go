@@ -45,6 +45,17 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	if docs := read("docs/releasing.md"); !strings.Contains(docs, "HOMEBREW_TAP_TOKEN") || !strings.Contains(docs, "SCOOP_BUCKET_TOKEN") || !strings.Contains(docs, "NPM_TOKEN") || !strings.Contains(docs, "environment named `pypi`") {
 		t.Error("release prerequisites are incomplete")
 	}
+	launcher := read("dist/pypi/git_a2a.py")
+	if !strings.Contains(launcher, "os.execv") {
+		t.Error("PyPI launcher must replace the Python process on POSIX")
+	}
+	wheelBuilder := read("dist/pypi/build_wheels.py")
+	if strings.Contains(wheelBuilder, "LAUNCHER =") || !strings.Contains(wheelBuilder, `with_name("git_a2a.py").read_bytes()`) {
+		t.Error("PyPI wheel builder must embed the canonical launcher source")
+	}
+	if !strings.Contains(wheelBuilder, "info.create_system = 3") || !strings.Contains(wheelBuilder, "0o100755") {
+		t.Error("PyPI wheel entries must retain Unix executable modes")
+	}
 	command := exec.Command("sh", "-n", filepath.Join(root, "install.sh"))
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("install.sh syntax: %v: %s", err, output)

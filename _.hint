@@ -73,6 +73,9 @@ install github.com/neprel/git-a2a/cmd/git-a2a@latest` and a one-line `curl | sh`
 image. All channels install the same binary with the same version string (`git-a2a --version`
 prints version, commit, and build target). Wrappers contain no logic: they locate and exec the
 binary, nothing else, so behaviour never depends on the channel.
+The PyPI wheel builder embeds `dist/pypi/git_a2a.py` directly rather than maintaining a second
+launcher string; on POSIX that launcher uses `os.execv` so the Go binary becomes the process.
+Wheel ZIP entries use Unix creator metadata so the embedded binary retains its executable mode.
 
 Learn from Caddy (Go, no npm/PyPI at all): its channels are the Go toolchain itself
 (`go install github.com/caddyserver/caddy/v2/cmd/caddy@latest`, and `go run <module>@<version>`
