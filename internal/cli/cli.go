@@ -109,6 +109,8 @@ func (a *App) Run(args []string) int {
 		return a.status(args[1:])
 	case "card":
 		return a.card(args[1:])
+	case "catalog":
+		return a.catalog(args[1:])
 	case "fmt":
 		return a.format(args[1:])
 	case "help", "-h", "--help":
@@ -122,7 +124,7 @@ func (a *App) Run(args []string) int {
 }
 
 func (a *App) usage() {
-	fmt.Fprintln(a.Out, "usage: git-a2a <init|validate|add|set|pin|unpin|wire|update|remove|show|sync|who|contact|status|card|fmt|version|upgrade> [options]")
+	fmt.Fprintln(a.Out, "usage: git-a2a <init|validate|add|set|pin|unpin|wire|update|remove|show|sync|who|contact|status|card|catalog|fmt|version|upgrade> [options]")
 }
 func (a *App) commandUsage(command string) {
 	usage := map[string]string{
@@ -135,7 +137,8 @@ func (a *App) commandUsage(command string) {
 		"sync": "git-a2a sync [--check] [--brief] [--target FILE]", "who": "git-a2a who [ID] [--intent INTENT] [--path FILE] [--json]",
 		"contact": "git-a2a contact ID --intent INTENT --message FILE|- [--wait]", "ask": "git-a2a contact ID --intent INTENT --message FILE|- [--wait]",
 		"status": "git-a2a status [ID ...] [--offline] [--json] [-v]", "card": "git-a2a card <export|validate|verify|show> [options]",
-		"fmt": "git-a2a fmt [--check] [PATH...]", "version": "git-a2a version [--check]", "upgrade": "git-a2a upgrade [--to VERSION]",
+		"catalog": "git-a2a catalog export [--out FILE]",
+		"fmt":     "git-a2a fmt [--check] [PATH...]", "version": "git-a2a version [--check]", "upgrade": "git-a2a upgrade [--to VERSION]",
 	}
 	if line := usage[command]; line != "" {
 		fmt.Fprintln(a.Out, "usage: "+line)

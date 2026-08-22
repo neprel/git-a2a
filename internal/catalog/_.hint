@@ -1,0 +1,18 @@
+# decision Catalog export is an ARD index, not another agent description
+
+`git-a2a catalog export` emits ARD 1.0 with one
+`application/a2a-agent-card+json` entry per declared module agent. Absolute card URLs remain
+references; repository-relative cards and synthesized cards are embedded as `data`. Entries do
+not copy descriptions, skills, or trust claims beside the native Agent Card.
+
+# invariant ARD identities are deterministic and domain anchored
+
+The repository DNS host is the `urn:air` publisher and its path is the namespace. Agent names
+form the terminal segment after sanitization to ARD's `[A-Za-z0-9._-]` vocabulary. Export reads
+no clock and preserves manifest agent order. A repository without a verifiable DNS host cannot
+produce a public ARD catalog.
+
+# test Catalog export
+
+- Golden output contains the exact ARD 1.0 host and entry shape.
+- Every entry has exactly one of `url` or `data` and uses the A2A Agent Card media type.

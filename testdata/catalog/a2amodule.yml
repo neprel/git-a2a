@@ -1,0 +1,12 @@
+schema: 1
+module:
+  id: demo
+  name: Demo module
+  repository: https://github.com/acme/demo.git
+agents:
+  - name: remote-owner
+    role: owner
+    card: https://agents.example.test/remote/.well-known/agent-card.json
+  - name: local-reviewer
+    role: reviewer
+    card: local-card.json

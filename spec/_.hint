@@ -180,6 +180,14 @@ identifies the algorithm, key id, and JWKS URL. An unsigned card, an invalid sig
 unavailable key with no local cache makes `status` fail; `update` retains the dependency update
 but prints a trust warning. JWKS responses are timeout-bounded and cached only in `.git-a2a/`.
 
+# decision ARD catalogs index native Agent Cards
+
+`git-a2a catalog export` projects the module's agents into an ARD 1.0 `ai-catalog.json`.
+Each entry uses `application/a2a-agent-card+json` and exactly one of `url` or `data`: public
+card URLs stay references, while repository-relative and synthesized cards are embedded.
+Identifiers are deterministic domain-anchored `urn:air` values derived from the module
+repository and agent name. The catalog never becomes a second description of an agent.
+
 # data Contact kinds known to the reference CLI {#contact_kinds}
 
 The kind vocabulary is open; these kinds have defined keys and, in later phases, drivers:

@@ -1,0 +1,40 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "Demo module",
+    "identifier": "github.com"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:github.com:acme-demo:remote-owner",
+      "displayName": "remote-owner",
+      "type": "application/a2a-agent-card+json",
+      "url": "https://agents.example.test/remote/.well-known/agent-card.json"
+    },
+    {
+      "identifier": "urn:air:github.com:acme-demo:local-reviewer",
+      "displayName": "local-reviewer",
+      "type": "application/a2a-agent-card+json",
+      "data": {
+        "capabilities": {},
+        "defaultInputModes": [
+          "text/plain"
+        ],
+        "defaultOutputModes": [
+          "text/plain"
+        ],
+        "description": "Reviews changes to the demo module.",
+        "name": "local-reviewer",
+        "skills": [],
+        "supportedInterfaces": [
+          {
+            "protocolBinding": "JSONRPC",
+            "protocolVersion": "1.0",
+            "url": "https://agents.example.test/reviewer/a2a"
+          }
+        ],
+        "version": "1.0.0"
+      }
+    }
+  ]
+}

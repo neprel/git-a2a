@@ -1,0 +1,16 @@
+{
+  "name": "local-reviewer",
+  "description": "Reviews changes to the demo module.",
+  "supportedInterfaces": [
+    {
+      "url": "https://agents.example.test/reviewer/a2a",
+      "protocolBinding": "JSONRPC",
+      "protocolVersion": "1.0"
+    }
+  ],
+  "version": "1.0.0",
+  "capabilities": {},
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain"],
+  "skills": []
+}
