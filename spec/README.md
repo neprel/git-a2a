@@ -6,7 +6,10 @@ monorepo—as reusable code with explicit agent ownership. The adjacent
 under `.git-a2a/` and is never committed.
 
 The normative source is [`_.hint`](./_.hint). The JSON Schemas in [`schema/`](./schema/)
-are the machine-readable form. Complete manifests live in [`examples/`](./examples/).
+are the machine-readable form and are published at
+[`/schema/a2amodule.v1.json`](https://git-a2a.com/schema/a2amodule.v1.json) and
+[`/schema/a2amodule-lock.v1.json`](https://git-a2a.com/schema/a2amodule-lock.v1.json).
+Complete manifests live in [`examples/`](./examples/).
 
 ## Manifest
 

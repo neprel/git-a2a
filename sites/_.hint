@@ -1,0 +1,29 @@
+# goal A self-contained public distribution surface
+
+`sites/git-a2a.com/` is the complete static package served at `https://git-a2a.com`: product
+documentation, public schemas, the A2A extension description, and checksum-verifying installers.
+
+# decision Publication is separate from the release workflow {#publication}
+
+The repository builds and verifies the static package, but no GitHub Action deploys it. The
+project owner publishes it independently and decides its hosting and DNS. A CLI release must not
+silently mutate the live site.
+
+# invariant Canonical files stay byte-identical {#canonical_files}
+
+The public `install.sh` is byte-identical to the repository-root `install.sh` used by release
+documentation. `schema/a2amodule.v1.json` and `schema/a2amodule-lock.v1.json` are byte-identical
+to their respective files under `spec/schema/`. Checks fail on drift.
+
+# decision Static, local-first implementation {#static_site}
+
+The site uses hand-written HTML and one CSS and JavaScript file, with no framework, generator,
+analytics, remote fonts, or runtime service. Every page renders from `file://` and an ordinary
+static HTTP server. The only JavaScript behaviours are transcript replay, copy buttons, and
+keyboard-accessible install tabs.
+
+# build Site and installer checks
+
+`make installers-check` parses and dry-runs the POSIX installer without network access. The
+complete site gate is `make site-check`; it verifies synced files, HTML and links, duplicated
+header/footer bytes, content policy, and the transfer budget.

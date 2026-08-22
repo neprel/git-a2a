@@ -19,3 +19,7 @@ dependency workflow separately when they choose.
 - A malformed locked object ID returns an error rather than slicing or panicking.
 - The resolved pseudo-version carries the commit timestamp returned by the Go toolchain.
 - Unwire removes only the owned require/replace pair and preserves surrounding bytes.
+
+# decision Refresh prerequisite
+
+`Refresh` checks `go` through the shared prerequisite contract before doing any work.

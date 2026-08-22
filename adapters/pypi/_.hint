@@ -19,3 +19,8 @@ Poetry projects with `[tool.poetry.dependencies]` use Poetry's native inline Git
 projects whose `dependencies` field is absent gain a delimited field that unwire removes as a
 unit; this supports valid projects with dynamic or intentionally empty runtime dependencies
 without reconstructing `pyproject.toml`.
+
+# decision Refresh prerequisite
+
+`Refresh` checks the detected `uv`, `poetry`, or `pdm` command through the shared prerequisite
+contract before running it. Plain PEP 621 projects require no refresh command.

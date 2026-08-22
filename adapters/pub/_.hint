@@ -17,3 +17,8 @@ Wiring does not run `dart pub get`: resolution may update unrelated packages. Co
 - Fixture/golden wiring is idempotent and preserves comments and unrelated dependencies.
 - A subdirectory export writes `git.path`; drift checks URL and locked ref.
 - Unwire restores the original fixture bytes.
+
+# decision Refresh prerequisite
+
+`Refresh` checks the detected Dart or Flutter Pub command through the shared prerequisite
+contract before doing any work.

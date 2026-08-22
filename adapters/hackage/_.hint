@@ -17,3 +17,8 @@ owned item rather than leaving an empty project field.
 
 - Cabal and Stack each have fixture/golden, idempotence, drift, and unwire coverage.
 - Drift checks the normalized Git URL and locked commit in either variant.
+
+# decision Refresh prerequisite
+
+`Refresh` checks `cabal` for Cabal projects or `stack` for Stack projects through the shared
+prerequisite contract.

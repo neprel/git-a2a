@@ -10,3 +10,7 @@ does not resolve or rewrite unrelated gems.
 - Fixture/golden wiring is idempotent and preserves unrelated Ruby text and comments.
 - Drift checks both the normalized Git URL and locked revision.
 - Unwire removes only the named gem declaration.
+
+# decision Refresh prerequisite
+
+`Refresh` checks `bundle` through the shared prerequisite contract before doing any work.

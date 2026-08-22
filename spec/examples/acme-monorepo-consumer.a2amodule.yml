@@ -1,4 +1,5 @@
 # A module in a monorepo subdirectory, consuming another subdirectory module.
+# yaml-language-server: $schema=https://git-a2a.com/schema/a2amodule.v1.json
 schema: 1
 module:
   id: acme-monorepo-consumer

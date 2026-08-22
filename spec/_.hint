@@ -8,8 +8,11 @@ complete manifests for the two pilot repositories and must always validate.
 
 Formats: YAML 1.2 for the manifest and lock (JSON is valid YAML, so a JSON manifest is
 accepted). Keys are lower-case kebab-case. Relative paths are POSIX, relative to the directory
-that contains the manifest. A JSON Schema (`spec/schema/a2amodule.schema.json`) is emitted from
-this spec and is what `git-a2a validate` enforces.
+that contains the manifest. JSON Schemas for the manifest (`spec/schema/a2amodule.schema.json`,
+public id `https://git-a2a.com/schema/a2amodule.v1.json`) and lock
+(`spec/schema/a2amodule.lock.schema.json`, public id
+`https://git-a2a.com/schema/a2amodule-lock.v1.json`) are emitted from this spec; the manifest
+schema is what `git-a2a validate` enforces.
 
 # term module
 

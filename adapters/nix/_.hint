@@ -10,3 +10,7 @@ deterministic, and `flake.lock` remains downstream rather than being rewritten d
 - Fixture/golden wiring is idempotent and preserves unrelated Nix expressions and comments.
 - Drift checks the normalized Git URL and locked `rev`.
 - Unwire removes only the delimited input assignment.
+
+# decision Refresh prerequisite
+
+`Refresh` checks `nix` through the shared prerequisite contract before doing any work.

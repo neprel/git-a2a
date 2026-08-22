@@ -13,3 +13,7 @@ and removal do not manufacture a newline.
 - Fixture/golden wiring is idempotent and preserves unrelated EDN forms and comments.
 - Unqualified library names are typed not-wirable.
 - Drift checks the normalized Git URL and full SHA; unwire removes only the delimited entry.
+
+# decision Refresh prerequisite
+
+`Refresh` checks the `clj` tools.deps command through the shared prerequisite contract.

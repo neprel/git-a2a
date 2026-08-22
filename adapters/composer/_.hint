@@ -17,3 +17,7 @@ Wiring never runs dependency resolution or rewrites `composer.lock`.
 - Fixture/golden wiring is idempotent and preserves unrelated JSON fields.
 - Drift checks the named VCS URL and locked revision.
 - Unwire removes only the package's repository and requirement.
+
+# decision Refresh prerequisite
+
+`Refresh` checks `composer` through the shared prerequisite contract before doing any work.

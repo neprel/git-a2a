@@ -13,3 +13,7 @@ container and unwire removes that container exactly.
 - Fixture/golden wiring is idempotent and preserves unrelated ZON fields and comments.
 - Missing `x-zig-hash` is typed not-wirable.
 - Drift checks the normalized Git URL and locked revision; unwire removes only the delimited entry.
+
+# decision Refresh prerequisite
+
+`Refresh` checks `zig` through the shared prerequisite contract before doing any work.

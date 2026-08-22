@@ -21,3 +21,7 @@ in `Package.swift`, and remains atomic with every other ecosystem.
   package dependencies.
 - Drift checks the normalized URL and locked revision.
 - Unwire and source moves remove the old package expression only.
+
+# decision Refresh prerequisite
+
+`Refresh` checks `swift` through the shared prerequisite contract before doing any work.

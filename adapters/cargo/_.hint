@@ -17,3 +17,7 @@ unrelated packages; the consumer's normal Cargo workflow creates or refreshes `C
 - Fixture/golden wiring is idempotent and preserves unrelated entries and comments.
 - Drift checks both the normalized Git URL and the locked revision.
 - Unwire removes only the exported crate entry.
+
+# decision Refresh prerequisite
+
+`Refresh` checks `cargo` through the shared prerequisite contract before doing any work.

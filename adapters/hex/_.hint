@@ -13,3 +13,7 @@ is never guessed.
 - Fixture/golden wiring is idempotent and preserves unrelated Elixir code and comments.
 - Drift checks the normalized Git URL and locked revision.
 - Unwire removes only the named dependency tuple.
+
+# decision Refresh prerequisite
+
+`Refresh` checks `mix` through the shared prerequisite contract before doing any work.

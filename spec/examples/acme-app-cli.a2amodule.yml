@@ -1,4 +1,5 @@
 # a2amodule.yml — acme-app-cli (application, consumer of acme-lib-utils)
+# yaml-language-server: $schema=https://git-a2a.com/schema/a2amodule.v1.json
 schema: 1
 module:
   id: acme-app-cli

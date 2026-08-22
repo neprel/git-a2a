@@ -1,0 +1,58 @@
+name: Installer checks
+on:
+  push:
+    paths:
+      - install.sh
+      - sites/git-a2a.com/install.sh
+      - sites/git-a2a.com/install.ps1
+      - .github/workflows/installers.yml
+  pull_request:
+    paths:
+      - install.sh
+      - sites/git-a2a.com/install.sh
+      - sites/git-a2a.com/install.ps1
+      - .github/workflows/installers.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  posix:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            test-os: linux
+            test-arch: x86_64
+          - os: macos-latest
+            test-os: darwin
+            test-arch: arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Parse and dry-run without network
+        env:
+          GIT_A2A_TEST_OS: ${{ matrix.test-os }}
+          GIT_A2A_TEST_ARCH: ${{ matrix.test-arch }}
+        run: |
+          bash -n install.sh
+          cmp install.sh sites/git-a2a.com/install.sh
+          ./install.sh --version 1.0.0 --dir "$RUNNER_TEMP/git-a2a" --dry-run
+      - name: Run shellcheck when available
+        run: command -v shellcheck >/dev/null 2>&1 && shellcheck install.sh || true
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Parse with the PowerShell AST
+        shell: pwsh
+        run: |
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path sites/git-a2a.com/install.ps1), [ref]$null, [ref]$errors)
+          if ($errors.Count) { $errors | Format-List; exit 1 }
+      - name: Dry-run without network
+        shell: pwsh
+        env:
+          GIT_A2A_TEST_OS: windows
+          GIT_A2A_TEST_ARCH: amd64
+        run: '& sites/git-a2a.com/install.ps1 --version 1.0.0 --dir "$env:RUNNER_TEMP\git-a2a" --dry-run'
