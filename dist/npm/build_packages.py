@@ -37,7 +37,7 @@ def main() -> None:
     args.out.mkdir(parents=True, exist_ok=True)
     optional = {}
     for (goos, goarch), (node_os, node_cpu) in TARGETS.items():
-        matches = list(args.artifacts.glob(f"git-a2a_*_{goos}_{goarch}.tar.gz")) + list(args.artifacts.glob(f"git-a2a_*_{goos}_{goarch}.zip"))
+        matches = list(args.artifacts.glob(f"git-a2a_npm_*_{goos}_{goarch}.tar.gz")) + list(args.artifacts.glob(f"git-a2a_npm_*_{goos}_{goarch}.zip"))
         if len(matches) != 1:
             raise SystemExit(f"expected one archive for {goos}/{goarch}, found {matches}")
         name = f"@git-a2a/{goos}-{goarch}"

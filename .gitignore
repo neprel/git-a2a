@@ -12,6 +12,7 @@ dist/*
 !dist/pypi/
 !dist/pypi/**
 /bin/
+/build/
 *.test
 coverage/
 .venv/

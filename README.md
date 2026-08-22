@@ -38,19 +38,27 @@ Tagged releases are built and published entirely by GitHub Actions. Every channe
 the same static Go binary:
 
 ```sh
+go install github.com/neprel/git-a2a/cmd/git-a2a@latest
+go run github.com/neprel/git-a2a/cmd/git-a2a@latest --version
+curl -fsSL https://raw.githubusercontent.com/neprel/git-a2a/main/install.sh | sh
 brew install neprel/tap/git-a2a
 npx git-a2a --version
 uvx git-a2a --version
-go install github.com/neprel/git-a2a/cmd/git-a2a@latest
-curl -fsSL https://raw.githubusercontent.com/neprel/git-a2a/main/install.sh | sh
 ```
+
+Pin a tag instead of `@latest` in CI and image builds. `git-a2a version --check` performs an
+explicit release check and prints the correct update command for the install channel; plain
+`version` never uses the network. `git-a2a upgrade` replaces the executable only for the
+standalone `binary` channel. Package-manager installations must be upgraded by that manager.
 
 For an agent container, copy a release binary into the image; no runtime is required:
 
 ```dockerfile
-COPY git-a2a /usr/local/bin/git-a2a
+ARG GIT_A2A_VERSION=1.0.0
+COPY git-a2a-${GIT_A2A_VERSION} /usr/local/bin/git-a2a
 RUN chmod 0755 /usr/local/bin/git-a2a
 ```
 
 GitHub Releases contain archives for Darwin, Linux, and Windows on amd64 and arm64, checksums,
-and SBOMs. The npm and PyPI packages are thin launchers around those exact binaries.
+SBOMs, deb/rpm/apk packages, and a `ghcr.io/neprel/git-a2a` scratch image. The npm and PyPI
+packages are convenience launchers and do not block a release.

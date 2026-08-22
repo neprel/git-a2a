@@ -1,10 +1,12 @@
 version: 2
 project_name: git-a2a
+dist: build/dist
 before:
   hooks:
     - go mod tidy
 builds:
-  - id: git-a2a
+  - &binary-build
+    id: binary
     main: ./cmd/git-a2a
     binary: git-a2a
     env: [CGO_ENABLED=0]
@@ -12,13 +14,75 @@ builds:
     goos: [darwin, linux, windows]
     goarch: [amd64, arm64]
     ldflags:
-      - -s -w -X github.com/neprel/git-a2a/internal/cli.Version={{.Version}} -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}}
+      - -s -w -X github.com/neprel/git-a2a/internal/cli.Version={{.Version}} -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=binary
+  - <<: *binary-build
+    id: brew
+    goos: [darwin]
+    ldflags:
+      - -s -w -X github.com/neprel/git-a2a/internal/cli.Version={{.Version}} -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=brew
+  - <<: *binary-build
+    id: scoop
+    goos: [windows]
+    ldflags:
+      - -s -w -X github.com/neprel/git-a2a/internal/cli.Version={{.Version}} -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=scoop
+  - <<: *binary-build
+    id: npm
+    ldflags:
+      - -s -w -X github.com/neprel/git-a2a/internal/cli.Version={{.Version}} -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=npm
+  - <<: *binary-build
+    id: pypi
+    ldflags:
+      - -s -w -X github.com/neprel/git-a2a/internal/cli.Version={{.Version}} -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=pypi
+  - <<: *binary-build
+    id: deb
+    goos: [linux]
+    ldflags:
+      - -s -w -X github.com/neprel/git-a2a/internal/cli.Version={{.Version}} -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=deb
+  - <<: *binary-build
+    id: rpm
+    goos: [linux]
+    ldflags:
+      - -s -w -X github.com/neprel/git-a2a/internal/cli.Version={{.Version}} -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=rpm
+  - <<: *binary-build
+    id: apk
+    goos: [linux]
+    ldflags:
+      - -s -w -X github.com/neprel/git-a2a/internal/cli.Version={{.Version}} -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=apk
+  - <<: *binary-build
+    id: docker
+    goos: [linux]
+    ldflags:
+      - -s -w -X github.com/neprel/git-a2a/internal/cli.Version={{.Version}} -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=docker
 archives:
-  - formats: [tar.gz]
+  - id: binary
+    formats: [tar.gz]
+    ids: [binary]
     format_overrides:
       - goos: windows
         formats: [zip]
     files: [LICENSE, README.md, spec/README.md]
+  - id: brew
+    ids: [brew]
+    name_template: "{{ .ProjectName }}_brew_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+  - id: scoop
+    ids: [scoop]
+    name_template: "{{ .ProjectName }}_scoop_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [zip]
+  - id: npm
+    ids: [npm]
+    name_template: "{{ .ProjectName }}_npm_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+  - id: pypi
+    ids: [pypi]
+    name_template: "{{ .ProjectName }}_pypi_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
 checksum:
   name_template: checksums.txt
 sboms:
@@ -27,13 +91,14 @@ changelog:
   sort: asc
   filters:
     exclude: ['^docs:', '^test:']
-brews:
+homebrew_casks:
   - repository:
       owner: neprel
       name: homebrew-tap
       token: '{{ .Env.HOMEBREW_TAP_TOKEN }}'
     homepage: https://github.com/neprel/git-a2a
     description: Import git modules together with their owning agents
+    ids: [brew]
 scoops:
   - repository:
       owner: neprel
@@ -41,3 +106,37 @@ scoops:
       token: '{{ .Env.SCOOP_BUCKET_TOKEN }}'
     homepage: https://github.com/neprel/git-a2a
     description: Import git modules together with their owning agents
+    ids: [scoop]
+nfpms:
+  - id: deb
+    package_name: git-a2a
+    ids: [deb]
+    vendor: git-a2a
+    homepage: https://github.com/neprel/git-a2a
+    maintainer: Andrey Neprel <neprel@users.noreply.github.com>
+    description: Import git modules together with their owning agents
+    license: MIT
+    formats: [deb]
+  - id: rpm
+    package_name: git-a2a
+    ids: [rpm]
+    vendor: git-a2a
+    homepage: https://github.com/neprel/git-a2a
+    maintainer: Andrey Neprel <neprel@users.noreply.github.com>
+    description: Import git modules together with their owning agents
+    license: MIT
+    formats: [rpm]
+  - id: apk
+    package_name: git-a2a
+    ids: [apk]
+    vendor: git-a2a
+    homepage: https://github.com/neprel/git-a2a
+    maintainer: Andrey Neprel <neprel@users.noreply.github.com>
+    description: Import git modules together with their owning agents
+    license: MIT
+    formats: [apk]
+dockers_v2:
+  - images: [ghcr.io/neprel/git-a2a]
+    ids: [docker]
+    tags: ["{{ .Version }}", latest]
+    dockerfile: Dockerfile.goreleaser

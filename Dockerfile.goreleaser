@@ -1,0 +1,4 @@
+FROM scratch
+ARG TARGETPLATFORM
+COPY $TARGETPLATFORM/git-a2a /git-a2a
+ENTRYPOINT ["/git-a2a"]

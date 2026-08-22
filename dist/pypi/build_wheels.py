@@ -39,7 +39,7 @@ def main() -> None:
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(); args.out.mkdir(parents=True, exist_ok=True)
     for (goos, goarch), platform in TARGETS.items():
-        matches = list(args.artifacts.glob(f"git-a2a_*_{goos}_{goarch}.tar.gz")) + list(args.artifacts.glob(f"git-a2a_*_{goos}_{goarch}.zip"))
+        matches = list(args.artifacts.glob(f"git-a2a_pypi_*_{goos}_{goarch}.tar.gz")) + list(args.artifacts.glob(f"git-a2a_pypi_*_{goos}_{goarch}.zip"))
         if len(matches) != 1: raise SystemExit(f"expected one archive for {goos}/{goarch}, found {matches}")
         tag = f"py3-none-{platform}"; dist_info = f"git_a2a-{args.version}.dist-info"
         files = {
