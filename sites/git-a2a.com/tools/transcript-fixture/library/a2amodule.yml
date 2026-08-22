@@ -1,0 +1,21 @@
+schema: 1
+module:
+  id: acme-lib-utils
+  description: Shared string utilities for Acme.
+  release:
+    channel: main
+  exports:
+    - { ecosystem: npm, name: "@acme/lib-utils" }
+    - { ecosystem: pypi, name: acme_lib_utils }
+    - { ecosystem: golang, name: acme.dev/lib-utils }
+agents:
+  - name: acme-lib-utils
+    role: owner
+    contacts:
+      - { intents: [question, bug], kind: github-issue, repo: acme/lib-utils }
+  - name: acme-pm
+    role: spec
+    contacts:
+      - { intents: [change], kind: github-issue, repo: acme/lib-utils, labels: [change-request] }
+policy:
+  intents: { change: spec }

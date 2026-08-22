@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>git-a2a — design tokens, components and handoff</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#ffffff; --bg2:#f7f7f5; --bg3:#efefec; --fg:#111110; --fg2:#4b4b46; --fg3:#7a7a72;
+  --line:#e3e3de; --line2:#cdcdc5; --code:#fbfbf9; --term:#171715; --termfg:#ecece6;
+  --acc:#9a5200; --accfg:#ffffff; --accsoft:rgba(154,82,0,.09);
+}
+:root[data-accent="b"]{ --acc:#0a6c81; --accsoft:rgba(10,108,129,.09); }
+:root[data-theme="dark"]{
+  --bg:#0d0d0c; --bg2:#151514; --bg3:#1d1d1b; --fg:#f3f3ef; --fg2:#b3b3ab; --fg3:#83837a;
+  --line:#262623; --line2:#37372f; --code:#131312; --term:#080807; --termfg:#ecece6;
+  --acc:#f0a54a; --accfg:#171715; --accsoft:rgba(240,165,74,.12);
+}
+:root[data-theme="dark"][data-accent="b"]{ --acc:#4ec7de; --accsoft:rgba(78,199,222,.12); }
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg2);color:var(--fg);font-family:'IBM Plex Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;text-wrap:pretty}
+a{color:var(--acc);text-decoration:none;text-underline-offset:3px}
+a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+code,pre{font-family:'JetBrains Mono',ui-monospace,monospace}
+pre{margin:0}
+h2{margin:0 0 6px;font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--fg3);font-family:'JetBrains Mono',monospace}
+</style>
+</helmet>
+
+<div style="max-width:1180px;margin:0 auto;padding:56px 28px 96px;display:grid;gap:56px">
+
+  <header style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;justify-content:space-between;border-bottom:1px solid var(--line2);padding-bottom:24px">
+    <div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--fg3);margin-bottom:10px">git-a2a.com · handoff v1</div>
+      <h1 style="margin:0;font-size:32px;letter-spacing:-.03em;font-weight:600">Tokens, components, assets</h1>
+    </div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg2);border:1px solid var(--line2);border-radius:7px;padding:7px 12px">light theme · accent cyan <span style="color:var(--acc)">#0a6c81</span></div>
+  </header>
+
+  <section>
+    <h2>01 · Colour</h2>
+    <p style="margin:0 0 20px;font-size:14.5px;color:var(--fg2);max-width:640px">Monochrome plus one. Set on <code style="font-size:12.5px">:root</code>, overridden by <code style="font-size:12.5px">[data-theme="dark"]</code>. Default is system-following; the toggle writes <code style="font-size:12.5px">data-theme</code> on <code style="font-size:12.5px">&lt;html&gt;</code>.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px">
+      <div style="background:#ffffff;border:1px solid #e3e3de;border-radius:12px;padding:20px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#7a7a72;margin-bottom:14px;letter-spacing:.06em">LIGHT</div>
+        <div style="display:grid;gap:8px">
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#ffffff;border:1px solid #cdcdc5;display:block"></span><code style="font-size:12px;color:#111110;flex:1 1 auto">--bg</code><code style="font-size:12px;color:#7a7a72">#ffffff</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#f7f7f5;border:1px solid #e3e3de;display:block"></span><code style="font-size:12px;color:#111110;flex:1 1 auto">--bg2</code><code style="font-size:12px;color:#7a7a72">#f7f7f5</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#efefec;border:1px solid #e3e3de;display:block"></span><code style="font-size:12px;color:#111110;flex:1 1 auto">--bg3</code><code style="font-size:12px;color:#7a7a72">#efefec</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#111110;display:block"></span><code style="font-size:12px;color:#111110;flex:1 1 auto">--fg</code><code style="font-size:12px;color:#7a7a72">#111110</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#4b4b46;display:block"></span><code style="font-size:12px;color:#111110;flex:1 1 auto">--fg2</code><code style="font-size:12px;color:#7a7a72">#4b4b46</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#7a7a72;display:block"></span><code style="font-size:12px;color:#111110;flex:1 1 auto">--fg3</code><code style="font-size:12px;color:#7a7a72">#7a7a72</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#e3e3de;display:block"></span><code style="font-size:12px;color:#111110;flex:1 1 auto">--line</code><code style="font-size:12px;color:#7a7a72">#e3e3de</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#cdcdc5;display:block"></span><code style="font-size:12px;color:#111110;flex:1 1 auto">--line2</code><code style="font-size:12px;color:#7a7a72">#cdcdc5</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#fbfbf9;border:1px solid #e3e3de;display:block"></span><code style="font-size:12px;color:#111110;flex:1 1 auto">--code</code><code style="font-size:12px;color:#7a7a72">#fbfbf9</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#171715;display:block"></span><code style="font-size:12px;color:#111110;flex:1 1 auto">--term</code><code style="font-size:12px;color:#7a7a72">#171715</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#9a5200;display:block"></span><code style="font-size:12px;color:#111110;flex:1 1 auto">--acc · A amber</code><code style="font-size:12px;color:#7a7a72">#9a5200</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#0a6c81;display:block"></span><code style="font-size:12px;color:#111110;flex:1 1 auto">--acc · B cyan</code><code style="font-size:12px;color:#7a7a72">#0a6c81</code></div>
+        </div>
+      </div>
+      <div style="background:#0d0d0c;border:1px solid #262623;border-radius:12px;padding:20px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#83837a;margin-bottom:14px;letter-spacing:.06em">DARK</div>
+        <div style="display:grid;gap:8px">
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#0d0d0c;border:1px solid #37372f;display:block"></span><code style="font-size:12px;color:#f3f3ef;flex:1 1 auto">--bg</code><code style="font-size:12px;color:#83837a">#0d0d0c</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#151514;border:1px solid #262623;display:block"></span><code style="font-size:12px;color:#f3f3ef;flex:1 1 auto">--bg2</code><code style="font-size:12px;color:#83837a">#151514</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#1d1d1b;border:1px solid #262623;display:block"></span><code style="font-size:12px;color:#f3f3ef;flex:1 1 auto">--bg3</code><code style="font-size:12px;color:#83837a">#1d1d1b</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#f3f3ef;display:block"></span><code style="font-size:12px;color:#f3f3ef;flex:1 1 auto">--fg</code><code style="font-size:12px;color:#83837a">#f3f3ef</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#b3b3ab;display:block"></span><code style="font-size:12px;color:#f3f3ef;flex:1 1 auto">--fg2</code><code style="font-size:12px;color:#83837a">#b3b3ab</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#83837a;display:block"></span><code style="font-size:12px;color:#f3f3ef;flex:1 1 auto">--fg3</code><code style="font-size:12px;color:#83837a">#83837a</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#262623;display:block"></span><code style="font-size:12px;color:#f3f3ef;flex:1 1 auto">--line</code><code style="font-size:12px;color:#83837a">#262623</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#37372f;display:block"></span><code style="font-size:12px;color:#f3f3ef;flex:1 1 auto">--line2</code><code style="font-size:12px;color:#83837a">#37372f</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#131312;border:1px solid #262623;display:block"></span><code style="font-size:12px;color:#f3f3ef;flex:1 1 auto">--code</code><code style="font-size:12px;color:#83837a">#131312</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#080807;border:1px solid #262623;display:block"></span><code style="font-size:12px;color:#f3f3ef;flex:1 1 auto">--term</code><code style="font-size:12px;color:#83837a">#080807</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#f0a54a;display:block"></span><code style="font-size:12px;color:#f3f3ef;flex:1 1 auto">--acc · A amber</code><code style="font-size:12px;color:#83837a">#f0a54a</code></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:6px;background:#4ec7de;display:block"></span><code style="font-size:12px;color:#f3f3ef;flex:1 1 auto">--acc · B cyan</code><code style="font-size:12px;color:#83837a">#4ec7de</code></div>
+        </div>
+      </div>
+    </div>
+    <p style="margin:16px 0 0;font-size:13.5px;color:var(--fg2)">Contrast: <code style="font-size:12.5px">--fg</code> on <code style="font-size:12.5px">--bg</code> ≥ 15:1 both themes. Accent A light 6.4:1, accent B light 5.6:1, both accents on dark ≥ 8:1 — AA for body text and AAA for large. Accent is only used for links, the primary button, commit-pin arrows, manifest callouts, and the caret.</p>
+  </section>
+
+  <section>
+    <h2>02 · Type</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px">
+      <div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:22px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg3);margin-bottom:16px">IBM Plex Sans · 400 500 600 · text</div>
+        <div style="display:grid;gap:14px">
+          <div><div style="font-size:11px;color:var(--fg3);font-family:'JetBrains Mono',monospace;margin-bottom:2px">h1 · clamp(34, 5.2vw, 58) / 1.06 / -.035em / 600</div><div style="font-size:34px;line-height:1.06;letter-spacing:-.035em;font-weight:600">Import the code</div></div>
+          <div><div style="font-size:11px;color:var(--fg3);font-family:'JetBrains Mono',monospace;margin-bottom:2px">h2 · 26 / 1.15 / -.02em / 600</div><div style="font-size:26px;letter-spacing:-.02em;font-weight:600">The manifest</div></div>
+          <div><div style="font-size:11px;color:var(--fg3);font-family:'JetBrains Mono',monospace;margin-bottom:2px">h3 · 15 / 600</div><div style="font-size:15px;font-weight:600">A2A protocol</div></div>
+          <div><div style="font-size:11px;color:var(--fg3);font-family:'JetBrains Mono',monospace;margin-bottom:2px">lead · 19 / 1.55 · --fg2</div><div style="font-size:19px;line-height:1.55;color:var(--fg2)">Dependencies on agents, not just on code.</div></div>
+          <div><div style="font-size:11px;color:var(--fg3);font-family:'JetBrains Mono',monospace;margin-bottom:2px">body · 15 / 1.5 — small · 13.5 / 1.6</div><div style="font-size:15px;line-height:1.5">Know who owns a dependency and how they want to be asked.</div></div>
+        </div>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:22px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg3);margin-bottom:16px">JetBrains Mono · 400 500 700 · code, labels, wordmark</div>
+        <div style="display:grid;gap:14px">
+          <div><div style="font-size:11px;color:var(--fg3);font-family:'JetBrains Mono',monospace;margin-bottom:2px">code block · 13 / 1.85</div><pre style="font-size:13px;line-height:1.85;color:var(--fg)">git-a2a status</pre></div>
+          <div><div style="font-size:11px;color:var(--fg3);font-family:'JetBrains Mono',monospace;margin-bottom:2px">inline code / chip · 12.5</div><code style="font-size:12.5px">a2amodule.yml</code></div>
+          <div><div style="font-size:11px;color:var(--fg3);font-family:'JetBrains Mono',monospace;margin-bottom:2px">micro label · 11 / .06em / uppercase</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--fg3)">Ecosystems</div></div>
+          <div><div style="font-size:11px;color:var(--fg3);font-family:'JetBrains Mono',monospace;margin-bottom:2px">arrow pin · 10 · --acc</div><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc)">@ 9f2c1ab</div></div>
+        </div>
+        <p style="margin:18px 0 0;font-size:13.5px;color:var(--fg2)">Two families only, weights 400/500/600 and 400/500/700, <code style="font-size:12.5px">display=swap</code>, subset latin. No third family, no icon font.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>03 · Spacing, radii, code-block spec</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px">
+      <div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:22px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg3);margin-bottom:14px">SPACING · 4px base</div>
+        <div style="display:grid;gap:7px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--fg2)">
+          <div style="display:flex;align-items:center;gap:10px"><span style="height:8px;width:4px;background:var(--acc);display:block"></span>4 · hairline gaps</div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="height:8px;width:8px;background:var(--acc);display:block"></span>8 · chip / button gaps</div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="height:8px;width:12px;background:var(--acc);display:block"></span>12 · stacked code rows</div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="height:8px;width:16px;background:var(--acc);display:block"></span>16 · code padding</div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="height:8px;width:24px;background:var(--acc);display:block"></span>24 · card padding, page gutter</div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="height:8px;width:32px;background:var(--acc);display:block"></span>32 · heading to content</div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="height:8px;width:44px;background:var(--acc);display:block"></span>44 · intra-section</div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="height:8px;width:72px;background:var(--acc);display:block"></span>72 · section padding (48 mobile)</div>
+        </div>
+        <p style="margin:16px 0 0;font-size:13px;color:var(--fg2)">Content max-width 1120. Gutter 24 desktop, 20 at 375. Prose max-width 620.</p>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:22px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg3);margin-bottom:14px">RADII</div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px">
+          <div style="text-align:center"><div style="width:56px;height:44px;border:1px solid var(--line2);border-radius:5px;background:var(--bg2)"></div><code style="font-size:11px;color:var(--fg3)">5 chip-sm</code></div>
+          <div style="text-align:center"><div style="width:56px;height:44px;border:1px solid var(--line2);border-radius:6px;background:var(--bg2)"></div><code style="font-size:11px;color:var(--fg3)">6 inline</code></div>
+          <div style="text-align:center"><div style="width:56px;height:44px;border:1px solid var(--line2);border-radius:8px;background:var(--bg2)"></div><code style="font-size:11px;color:var(--fg3)">8 button</code></div>
+          <div style="text-align:center"><div style="width:56px;height:44px;border:1px solid var(--line2);border-radius:12px;background:var(--bg2)"></div><code style="font-size:11px;color:var(--fg3)">12 panel</code></div>
+          <div style="text-align:center"><div style="width:56px;height:44px;border:1px solid var(--line2);border-radius:999px;background:var(--bg2)"></div><code style="font-size:11px;color:var(--fg3)">999 pill</code></div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg3);margin:22px 0 12px">CODE BLOCK SPEC</div>
+        <div style="display:grid;gap:5px;font-size:13px;color:var(--fg2)">
+          <div>font 13 / line-height 1.85 (terminal), 1.6 (single command), 1.75 (YAML)</div>
+          <div>padding 16–18; header bar 9–10 vertical, 14 horizontal</div>
+          <div>bg <code style="font-size:12px">--code</code>; terminal bg <code style="font-size:12px">--term</code>, fixed dark in both themes</div>
+          <div><code style="font-size:12px">overflow-x:auto</code> inside the block — the page never scrolls sideways</div>
+          <div>copy button always visible, never hover-only; label swaps to <code style="font-size:12px">copied</code> for 1.4s</div>
+          <div><code style="font-size:12px">$&nbsp;</code> prompt is <code style="font-size:12px">user-select:none</code> so copy yields the bare command</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>04 · Components</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px">
+
+      <div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:22px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg3);margin-bottom:14px">BUTTON</div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+          <span style="display:inline-flex;align-items:center;height:42px;padding:0 20px;border-radius:8px;background:var(--acc);color:var(--accfg);font-size:14.5px;font-weight:500">Install</span>
+          <span style="display:inline-flex;align-items:center;height:42px;padding:0 20px;border-radius:8px;border:1px solid var(--line2);color:var(--fg);font-size:14.5px;font-weight:500">Read the spec</span>
+          <span style="display:inline-flex;align-items:center;height:42px;padding:0 20px;border-radius:8px;border:2px solid var(--acc);outline:2px solid var(--acc);outline-offset:2px;color:var(--fg);font-size:14.5px;font-weight:500">:focus-visible</span>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:12px">
+          <span style="display:inline-flex;align-items:center;height:28px;padding:0 10px;border:1px solid var(--line);border-radius:7px;color:var(--fg2);font-family:'JetBrains Mono',monospace;font-size:11px">auto</span>
+          <span style="display:inline-flex;align-items:center;height:28px;padding:0 10px;border:1px solid var(--line2);border-radius:7px;color:var(--fg);font-family:'JetBrains Mono',monospace;font-size:11px">ghost / hover</span>
+        </div>
+        <p style="margin:14px 0 0;font-size:13px;color:var(--fg2)">Primary hover <code style="font-size:12px">filter:brightness(1.08)</code>. Secondary hover <code style="font-size:12px">background:--bg2</code>. Min height 42 desktop, 48 mobile.</p>
+      </div>
+
+      <div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:22px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg3);margin-bottom:14px">CODE BLOCK WITH COPY</div>
+        <div style="display:flex;align-items:stretch;border:1px solid var(--line);border-radius:8px;background:var(--code);overflow:hidden">
+          <pre style="flex:1 1 auto;min-width:0;padding:12px 14px;font-size:13px;line-height:1.6;overflow-x:auto;color:var(--fg)"><span style="color:var(--fg3);user-select:none">$ </span>git-a2a who acme-lib-utils --intent change</pre>
+          <button type="button" onClick="{{ copyDemo }}" style="flex:0 0 auto;border:0;border-left:1px solid var(--line);background:transparent;color:var(--fg3);font-family:'JetBrains Mono',monospace;font-size:11px;padding:0 12px;cursor:pointer" style-hover="color:var(--fg);background:var(--bg2)">{{ demoLabel }}</button>
+        </div>
+        <div style="margin-top:12px;border:1px solid var(--line);border-radius:10px;background:var(--term);overflow:hidden">
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.07)">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#8a8a80;flex:1 1 auto">terminal variant</span>
+            <span style="border:1px solid rgba(255,255,255,.12);color:#a8a89e;font-family:'JetBrains Mono',monospace;font-size:11px;padding:2px 8px;border-radius:6px">copy</span>
+          </div>
+          <pre style="padding:14px;font-size:13px;line-height:1.85;color:var(--termfg);overflow-x:auto"><span style="color:#6f6f66">$ </span>git-a2a status
+<span style="color:#8f8f85">  </span>acme-lib-utils   upstream up   wiring ok   agents live   <span style="color:var(--acc)">@9f2c1ab</span></pre>
+        </div>
+      </div>
+
+      <div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:22px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg3);margin-bottom:14px">INSTALL TABS</div>
+        <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden">
+          <div style="display:flex;border-bottom:1px solid var(--line);background:var(--bg2);overflow-x:auto">
+            <span style="border-bottom:2px solid var(--acc);color:var(--fg);font-family:'JetBrains Mono',monospace;font-size:12.5px;padding:11px 14px;white-space:nowrap">curl / irm</span>
+            <span style="border-bottom:2px solid transparent;color:var(--fg3);font-family:'JetBrains Mono',monospace;font-size:12.5px;padding:11px 14px;white-space:nowrap">go</span>
+            <span style="border-bottom:2px solid transparent;color:var(--fg3);font-family:'JetBrains Mono',monospace;font-size:12.5px;padding:11px 14px;white-space:nowrap">brew / scoop</span>
+          </div>
+          <div style="padding:14px"><pre style="font-size:13px;line-height:1.6;overflow-x:auto;color:var(--fg)"><span style="color:var(--fg3)">$ </span>curl -fsSL https://git-a2a.com/install.sh | bash</pre></div>
+        </div>
+        <p style="margin:14px 0 0;font-size:13px;color:var(--fg2)"><code style="font-size:12px">role="tablist"</code> / <code style="font-size:12px">role="tab"</code> / <code style="font-size:12px">aria-selected</code>. Arrow keys move between tabs. Selected tab reflected in <code style="font-size:12px">?install=</code> is optional.</p>
+      </div>
+
+      <div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:22px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg3);margin-bottom:14px">FEATURE CARD · CALLOUT · CHIP ROW</div>
+        <div style="border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:14px">
+          <p style="margin:0 0 14px;font-size:15px;line-height:1.5">Send the request where the owner said to.</p>
+          <code style="display:block;font-size:12.5px;color:var(--fg2);background:var(--code);border:1px solid var(--line);border-radius:6px;padding:8px 10px;overflow-x:auto;white-space:pre">git-a2a contact acme-lib-utils --intent change</code>
+        </div>
+        <div style="border-left:2px solid var(--acc);padding:2px 0 2px 14px;margin-bottom:14px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--acc);margin-bottom:4px">exports</div>
+          <p style="margin:0;font-size:14px;line-height:1.55;color:var(--fg2)">How to import the module in each ecosystem.</p>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;padding:5px 11px;border:1px solid var(--line);border-radius:999px;color:var(--fg2)">npm</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;padding:5px 11px;border:1px solid var(--line);border-radius:999px;color:var(--fg2)">PyPI</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;padding:5px 11px;border:1px solid var(--line2);border-radius:999px;color:var(--fg)">A2A protocol</span>
+        </div>
+        <p style="margin:14px 0 0;font-size:13px;color:var(--fg2)">Cards sit in a 1px-gap grid over <code style="font-size:12px">--line</code>, so the gaps read as rules. Ecosystem chips use <code style="font-size:12px">--line</code>, standards chips <code style="font-size:12px">--line2</code>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>05 · Assets</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px">
+      <div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:22px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg3);margin-bottom:18px">WORDMARK · SVG, currentColor + one accent</div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+          <svg width="28" height="28" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M3.5 6.5h5.2M3.5 13.5h5.2M11.3 10h5.2" stroke="var(--line2)" stroke-width="1.4"></path>
+            <path d="M8.7 6.5 11.3 10 8.7 13.5" stroke="var(--acc)" stroke-width="1.4"></path>
+            <circle cx="3" cy="6.5" r="2" fill="var(--fg)"></circle>
+            <circle cx="3" cy="13.5" r="2" fill="var(--fg)"></circle>
+            <circle cx="17" cy="10" r="2" fill="var(--acc)"></circle>
+          </svg>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:26px;letter-spacing:-.03em"><span style="color:var(--fg3)">git-</span><span style="font-weight:700">a2a</span></span>
+        </div>
+        <p style="margin:0;font-size:13px;color:var(--fg2)">Two commit nodes merging into one owned node. Wordmark is JetBrains Mono: <code style="font-size:12px">git-</code> at 400 in <code style="font-size:12px">--fg3</code>, <code style="font-size:12px">a2a</code> at 700 in <code style="font-size:12px">--fg</code>. Ship as <code style="font-size:12px">wordmark.svg</code> (glyphs converted to paths) and <code style="font-size:12px">mark.svg</code> (glyph only, 20×20 grid).</p>
+        <div style="display:flex;gap:16px;align-items:flex-end;margin-top:20px;padding-top:18px;border-top:1px solid var(--line)">
+          <div style="text-align:center">
+            <div style="width:64px;height:64px;border-radius:12px;background:var(--fg);display:flex;align-items:center;justify-content:center;margin-bottom:6px">
+              <svg width="40" height="40" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path d="M3.5 6.5h5.2M3.5 13.5h5.2M11.3 10h5.2" stroke="var(--bg)" stroke-opacity=".45" stroke-width="1.6"></path>
+                <path d="M8.7 6.5 11.3 10 8.7 13.5" stroke="var(--acc)" stroke-width="1.6"></path>
+                <circle cx="3" cy="6.5" r="2" fill="var(--bg)"></circle>
+                <circle cx="3" cy="13.5" r="2" fill="var(--bg)"></circle>
+                <circle cx="17" cy="10" r="2" fill="var(--acc)"></circle>
+              </svg>
+            </div>
+            <code style="font-size:11px;color:var(--fg3)">favicon 64</code>
+          </div>
+          <div style="text-align:center">
+            <div style="width:32px;height:32px;border-radius:7px;background:var(--fg);display:flex;align-items:center;justify-content:center;margin-bottom:6px">
+              <svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path d="M8.7 6.5 11.3 10 8.7 13.5" stroke="var(--acc)" stroke-width="2"></path>
+                <circle cx="3.6" cy="6.5" r="2.2" fill="var(--bg)"></circle>
+                <circle cx="3.6" cy="13.5" r="2.2" fill="var(--bg)"></circle>
+                <circle cx="16.6" cy="10" r="2.2" fill="var(--acc)"></circle>
+              </svg>
+            </div>
+            <code style="font-size:11px;color:var(--fg3)">32</code>
+          </div>
+          <div style="text-align:center">
+            <div style="width:16px;height:16px;border-radius:4px;background:var(--fg);display:flex;align-items:center;justify-content:center;margin-bottom:6px">
+              <svg width="12" height="12" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <circle cx="4" cy="6.5" r="2.6" fill="var(--bg)"></circle>
+                <circle cx="4" cy="13.5" r="2.6" fill="var(--bg)"></circle>
+                <circle cx="16" cy="10" r="2.6" fill="var(--acc)"></circle>
+              </svg>
+            </div>
+            <code style="font-size:11px;color:var(--fg3)">16</code>
+          </div>
+        </div>
+        <p style="margin:14px 0 0;font-size:13px;color:var(--fg2)">Favicon set: <code style="font-size:12px">favicon.svg</code>, <code style="font-size:12px">favicon.ico</code> (16/32), <code style="font-size:12px">apple-touch-icon.png</code> 180. Edges drop below 32px; nodes only at 16.</p>
+      </div>
+
+      <div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:22px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg3);margin-bottom:18px">OG IMAGE · 1200×630, text only</div>
+        <div style="aspect-ratio:1200/630;background:#0d0d0c;border:1px solid var(--line2);border-radius:8px;padding:6.5%;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:8px">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path d="M8.7 6.5 11.3 10 8.7 13.5" stroke="var(--acc)" stroke-width="1.4"></path>
+              <path d="M3.5 6.5h5.2M3.5 13.5h5.2M11.3 10h5.2" stroke="#37372f" stroke-width="1.4"></path>
+              <circle cx="3" cy="6.5" r="2" fill="#f3f3ef"></circle>
+              <circle cx="3" cy="13.5" r="2" fill="#f3f3ef"></circle>
+              <circle cx="17" cy="10" r="2" fill="var(--acc)"></circle>
+            </svg>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:15px;color:#f3f3ef"><span style="color:#83837a">git-</span><span style="font-weight:700">a2a</span></span>
+          </div>
+          <div>
+            <div style="font-size:clamp(18px,3.1vw,30px);line-height:1.14;letter-spacing:-.03em;font-weight:600;color:#f3f3ef;margin-bottom:10px">A git repository you can import together with the agents that own it.</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:clamp(10px,1.35vw,13px);color:var(--acc)">git-a2a add ssh://git@github.com/acme/lib-utils.git</div>
+          </div>
+        </div>
+        <p style="margin:14px 0 0;font-size:13px;color:var(--fg2)">Dark plate <code style="font-size:12px">#0d0d0c</code>, headline IBM Plex Sans 600 at 56/64, one accent command line at 26. Safe padding 78px. Same layout at 1200×600 for Twitter.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>06 · Handoff note</h2>
+    <div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:26px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:28px">
+      <div>
+        <h3 style="margin:0 0 10px;font-size:14px;font-weight:600">Static HTML + CSS</h3>
+        <div style="display:grid;gap:6px;font-size:14px;line-height:1.5;color:var(--fg2)">
+          <div>Every section, all copy, the diagram (boxes, borders, CSS triangle arrowheads), the manifest block (pre-highlighted spans), chip rows, footer.</div>
+          <div>Theme is CSS only until the toggle is touched: tokens on <code style="font-size:12px">:root</code>, overrides under <code style="font-size:12px">@media (prefers-color-scheme: dark)</code> and <code style="font-size:12px">[data-theme="dark"]</code>.</div>
+          <div>Two utility pages are separate static documents at <code style="font-size:12px">/ext/module/v1</code> and <code style="font-size:12px">/schema/</code>, same tokens, no JS.</div>
+          <div><code style="font-size:12px">/install.sh</code> and <code style="font-size:12px">/install.ps1</code> are plain files served as <code style="font-size:12px">text/plain</code>.</div>
+        </div>
+      </div>
+      <div>
+        <h3 style="margin:0 0 10px;font-size:14px;font-weight:600">Needs JS — nothing else</h3>
+        <div style="display:grid;gap:6px;font-size:14px;line-height:1.5;color:var(--fg2)">
+          <div><strong style="color:var(--fg);font-weight:600">Theme toggle</strong> — cycles auto → light → dark, writes <code style="font-size:12px">data-theme</code> on <code style="font-size:12px">&lt;html&gt;</code>, persists in <code style="font-size:12px">localStorage</code>, inline head script to avoid a flash.</div>
+          <div><strong style="color:var(--fg);font-weight:600">Copy buttons</strong> — <code style="font-size:12px">navigator.clipboard.writeText</code>, label swaps to <code style="font-size:12px">copied</code> for 1.4s, <code style="font-size:12px">aria-live="polite"</code>.</div>
+          <div><strong style="color:var(--fg);font-weight:600">Install tabs</strong> — show/hide panels, arrow-key roving tabindex.</div>
+          <div><strong style="color:var(--fg);font-weight:600">Hero terminal</strong> — types the four commands once on load, output lines after each. Skip entirely under <code style="font-size:12px">prefers-reduced-motion</code> and render the finished transcript. A replay button re-runs it. If you would rather not ship it, the static transcript is the correct fallback.</div>
+        </div>
+      </div>
+      <div>
+        <h3 style="margin:0 0 10px;font-size:14px;font-weight:600">Responsive + a11y</h3>
+        <div style="display:grid;gap:6px;font-size:14px;line-height:1.5;color:var(--fg2)">
+          <div>Breakpoints come from <code style="font-size:12px">auto-fit minmax()</code>, not media queries. At 375 the diagram's three columns stack and the arrow column rotates to vertical; the manifest sits above its callouts.</div>
+          <div>Long commands scroll inside their block (<code style="font-size:12px">overflow-x:auto</code>); <code style="font-size:12px">body</code> never scrolls sideways.</div>
+          <div>The accent toggle in the header is a review aid — ship one accent and drop the control.</div>
+          <div>Diagram carries <code style="font-size:12px">role="img"</code> and a full <code style="font-size:12px">aria-label</code>. Focus ring is 2px <code style="font-size:12px">--acc</code> at 2px offset on every interactive element.</div>
+          <div>Budget: two font families, no video, no illustration. Ships as static files.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { theme: "light", accent: "a", copied: false };
+  componentDidMount() {
+    document.documentElement.dataset.theme = "light";
+    document.documentElement.dataset.accent = "b";
+  }
+  renderVals() {
+    return {
+      demoLabel: this.state.copied ? "copied" : "copy",
+      copyDemo: () => {
+        if (navigator.clipboard) navigator.clipboard.writeText("git-a2a who acme-lib-utils --intent change");
+        this.setState({ copied: true });
+        setTimeout(() => this.setState({ copied: false }), 1400);
+      }
+    };
+  }
+}
+
+</script>
+</body>
+</html>

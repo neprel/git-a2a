@@ -1,0 +1,91 @@
+name: Static site
+on:
+  push:
+    branches: [main]
+    paths:
+      - sites/**
+      - spec/schema/**
+      - install.sh
+      - install.ps1
+      - docs/cli.md
+      - README.md
+      - scripts/site-package.sh
+      - scripts/site-publish.sh
+      - Makefile
+      - .github/workflows/site.yml
+  pull_request:
+    paths:
+      - sites/**
+      - spec/schema/**
+      - install.sh
+      - install.ps1
+      - docs/cli.md
+      - README.md
+      - scripts/site-package.sh
+      - scripts/site-publish.sh
+      - Makefile
+      - .github/workflows/site.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: site-production
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Verify the static publication package
+        run: make site-check
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: check
+    runs-on: ubuntu-latest
+    environment:
+      name: site-production
+      url: https://git-a2a.com
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Stage public files
+        run: scripts/site-package.sh "$RUNNER_TEMP/site"
+      - name: Configure SSH transport
+        env:
+          SITE_DEPLOY_HOST: ${{ secrets.SITE_DEPLOY_HOST }}
+          SITE_DEPLOY_USER: ${{ secrets.SITE_DEPLOY_USER }}
+          SITE_DEPLOY_PORT: ${{ secrets.SITE_DEPLOY_PORT }}
+          SITE_DEPLOY_SSH_KEY: ${{ secrets.SITE_DEPLOY_SSH_KEY }}
+          SITE_DEPLOY_KNOWN_HOSTS: ${{ secrets.SITE_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          for name in SITE_DEPLOY_HOST SITE_DEPLOY_USER SITE_DEPLOY_PORT SITE_DEPLOY_SSH_KEY SITE_DEPLOY_KNOWN_HOSTS; do
+            if [ -z "$(printenv "$name")" ]; then
+              echo "required site deployment secret is missing: $name" >&2
+              exit 1
+            fi
+          done
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$SITE_DEPLOY_SSH_KEY" > "$HOME/.ssh/site_deploy_key"
+          printf '%s\n' "$SITE_DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/site_known_hosts"
+          chmod 600 "$HOME/.ssh/site_deploy_key" "$HOME/.ssh/site_known_hosts"
+          {
+            echo 'Host site-production'
+            echo "  HostName $SITE_DEPLOY_HOST"
+            echo "  User $SITE_DEPLOY_USER"
+            echo "  Port $SITE_DEPLOY_PORT"
+            echo '  BatchMode yes'
+            echo '  IdentitiesOnly yes'
+            echo '  IdentityFile ~/.ssh/site_deploy_key'
+            echo '  UserKnownHostsFile ~/.ssh/site_known_hosts'
+            echo '  StrictHostKeyChecking yes'
+            echo '  LogLevel ERROR'
+          } > "$HOME/.ssh/config"
+          chmod 600 "$HOME/.ssh/config"
+      - name: Upload the static site
+        env:
+          SITE_DEPLOY_PATH: ${{ secrets.SITE_DEPLOY_PATH }}
+        run: |
+          if [ -z "$SITE_DEPLOY_PATH" ]; then
+            echo 'required site deployment secret is missing: SITE_DEPLOY_PATH' >&2
+            exit 1
+          fi
+          scp -r "$RUNNER_TEMP/site/." "site-production:${SITE_DEPLOY_PATH}"

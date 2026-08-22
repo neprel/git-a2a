@@ -1,0 +1,7 @@
+<svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+  <path d="M3.5 6.5h5.2M3.5 13.5h5.2M11.3 10h5.2" stroke="var(--line2)" stroke-width="1.4"/>
+  <path d="M8.7 6.5 11.3 10 8.7 13.5" stroke="var(--acc)" stroke-width="1.4"/>
+  <circle cx="3" cy="6.5" r="2" fill="var(--fg)"/>
+  <circle cx="3" cy="13.5" r="2" fill="var(--fg)"/>
+  <circle cx="17" cy="10" r="2" fill="var(--acc)"/>
+</svg>

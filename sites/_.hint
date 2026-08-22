@@ -3,11 +3,19 @@
 `sites/git-a2a.com/` is the complete static package served at `https://git-a2a.com`: product
 documentation, public schemas, the A2A extension description, and checksum-verifying installers.
 
-# decision Publication is separate from the release workflow {#publication}
+# decision Site publication is automated but separate from CLI releases {#publication}
 
-The repository builds and verifies the static package, but no GitHub Action deploys it. The
-project owner publishes it independently and decides its hosting and DNS. A CLI release must not
-silently mutate the live site.
+Pushes to `main` that change the static site or its canonical inputs run the dedicated site
+workflow after `make site-check`; CLI tags and the release workflow never deploy the site. The
+workflow stages an explicit allowlist through `scripts/site-package.sh` and uploads that staging
+directory with OpenSSH. Hosting account, endpoint, port, document root, private key, and host-key
+material exist only as protected `site-production` environment secrets; workflow source and logs
+must not reveal their values. Design sources, generators, operator documentation, and repository
+metadata are never part of the upload.
+
+Manual publication uses `make site-publish`, the same allowlist, and local OpenSSH. Its endpoint,
+account, document root, and optional SSH paths come from the gitignored root `.env`; only an empty
+`.env.example` is tracked. Manual publication must pass `site-check` before contacting the host.
 
 # invariant Canonical files stay byte-identical {#canonical_files}
 
@@ -21,6 +29,20 @@ The site uses hand-written HTML and one CSS and JavaScript file, with no framewo
 analytics, remote fonts, or runtime service. Every page renders from `file://` and an ordinary
 static HTTP server. The only JavaScript behaviours are transcript replay, copy buttons, and
 keyboard-accessible install tabs.
+
+# decision Visual source and static asset provenance {#visual_source}
+
+`sites/design/README.md` is authoritative for copy, tokens, spacing, typography, and behaviour;
+its prototypes are references, never production markup. IBM Plex Sans and JetBrains Mono are
+pinned OFL WOFF2 assets. Wordmark glyphs are outlined by the committed CoreText generator,
+size-specific favicons by ImageMagick, and social cards by the committed headless-Chrome template.
+
+# invariant The transcript is real and accessible {#transcript}
+
+`assets/transcript.json` contains trimmed real 1.0.0 CLI output from local acme bare repositories.
+The landing embeds identical completed data as its no-JavaScript and `file://` fallback. Reduced
+motion skips typing, replay clears every timer, and the terminal copy action returns only the four
+commands.
 
 # build Site and installer checks
 

@@ -1,0 +1,42 @@
+{
+  "timing": {
+    "initial": 300,
+    "character": 19,
+    "afterCommand": 260,
+    "betweenOutput": 170,
+    "betweenGroups": 420
+  },
+  "groups": [
+    {
+      "command": "git-a2a init",
+      "comment": "# describe this repository",
+      "output": [
+        { "text": "initialized module consumer-app", "class": "plain" }
+      ]
+    },
+    {
+      "command": "git-a2a add ssh://git@github.com/acme/lib-utils.git",
+      "output": [
+        { "text": "added acme-lib-utils at 069987a48661c20ab9d339a1fb898a6f77d12853", "class": "accent" },
+        { "text": "using declared release channel main", "class": "dim" },
+        { "text": "warning: pypi: pip not found — install: brew install python", "class": "dim" }
+      ]
+    },
+    {
+      "command": "git-a2a who acme-lib-utils --intent change",
+      "output": [
+        { "text": "acme-pm (spec)", "class": "plain" },
+        { "text": "- github-issue acme/lib-utils labels=change-request", "class": "dim" }
+      ]
+    },
+    {
+      "command": "git-a2a status",
+      "output": [
+        { "text": "MODULE          SOURCE     REF          UPSTREAM    MANIFEST  WIRING                 AGENTS  SYNC", "class": "dim" },
+        { "text": "acme-lib-utils  canonical  branch main  up to date  clean     npm clean, pypi clean  none    stale", "class": "plain" },
+        { "text": "consumer-app    self       self         self        valid     none                   none    stale", "class": "plain" },
+        { "text": "2 module(s): 2 unhealthy or drifted", "class": "dim" }
+      ]
+    }
+  ]
+}
