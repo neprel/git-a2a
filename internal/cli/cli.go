@@ -60,6 +60,12 @@ func (a *App) Run(args []string) int {
 		return a.remove(args[1:])
 	case "show":
 		return a.show(args[1:])
+	case "sync":
+		return a.sync(args[1:])
+	case "who":
+		return a.who(args[1:])
+	case "status":
+		return a.status(args[1:])
 	case "fmt":
 		return a.format(args[1:])
 	case "help", "-h", "--help":
@@ -73,7 +79,7 @@ func (a *App) Run(args []string) int {
 }
 
 func (a *App) usage() {
-	fmt.Fprintln(a.Out, "usage: git-a2a <init|validate|add|update|remove|show|fmt> [options]")
+	fmt.Fprintln(a.Out, "usage: git-a2a <init|validate|add|update|remove|show|sync|who|status|fmt> [options]")
 }
 func (a *App) root() string {
 	if a.Root == "" {
