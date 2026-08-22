@@ -20,3 +20,13 @@ import (
 func All() []adapter.Adapter {
 	return []adapter.Adapter{npm.Adapter{}, pypi.Adapter{}, golang.Adapter{}, cargo.Adapter{}, swift.Adapter{}, pubadapter.Adapter{}, gem.Adapter{}, composer.Adapter{}, hex.Adapter{}, hackage.Adapter{}, zig.Adapter{}, clojure.Adapter{}, nix.Adapter{}}
 }
+
+// Verification reports the strongest real-toolchain evidence currently recorded for an adapter.
+func Verification(ecosystem string) string {
+	switch ecosystem {
+	case "gem", "composer", "hex", "hackage", "zig", "clojure", "nix":
+		return "form-verified"
+	default:
+		return "verified"
+	}
+}

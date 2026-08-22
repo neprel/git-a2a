@@ -16,6 +16,15 @@ Bundler, `composer.json` for Composer, `mix.exs` for Hex/Mix, and `stack.yaml` o
 dependency transaction applies every detected,
 applicable adapter rather than selecting a single ecosystem.
 
+# decision Adapter verification labels distinguish form from execution
+
+`npm`, `pypi`, `golang`, `cargo`, `swift`, and `pub` have been exercised with their native
+toolchains and are `verified`. `gem`, `composer`, `hex`, `hackage` (Cabal/Stack), `zig`,
+`clojure`, and `nix` are `form-verified`: their native forms, golden editors, and lifecycle are
+tested, but their `Refresh` paths have not yet passed the opt-in real-toolchain integration job.
+`status -v` exposes the weaker label; it changes to `verified` only with recorded integration
+evidence, never merely because a fixture parses.
+
 # decision Not wired is policy, not an adapter success
 
 An adapter may return the typed not-wirable result with a concrete reason when the ecosystem

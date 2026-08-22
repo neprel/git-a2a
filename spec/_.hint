@@ -305,8 +305,8 @@ extension `{ uri: "https://git-a2a.com/ext/module/v1", required: false, params: 
 repository, role, scope, ref } }` is added to `capabilities.extensions` (replacing an existing
 entry with the same uri), and `skills` is left untouched. An agent with neither a card nor an
 `a2a` contact cannot be exported (exit 2, with the reason) — A2A requires an interface. `card
-validate` checks a card file or URL against the v1.0 schema. `catalog export` (later) emits an
-ARD `ai-catalog.json` listing the module's agents.
+validate` checks a card file or URL against the v1.0 schema. `catalog export` emits an ARD
+`ai-catalog.json` listing the module's agents (see the ARD decision above).
 
 # openquestion Compatibility and breaking changes between module revisions
 

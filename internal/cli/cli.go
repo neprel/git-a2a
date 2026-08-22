@@ -130,7 +130,7 @@ func (a *App) commandUsage(command string) {
 	usage := map[string]string{
 		"init":     "git-a2a init [--id ID] [--description TEXT] [--surface DIR] [--export ECOSYSTEM=NAME]",
 		"validate": "git-a2a validate [FILE ...]", "add": "git-a2a add URL [--id ID] [--path DIR] [--track locked|floating] [--wire LIST|--no-wire]",
-		"set": "git-a2a set ID [--git URL] [--ref REF] [--path DIR] [--track locked|floating] [--wire LIST|--no-wire]",
+		"set": "git-a2a set ID [--git URL] [--ref REF] [--path DIR] [--track locked|floating] [--id NEW-ID] [--dry-run]",
 		"pin": "git-a2a pin ID [COMMIT]", "unpin": "git-a2a unpin ID --ref REF [--track locked|floating]",
 		"wire": "git-a2a wire [ID] [--ecosystem NAME]", "update": "git-a2a update [ID ...] [--check] [--review|--no-review] [--follow-moves]",
 		"remove": "git-a2a remove ID [--keep-wiring]", "show": "git-a2a show [ID] [--json] [--surface]",

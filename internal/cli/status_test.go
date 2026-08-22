@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/neprel/git-a2a/adapters/composer"
 	"github.com/neprel/git-a2a/internal/cache"
 	lockfile "github.com/neprel/git-a2a/internal/lock"
 	"github.com/neprel/git-a2a/internal/manifest"
@@ -24,6 +26,7 @@ func TestStatusReportsEachPolyglotWiringStateWithoutPanic(t *testing.T) {
 		{Ecosystem: "npm", Name: "@acme/lib"},
 		{Ecosystem: "pypi", Name: "acme-lib"},
 		{Ecosystem: "golang", Name: "acme.dev/lib"},
+		{Ecosystem: "composer", Name: "acme/lib"},
 	}}}
 	ownRaw, _ := manifest.Marshal(own)
 	depRaw, _ := manifest.Marshal(depManifest)
@@ -43,19 +46,26 @@ func TestStatusReportsEachPolyglotWiringStateWithoutPanic(t *testing.T) {
 		"package.json":   "{\n  \"dependencies\": {\n    \"@acme/lib\": \"git+https://github.com/acme/lib.git#" + commit + "\"\n  }\n}\n",
 		"pyproject.toml": "[project]\nname = \"consumer\"\ndependencies = []\n",
 		"go.mod":         "module acme.dev/consumer\n\ngo 1.24\n",
+		"composer.json":  "{\"name\":\"acme/consumer\",\"require\":{}}\n",
 	}
 	for name, content := range files {
 		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
+	if _, err := (composer.Adapter{}).Wire(context.Background(), root, dep, depManifest.Module.Exports[3], manifest.LockedDependency{Git: gitURL, Commit: commit}); err != nil {
+		t.Fatal(err)
+	}
 	var out, errOut bytes.Buffer
 	app := New(&out, &errOut)
 	app.Root = root
-	if code := app.Run([]string{"status", dep.ID, "--offline"}); code != 1 {
+	if code := app.Run([]string{"status", dep.ID, "--offline", "-v"}); code != 1 {
 		t.Fatalf("exit %d out=%s err=%s", code, out.String(), errOut.String())
 	}
-	if !strings.Contains(out.String(), "npm clean, pypi unwired, golang unwired") {
+	if !strings.Contains(out.String(), "npm clean, pypi unwired, golang unwired, composer clean") {
 		t.Fatalf("wiring state missing:\n%s", out.String())
+	}
+	if !strings.Contains(out.String(), "composer: form-verified (real toolchain integration pending)") {
+		t.Fatalf("verification detail missing:\n%s", out.String())
 	}
 }

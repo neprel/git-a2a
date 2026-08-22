@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -36,6 +37,44 @@ func TestEveryCommandHasCommandSpecificHelp(t *testing.T) {
 			}
 			if !strings.HasPrefix(out.String(), "usage: git-a2a "+command) {
 				t.Fatalf("help = %q", out.String())
+			}
+		})
+	}
+}
+
+func TestCLIReferenceTracksCommandHelp(t *testing.T) {
+	document, err := os.ReadFile(filepath.Join("..", "..", "docs", "cli.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	commands := []string{"init", "validate", "add", "set", "pin", "unpin", "wire", "update", "remove", "show", "sync", "who", "contact", "status", "card", "catalog", "fmt", "version", "upgrade"}
+	flagPattern := regexp.MustCompile(`--[a-z][a-z-]*`)
+	for _, command := range commands {
+		t.Run(command, func(t *testing.T) {
+			heading := "## " + command + "\n"
+			start := strings.Index(string(document), heading)
+			if start < 0 {
+				t.Fatalf("docs/cli.md has no %q section", command)
+			}
+			section := string(document[start+len(heading):])
+			if end := strings.Index(section, "\n## "); end >= 0 {
+				section = section[:end]
+			}
+			var out, errOut bytes.Buffer
+			if code := New(&out, &errOut).Run([]string{command, "--help"}); code != 0 {
+				t.Fatalf("help exit %d: %s", code, errOut.String())
+			}
+			usageLine := strings.SplitN(out.String(), "\n", 2)[0]
+			for _, flag := range flagPattern.FindAllString(usageLine, -1) {
+				if !strings.Contains(section, flag) {
+					t.Errorf("%s help flag %s is absent from docs section", command, flag)
+				}
+			}
+			if !strings.Contains(section, "Exit") && !strings.Contains(section, "exit") {
+				t.Error("section does not state an exit-code outcome")
+			}
+			if !strings.Contains(section, "```text") {
+				t.Error("section has no example output")
 			}
 		})
 	}

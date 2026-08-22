@@ -173,6 +173,14 @@ func (a *App) status(args []string) int {
 						row.Details = append(row.Details, fmt.Sprintf("%s %s: want %s, got %s", f.File, f.Entry, f.Want, f.Got))
 					}
 				}
+				if verbose {
+					for _, state := range wiringStates {
+						ecosystem, _, _ := strings.Cut(state, " ")
+						if adapters.Verification(ecosystem) == "form-verified" {
+							row.Details = append(row.Details, ecosystem+": form-verified (real toolchain integration pending)")
+						}
+					}
+				}
 			}
 			agentState, failed, details := checkAgents(depManifest, entry.Cards, filepath.Join(cache.Dir(root, dep.ID), "cards"), root, offline)
 			row.Agents = agentState

@@ -1,46 +1,62 @@
 # git-a2a
 
-**A git repository that can be imported together with the agents that own it.**
+**Import a Git repository together with the agents that own it.**
 
-git-a2a is a small standard plus a CLI for a *micro-agent architecture*: every repository is a
-module owned by one or more AI agents, and dependencies are taken on agents at developer time —
-the way microservices take dependencies on services at runtime.
+git-a2a is an open standard plus a static Go CLI for micro-agent architectures. A repository
+publishes one `a2amodule.yml`: what the module exports, which agents own it, how to contact them,
+and which other modules it consumes. The CLI resolves one Git commit, wires every detected
+ecosystem, maintains `a2amodule.lock`, and projects the useful ownership context into agent tools.
 
-- **`a2amodule.yml`** at the repository root says what the module is, how to import it in each
-  ecosystem (npm, PyPI, Go, …), which agents own which part of it, how each agent wants to be
-  contacted for each kind of request (a question, a change request, a bug — over A2A, a chat
-  channel, an issue tracker, email), what consumers may and may not do, and which other modules
-  it depends on. `a2amodule.lock` records what was resolved.
-- **`git-a2a`** (also `git a2a …`) adds a dependency from a git URL by fetching *only its
-  manifest*, wires it into every package manager the consuming repository uses at one resolved
-  commit, keeps the lock, renders a short roster of dependencies and their owners into
-  `AGENTS.md`, answers "who do I ask about this and how", exports and validates A2A agent
-  cards, and reports liveness and drift.
+Status: **1.0.0 — first release.** Read the [human specification](spec/README.md), the
+[command reference](docs/cli.md), or the normative [`spec/_.hint`](spec/_.hint) with `hint spec`.
 
-Status: **1.0.0 release candidate.** The normative spec is
-[`spec/_.hint`](spec/_.hint) (read it with `hint spec`); worked examples are in
-[`spec/examples/`](spec/examples/). Agent cards follow the
-[A2A protocol](https://a2a-protocol.org/) v1.0; git-a2a adds semantics through the extension
-`https://git-a2a.com/ext/module/v1`.
+## What you can do
+
+| Capability | Commands and result |
+| --- | --- |
+| Dependency wiring | `add`, `wire`, `update`, `remove` edit native npm/Python/Go/Rust/Swift/Dart/Ruby/PHP/Elixir/Haskell/Zig/Clojure/Nix files at one resolved commit. |
+| Source changes | `set`, `pin`, and `unpin` transactionally change URL, ref, monorepo path, tracking, or identity. |
+| Owners and contacts | `who` routes an intent and path to the declared role, scoped agent, and ordered contacts. |
+| Agent roster | `sync` maintains a bounded dependency/owner block in `AGENTS.md` or another target. |
+| Contact delivery | `contact` sends through A2A or GitHub Issues; URL, email, and chat kinds print exact instructions. |
+| Cards, catalog, and trust | `card export/validate/verify/show` and `catalog export` project A2A v1.0 cards, ARD catalogs, and JWS trust. |
+| Liveness and drift | `status` compares upstream refs, manifest/cache hashes, native wiring, cards, trust, and synced context. |
+| Prerequisites | `doctor` reports Git and native ecosystem tools with versions and install hints; it never installs them. |
+
+## Quick start
 
 ```sh
-git-a2a init                                   # describe this repository
-git-a2a add ssh://git@github.com/acme/lib-utils.git   # depend on a module: manifest + wiring + lock
-git-a2a who acme-lib-utils --intent change     # who owns it, how they want to be asked
-git-a2a status                                 # upstream, wiring, agents: up / behind / drifted
+git-a2a init --id acme-app
+git-a2a add https://github.com/acme/lib-utils.git
+git-a2a sync
+git-a2a who acme-lib-utils --intent change
+git-a2a status
+git-a2a update --review
 ```
-
-License: MIT.
 
 ## Installation
 
-Tagged releases are built and published entirely by GitHub Actions. Every channel installs
-the same static Go binary:
+Go-native channels are the simplest and come first. Pin `@v1.0.0` rather than `@latest` in CI:
 
 ```sh
-go install github.com/neprel/git-a2a/cmd/git-a2a@latest
-go run github.com/neprel/git-a2a/cmd/git-a2a@latest --version
-curl -fsSL https://raw.githubusercontent.com/neprel/git-a2a/main/install.sh | sh
+go install github.com/neprel/git-a2a/cmd/git-a2a@v1.0.0
+go run github.com/neprel/git-a2a/cmd/git-a2a@v1.0.0 --version
+```
+
+The checksum-verifying standalone installers support `GIT_A2A_VERSION`, `--version`, `--dir`,
+and `--dry-run`:
+
+```sh
+curl -fsSL https://git-a2a.com/install.sh | bash
+```
+
+```powershell
+irm https://git-a2a.com/install.ps1 | iex
+```
+
+Package-manager and zero-install channels:
+
+```sh
 brew install neprel/tap/git-a2a
 scoop bucket add git-a2a https://github.com/neprel/scoop-bucket
 scoop install git-a2a
@@ -48,29 +64,39 @@ npx git-a2a --version
 uvx git-a2a --version
 ```
 
-Pin a tag instead of `@latest` in CI and image builds. `git-a2a version --check` performs an
-explicit release check and prints the correct update command for the install channel; plain
-`version` never uses the network. `git-a2a upgrade` replaces the executable only for the
-standalone `binary` channel. Package-manager installations must be upgraded by that manager.
+Linux `.deb`, `.rpm`, and `.apk` packages are attached to every GitHub Release:
 
-Linux packages are attached to each GitHub Release. After downloading the matching asset, use
-`sudo dpkg -i git-a2a_*.deb`, `sudo rpm -i git-a2a_*.rpm`, or `sudo apk add --allow-untrusted
-git-a2a_*.apk`. The scratch container can be run directly with `docker run --rm
-ghcr.io/neprel/git-a2a:1.0.0 version`.
-
-For an agent container, add the matching release archive; Docker extracts its `git-a2a` binary
-and no runtime is required:
-
-```dockerfile
-ARG GIT_A2A_VERSION=1.0.0
-ARG TARGETARCH
-ADD git-a2a_${GIT_A2A_VERSION}_linux_${TARGETARCH}.tar.gz /usr/local/bin/
-RUN chmod 0755 /usr/local/bin/git-a2a
+```sh
+sudo dpkg -i git-a2a_*.deb
+sudo rpm -i git-a2a_*.rpm
+sudo apk add --allow-untrusted git-a2a_*.apk
 ```
 
-GitHub Releases contain archives for Darwin, Linux, and Windows on amd64 and arm64, checksums,
-SBOMs, deb/rpm/apk packages, and a `ghcr.io/neprel/git-a2a` scratch image. The npm and PyPI
-packages are convenience launchers and do not block a release.
+The scratch container contains only the binary:
 
-Maintainer setup, optional secrets, prerelease behavior, and signing limitations are documented
-in [`docs/releasing.md`](docs/releasing.md).
+```sh
+docker run --rm ghcr.io/neprel/git-a2a:1.0.0 version
+```
+
+Every channel executes the same Go binary. `git-a2a version --check` is the only automatic
+release lookup and prints the correct manager-specific update command. `git-a2a upgrade` is
+available only to the standalone binary channel; it never overwrites a package-manager install.
+Release archives cover Darwin, Linux, and Windows on amd64/arm64 and include checksums and SBOMs.
+Maintainer setup is in [docs/releasing.md](docs/releasing.md).
+
+## A2A, AGENTS.md, and Agent Skills
+
+- **A2A** is the agent-to-agent protocol. Agent Cards remain native A2A v1.0; the
+  `https://git-a2a.com/ext/module/v1` extension binds a card to a Git module without copying its
+  self-description. `contact` can deliver A2A `SendMessage` requests.
+- **AGENTS.md** is a consumer-facing context surface. `sync` renders only published module,
+  surface, ownership, and routing data into a managed block; it never imports dependency
+  instructions or private implementation knowledge.
+- **Agent Skills** teach a harness how to perform a task. They complement git-a2a: a Skill may
+  call this CLI, while `a2amodule.yml` remains the durable, harness-neutral ownership and
+  dependency contract shared by every agent environment.
+
+git-a2a does not run agents, host endpoints, or choose a chat platform. Unknown contact kinds,
+roles, intents, and ecosystems remain valid open vocabulary.
+
+License: MIT.
