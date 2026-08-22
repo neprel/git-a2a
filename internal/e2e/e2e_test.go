@@ -720,7 +720,7 @@ func TestPolyglotConsumerFullDependencyLifecycle(t *testing.T) {
 	git(t, source, "init", "-b", "main")
 	git(t, source, "config", "user.email", "test@example.com")
 	git(t, source, "config", "user.name", "Test")
-	manifestOne := []byte("schema: 1\nmodule:\n  id: acme-lib\n  repository: " + publicOriginal + "\n  release:\n    channel: main\n  exports:\n    - ecosystem: npm\n      name: '@acme/lib'\n    - ecosystem: pypi\n      name: acme-lib\n    - ecosystem: golang\n      name: example.test/acme/lib\n    - ecosystem: cargo\n      name: acme-lib\n    - ecosystem: swift\n      name: AcmeLib\n    - ecosystem: pub\n      name: acme_lib\n    - ecosystem: gem\n      name: acme-lib\n    - ecosystem: composer\n      name: acme/lib\n    - ecosystem: hex\n      name: acme_lib\n    - ecosystem: hackage\n      name: acme-lib\nagents:\n  - name: owner\n    role: owner\n    contacts:\n      - intents: ['*']\n        kind: url\n        url: https://owner.example.test/\n")
+	manifestOne := []byte("schema: 1\nmodule:\n  id: acme-lib\n  repository: " + publicOriginal + "\n  release:\n    channel: main\n  exports:\n    - ecosystem: npm\n      name: '@acme/lib'\n    - ecosystem: pypi\n      name: acme-lib\n    - ecosystem: golang\n      name: example.test/acme/lib\n    - ecosystem: cargo\n      name: acme-lib\n    - ecosystem: swift\n      name: AcmeLib\n    - ecosystem: pub\n      name: acme_lib\n    - ecosystem: gem\n      name: acme-lib\n    - ecosystem: composer\n      name: acme/lib\n    - ecosystem: hex\n      name: acme_lib\n    - ecosystem: hackage\n      name: acme-lib\n    - ecosystem: zig\n      name: acme_lib\n      x-zig-hash: 1220bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\nagents:\n  - name: owner\n    role: owner\n    contacts:\n      - intents: ['*']\n        kind: url\n        url: https://owner.example.test/\n")
 	mustWrite(t, filepath.Join(source, "a2amodule.yml"), manifestOne)
 	git(t, source, "add", "a2amodule.yml")
 	git(t, source, "commit", "-m", "one")
@@ -738,6 +738,7 @@ func TestPolyglotConsumerFullDependencyLifecycle(t *testing.T) {
 	mustWrite(t, filepath.Join(consumer, "composer.json"), []byte("{\"name\":\"acme/consumer\",\"require\":{\"php\":\"^8.3\"}}\n"))
 	mustWrite(t, filepath.Join(consumer, "mix.exs"), []byte("defmodule Consumer.MixProject do\n  use Mix.Project\n  def project, do: [app: :consumer, version: \"1.0.0\", deps: deps()]\n  defp deps do\n    [\n      {:jason, \"~> 1.4\"},\n    ]\n  end\nend\n"))
 	mustWrite(t, filepath.Join(consumer, "cabal.project"), []byte("packages: .\n\nconstraints: base >= 4.18\n"))
+	mustWrite(t, filepath.Join(consumer, "build.zig.zon"), []byte(".{\n  .name = .consumer,\n  .version = \"1.0.0\",\n  .dependencies = .{},\n}\n"))
 	var out, errOut bytes.Buffer
 	app := cli.New(&out, &errOut)
 	app.Root = consumer
@@ -762,7 +763,7 @@ func TestPolyglotConsumerFullDependencyLifecycle(t *testing.T) {
 	run("add", publicOriginal)
 	assertPolyglotPins(t, consumer)
 	run("sync")
-	if text := run("status", "acme-lib", "--offline"); !strings.Contains(text, "npm clean, pypi clean, golang clean, cargo clean, swift clean, pub clean, gem clean, composer clean, hex clean, hackage clean") {
+	if text := run("status", "acme-lib", "--offline"); !strings.Contains(text, "npm clean, pypi clean, golang clean, cargo clean, swift clean, pub clean, gem clean, composer clean, hex clean, hackage clean, zig clean") {
 		t.Fatalf("polyglot status is not clean:\n%s", text)
 	}
 
@@ -828,6 +829,10 @@ func TestPolyglotConsumerFullDependencyLifecycle(t *testing.T) {
 	if strings.Contains(string(cabalProject), "git-a2a:begin acme-lib") {
 		t.Fatalf("Hackage wiring remains:\n%s", cabalProject)
 	}
+	zigZON, _ := os.ReadFile(filepath.Join(consumer, "build.zig.zon"))
+	if strings.Contains(string(zigZON), "git-a2a:begin acme_lib") {
+		t.Fatalf("Zig wiring remains:\n%s", zigZON)
+	}
 	t.Logf("scenario output:\n%s", transcript.String())
 }
 
@@ -885,6 +890,7 @@ func assertPolyglotPins(t *testing.T, root string) {
 		{"composer.json", commit},
 		{"mix.exs", commit},
 		{"cabal.project", commit},
+		{"build.zig.zon", commit},
 	} {
 		body, readErr := os.ReadFile(filepath.Join(root, test.file))
 		if readErr != nil || !strings.Contains(string(body), test.pin) {

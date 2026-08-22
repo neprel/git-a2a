@@ -1,0 +1,13 @@
+# decision Zig wiring requires the producer's package content hash
+
+The Zig adapter owns one delimited entry in `.dependencies` in `build.zig.zon`. Its URL is the
+native `git+<url>#<commit>` form and its `.hash` comes from the export extension
+`x-zig-hash`. The adapter must return typed not-wirable for a missing hash or a subdirectory
+export: a Git commit is not Zig's package content hash, and inventing one would make a wiring
+command report success over a dependency Zig rejects.
+
+# test Zig adapter
+
+- Fixture/golden wiring is idempotent and preserves unrelated ZON fields and comments.
+- Missing `x-zig-hash` is typed not-wirable.
+- Drift checks the normalized Git URL and locked revision; unwire removes only the delimited entry.
