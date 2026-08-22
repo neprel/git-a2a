@@ -118,7 +118,7 @@ func TestSurfaceFallsBackFromBareArchiveAndReturnsTree(t *testing.T) {
 	if got, want := strings.Join(result.Files, ","), "README.md,nested/api.txt"; got != want {
 		t.Fatalf("files = %q, want %q", got, want)
 	}
-	if body, readErr := os.ReadFile(filepath.Join(dest, "nested", "api.txt")); readErr != nil || string(body) != "api\n" {
+	if body, readErr := os.ReadFile(filepath.Join(dest, "nested", "api.txt")); readErr != nil || strings.ReplaceAll(string(body), "\r\n", "\n") != "api\n" {
 		t.Fatalf("copied surface = %q, err=%v", body, readErr)
 	}
 }

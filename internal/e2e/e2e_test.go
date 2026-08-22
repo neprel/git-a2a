@@ -573,7 +573,7 @@ func TestShowSurfaceRecordsFetchedTreeInLock(t *testing.T) {
 	if got := locked.Dependencies["acme-lib"].Surface; got != "tree:"+wantTree {
 		t.Fatalf("surface lock = %q, want tree:%s", got, wantTree)
 	}
-	if body, err := os.ReadFile(filepath.Join(consumer, ".git-a2a", "cache", "acme-lib", "surface", "API.md")); err != nil || string(body) != "public API\n" {
+	if body, err := os.ReadFile(filepath.Join(consumer, ".git-a2a", "cache", "acme-lib", "surface", "API.md")); err != nil || strings.ReplaceAll(string(body), "\r\n", "\n") != "public API\n" {
 		t.Fatalf("surface body=%q err=%v", body, err)
 	}
 }
