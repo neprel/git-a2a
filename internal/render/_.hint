@@ -18,6 +18,13 @@ Rendering rejects a file with a missing or duplicate delimiter. It replaces exac
 complete managed block, preserves all bytes outside it, and writes through the atomic lockfile
 writer. Check mode computes drift without writing.
 
+# decision Managed-block presence includes partial delimiters
+
+`HasManagedBlock` reports presence when either begin or end delimiter exists. Callers use this
+only to decide whether a mutation must preserve the roster opt-in; the renderer still rejects a
+partial or duplicate block rather than treating malformed ownership markers as absent or creating
+a second block.
+
 # test Render containment
 
 - Nested-looking HTML comments cannot reveal either managed delimiter.
