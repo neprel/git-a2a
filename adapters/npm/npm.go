@@ -91,18 +91,25 @@ func (a Adapter) Refresh(ctx context.Context, root string, _ adapter.Dependency,
 	if err != nil {
 		return err
 	}
-	switch v {
-	case "yarn-berry":
-		return adapter.Command(ctx, root, "yarn", "up", exp.Name)
-	case "pnpm":
-		return adapter.Command(ctx, root, "pnpm", "update", exp.Name)
-	case "bun":
-		return adapter.Command(ctx, root, "bun", "update", exp.Name)
-	default:
+	if v == "npm" {
 		if _, err := os.Stat(filepath.Join(root, "package-lock.json")); os.IsNotExist(err) {
 			return nil
 		}
-		return adapter.Command(ctx, root, "npm", "install")
+	}
+	command := refreshCommand(v, exp.Name)
+	return adapter.Command(ctx, root, command[0], command[1:]...)
+}
+
+func refreshCommand(variant adapter.Variant, name string) []string {
+	switch variant {
+	case "yarn-berry":
+		return []string{"yarn", "up", name}
+	case "pnpm":
+		return []string{"pnpm", "update", name}
+	case "bun":
+		return []string{"bun", "update", name}
+	default:
+		return []string{"npm", "install", "--package-lock-only", "--ignore-scripts", "--no-audit", "--no-fund"}
 	}
 }
 

@@ -39,6 +39,20 @@ func TestResolveFullBranchAndCommit(t *testing.T) {
 		t.Fatalf("got %#v %v", got, err)
 	}
 }
+func TestResolveHeadReturnsSymbolicDefaultBranch(t *testing.T) {
+	sha := strings.Repeat("d", 40)
+	r := &resolveRunner{out: "ref: refs/heads/trunk\tHEAD\n" + sha + "\tHEAD\n"}
+	got, err := ResolveDetailed(context.Background(), r, "file:///repo", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Commit != sha || got.FullRef != "refs/heads/trunk" || got.Kind != "branch" {
+		t.Fatalf("got %#v", got)
+	}
+	if strings.Join(r.args, " ") != "ls-remote --symref file:///repo HEAD" {
+		t.Fatalf("args = %v", r.args)
+	}
+}
 func TestNormalizeURL(t *testing.T) {
 	values := []string{"git@github.com:Acme/lib.git", "ssh://git@github.com/Acme/lib.git", "git+https://github.com/Acme/lib"}
 	for _, value := range values {

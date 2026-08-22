@@ -134,6 +134,9 @@ GitLab, Bitbucket); else a depth-1, blob-filtered, sparse clone into `.git-a2a/c
 an optional fast path, never as the only path — the standard must work against a bare ssh git
 server. Measured 2026-08-21: sparse partial clone of one file from GitHub, 4 s and 152 KB;
 `git archive --remote` on GitHub fails immediately with "Invalid command: git-upload-archive".
+An omitted ref is resolved through `git ls-remote --symref ... HEAD` and stored as the remote's
+actual default branch, not the moving token `HEAD`. Online status fetches reuse the dependency's
+cached `.src` sparse checkout across runs.
 
 # decision One resolved commit drives every ecosystem {#one_commit}
 
@@ -167,6 +170,8 @@ agent that has an `a2a` contact, adding the git-a2a extension
 `https://git-a2a.com/ext/module/v1` (params: module id, repository, role, scope) — extension is
 the sanctioned way to add semantics to a card, and the A2A discovery text explicitly allows
 cards delivered by "direct configuration" such as a file in a repository.
+Legacy v0.3 cards are accepted as input, but card export upgrades every supported interface to
+protocol version `1.0`; an exported v1.0 card never claims a v0.3 interface.
 
 # decision Knowledge is asked for, unless the owner published it {#ask_not_read}
 
@@ -194,6 +199,8 @@ go.mod, .gitignore) is either a delimited managed block (`<!-- git-a2a:begin -->
 `<!-- git-a2a:end -->` or the ecosystem's own structure) or a precisely addressed entry. A
 re-run replaces only that; a human edit outside it survives; a human edit inside it is
 overwritten and `status` says so beforehand. Never rewrite a whole file to change one entry.
+When npm has a package lock, refresh runs `npm install --package-lock-only --ignore-scripts`
+(with audit and funding network calls disabled), never a bare lifecycle-capable install.
 
 # invariant The lock is the source of truth for what was resolved {#lock_truth}
 

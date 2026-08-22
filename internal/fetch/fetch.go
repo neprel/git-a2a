@@ -18,8 +18,8 @@ import (
 )
 
 type Result struct {
-	Manifest       []byte
-	Commit, Method string
+	Manifest            []byte
+	Commit, Ref, Method string
 }
 
 type Fetcher struct{ Runner gitx.Runner }
@@ -39,22 +39,23 @@ func (f Fetcher) Fetch(ctx context.Context, url, ref, modulePath, work string) (
 	if modulePath == "" {
 		modulePath = "."
 	}
-	commit, err := gitx.Resolve(ctx, f.Runner, url, ref)
+	resolution, err := gitx.ResolveDetailed(ctx, f.Runner, url, ref)
 	if err != nil {
 		return Result{}, err
 	}
+	commit := resolution.Commit
 	manifestPath := path.Join(modulePath, "a2amodule.yml")
 	if b, err := f.archive(ctx, url, commit, manifestPath); err == nil {
-		return Result{Manifest: b, Commit: commit, Method: "archive"}, nil
+		return Result{Manifest: b, Commit: commit, Ref: resolution.FullRef, Method: "archive"}, nil
 	}
 	if b, err := f.sparse(ctx, url, commit, manifestPath, work); err == nil {
-		return Result{Manifest: b, Commit: commit, Method: "sparse"}, nil
+		return Result{Manifest: b, Commit: commit, Ref: resolution.FullRef, Method: "sparse"}, nil
 	}
 	b, err := f.shallow(ctx, url, commit, manifestPath, work)
 	if err != nil {
 		return Result{}, fmt.Errorf("fetch manifest: archive, sparse, and shallow strategies failed: %w", err)
 	}
-	return Result{Manifest: b, Commit: commit, Method: "shallow"}, nil
+	return Result{Manifest: b, Commit: commit, Ref: resolution.FullRef, Method: "shallow"}, nil
 }
 
 func (f Fetcher) archive(ctx context.Context, url, commit, manifestPath string) ([]byte, error) {

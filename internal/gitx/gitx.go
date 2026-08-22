@@ -54,12 +54,19 @@ func ResolveDetailed(ctx context.Context, runner Runner, url, ref string) (Resol
 	}
 	query := ref
 	if query == "" || query == "HEAD" {
-		out, err := runner.Run(ctx, "", nil, "ls-remote", url, "HEAD")
+		out, err := runner.Run(ctx, "", nil, "ls-remote", "--symref", url, "HEAD")
 		if err != nil {
 			return Resolution{}, err
 		}
 		values := parseRemote(out)
 		if commit := values["HEAD"]; commit != "" {
+			if symref := parseRemoteSymref(out, "HEAD"); symref != "" {
+				kind := "ref"
+				if strings.HasPrefix(symref, "refs/heads/") {
+					kind = "branch"
+				}
+				return Resolution{Commit: commit, FullRef: symref, Kind: kind}, nil
+			}
 			return Resolution{Commit: commit, FullRef: "HEAD", Kind: "head"}, nil
 		}
 		return Resolution{}, fmt.Errorf("remote HEAD was not found at %s", url)
@@ -108,6 +115,16 @@ func ResolveDetailed(ctx context.Context, runner Runner, url, ref string) (Resol
 		return Resolution{Commit: headCommit, FullRef: head, Kind: "branch"}, nil
 	}
 	return Resolution{}, fmt.Errorf("ref %q was not found at %s", query, url)
+}
+
+func parseRemoteSymref(out []byte, name string) string {
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 3 && fields[0] == "ref:" && fields[2] == name {
+			return fields[1]
+		}
+	}
+	return ""
 }
 
 func parseRemote(out []byte) map[string]string {

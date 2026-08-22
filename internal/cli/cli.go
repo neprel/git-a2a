@@ -197,7 +197,6 @@ func (a *App) init(args []string) int {
 	surface := fs.String("surface", "", "surface directory")
 	var exports stringList
 	fs.Var(&exports, "export", "ecosystem=name")
-	_ = fs.Bool("yes", false, "non-interactive")
 	if fs.Parse(args) != nil {
 		return 2
 	}
@@ -463,7 +462,10 @@ func (a *App) add(args []string) int {
 	o.id = depManifest.Module.ID
 	declaredChannel := ""
 	if o.ref == "" {
-		o.ref = "HEAD"
+		o.ref = strings.TrimPrefix(res.Ref, "refs/heads/")
+		if o.ref == "" {
+			o.ref = "HEAD"
+		}
 		if depManifest.Module.Release != nil && depManifest.Module.Release.Channel != "" {
 			o.ref = depManifest.Module.Release.Channel
 			next, e := f.Fetch(a.context(), o.url, o.ref, o.path, work)

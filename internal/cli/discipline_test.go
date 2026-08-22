@@ -40,3 +40,22 @@ func TestEveryCommandHasCommandSpecificHelp(t *testing.T) {
 		})
 	}
 }
+
+func TestInitRejectsRemovedYesOption(t *testing.T) {
+	var out, errOut bytes.Buffer
+	app := New(&out, &errOut)
+	app.Root = t.TempDir()
+	if code := app.Run([]string{"init", "--yes"}); code != 2 || !strings.Contains(errOut.String(), "flag provided but not defined") {
+		t.Fatalf("exit/output = %d, %q", code, errOut.String())
+	}
+}
+
+func TestPinRejectsShortSHAWithActionableMessage(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if code := New(&out, &errOut).Run([]string{"pin", "demo", "deadbeef"}); code != 2 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	if !strings.Contains(errOut.String(), "full 40-character SHA") {
+		t.Fatalf("message = %q", errOut.String())
+	}
+}

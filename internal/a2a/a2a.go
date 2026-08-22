@@ -242,6 +242,13 @@ func Export(base map[string]any, binding Binding) (map[string]any, error) {
 		card = map[string]any{"name": binding.Agent.Name, "description": description, "version": "1.0.0", "supportedInterfaces": interfaces, "capabilities": map[string]any{}, "defaultInputModes": []any{"text/plain"}, "defaultOutputModes": []any{"text/plain"}, "skills": []any{}}
 	}
 	normalizeLegacy(card)
+	if interfaces, ok := card["supportedInterfaces"].([]any); ok {
+		for _, raw := range interfaces {
+			if item, ok := raw.(map[string]any); ok {
+				item["protocolVersion"] = "1.0"
+			}
+		}
+	}
 	capabilities, ok := card["capabilities"].(map[string]any)
 	if !ok {
 		capabilities = map[string]any{}

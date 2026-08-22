@@ -97,6 +97,10 @@ func (a *App) pin(args []string) int {
 	commit := ""
 	if len(args) == 2 {
 		commit = args[1]
+		if len(commit) < 40 && isHex(commit) {
+			fmt.Fprintln(a.Err, "pin: COMMIT must be a full 40-character SHA; short SHAs are ambiguous")
+			return 2
+		}
 	} else {
 		l, err := lockfile.Load(a.root())
 		if err != nil {

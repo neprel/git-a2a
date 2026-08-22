@@ -132,10 +132,9 @@ func (a *App) status(args []string) int {
 			if e == nil {
 				row.Ref = refLabel(dep.Ref, resolution.Kind)
 			}
-			tmp, e := os.MkdirTemp("", "git-a2a-status-")
-			if e == nil {
-				remote, e := (fetch.Fetcher{Runner: a.runner()}).Fetch(a.context(), dep.Git, resolution.Commit, defaultPath(dep.Path), tmp)
-				_ = os.RemoveAll(tmp)
+			work := cache.Dir(root, dep.ID)
+			if e := os.MkdirAll(work, 0o755); e == nil {
+				remote, e := (fetch.Fetcher{Runner: a.runner()}).Fetch(a.context(), dep.Git, resolution.Commit, defaultPath(dep.Path), work)
 				if e != nil {
 					row.Manifest = "remote unreadable"
 					row.failed = true

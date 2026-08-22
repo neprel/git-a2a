@@ -112,3 +112,23 @@ func TestSynthesizeRequiresA2AContact(t *testing.T) {
 		t.Fatal("export without interface succeeded")
 	}
 }
+
+func TestExportUpgradesLegacyProtocolVersion(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "..", "testdata", "cards", "v0.3.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, err := Parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	card, err := Export(base, Binding{Module: "demo", Agent: manifest.Agent{Name: "legacy-agent", Role: "owner"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, rawInterface := range card["supportedInterfaces"].([]any) {
+		if got := rawInterface.(map[string]any)["protocolVersion"]; got != "1.0" {
+			t.Fatalf("protocolVersion = %#v, want 1.0", got)
+		}
+	}
+}

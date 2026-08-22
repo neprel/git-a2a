@@ -93,6 +93,76 @@ func TestAddUpdateCheckRemoveAgainstLocalBareRepository(t *testing.T) {
 	}
 }
 
+func TestAddStoresRemoteDefaultBranchInsteadOfHEAD(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "source")
+	bare := filepath.Join(tmp, "library.git")
+	consumer := filepath.Join(tmp, "consumer")
+	mustMkdir(t, source)
+	git(t, source, "init", "-b", "trunk")
+	git(t, source, "config", "user.email", "test@example.com")
+	git(t, source, "config", "user.name", "Test")
+	mustWrite(t, filepath.Join(source, "a2amodule.yml"), []byte("schema: 1\nmodule: {id: acme-lib}\n"))
+	git(t, source, "add", "a2amodule.yml")
+	git(t, source, "commit", "-m", "fixture")
+	git(t, tmp, "clone", "--bare", source, bare)
+	mustMkdir(t, consumer)
+	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte("schema: 1\nmodule: {id: consumer}\n"))
+	var out, errOut bytes.Buffer
+	app := cli.New(&out, &errOut)
+	app.Root = consumer
+	if code := app.Run([]string{"add", "file://" + bare, "--no-wire"}); code != 0 {
+		t.Fatalf("add exit %d: %s", code, errOut.String())
+	}
+	own, err := manifest.Load(filepath.Join(consumer, "a2amodule.yml"))
+	if err != nil || len(own.Dependencies) != 1 || own.Dependencies[0].Ref != "trunk" {
+		t.Fatalf("dependency ref = %#v, err=%v", own.Dependencies, err)
+	}
+}
+
+func TestOnlineStatusReusesSparseSourceCheckout(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "source")
+	bare := filepath.Join(tmp, "library.git")
+	consumer := filepath.Join(tmp, "consumer")
+	mustMkdir(t, source)
+	git(t, source, "init", "-b", "main")
+	git(t, source, "config", "user.email", "test@example.com")
+	git(t, source, "config", "user.name", "Test")
+	mustWrite(t, filepath.Join(source, "a2amodule.yml"), []byte("schema: 1\nmodule:\n  id: acme-lib\n  release: {channel: main}\n"))
+	git(t, source, "add", "a2amodule.yml")
+	git(t, source, "commit", "-m", "fixture")
+	git(t, tmp, "clone", "--bare", source, bare)
+	git(t, bare, "config", "uploadpack.allowFilter", "true")
+	git(t, bare, "config", "uploadpack.allowAnySHA1InWant", "true")
+	mustMkdir(t, consumer)
+	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte("schema: 1\nmodule: {id: consumer}\n"))
+	var out, errOut bytes.Buffer
+	runner := &archiveFailCountingRunner{delegate: gitx.ExecRunner{}}
+	app := cli.New(&out, &errOut)
+	app.Root = consumer
+	app.Runner = runner
+	if code := app.Run([]string{"add", "file://" + bare, "--no-wire"}); code != 0 {
+		t.Fatalf("add exit %d: %s", code, errOut.String())
+	}
+	out.Reset()
+	errOut.Reset()
+	if code := app.Run([]string{"sync"}); code != 0 {
+		t.Fatalf("sync exit %d: %s", code, errOut.String())
+	}
+	runner.clones = 0
+	for i := 0; i < 2; i++ {
+		out.Reset()
+		errOut.Reset()
+		if code := app.Run([]string{"status", "acme-lib"}); code != 0 {
+			t.Fatalf("status %d exit %d: %s", i+1, code, errOut.String())
+		}
+	}
+	if runner.clones != 1 {
+		t.Fatalf("online status cloned %d times, want one reusable checkout", runner.clones)
+	}
+}
+
 func TestSetPinUnpinSourceAndMovedAnnouncement(t *testing.T) {
 	tmp := t.TempDir()
 	source := filepath.Join(tmp, "source")
@@ -701,6 +771,21 @@ func TestPolyglotConsumerFullDependencyLifecycle(t *testing.T) {
 type mappedLocalRunner struct {
 	delegate gitx.Runner
 	remotes  map[string]string
+}
+
+type archiveFailCountingRunner struct {
+	delegate gitx.Runner
+	clones   int
+}
+
+func (runner *archiveFailCountingRunner) Run(ctx context.Context, dir string, stdin []byte, args ...string) ([]byte, error) {
+	if len(args) > 0 && args[0] == "archive" {
+		return nil, fmt.Errorf("archive deliberately unavailable")
+	}
+	if len(args) > 0 && args[0] == "clone" {
+		runner.clones++
+	}
+	return runner.delegate.Run(ctx, dir, stdin, args...)
 }
 
 func (runner mappedLocalRunner) Run(ctx context.Context, dir string, stdin []byte, args ...string) ([]byte, error) {

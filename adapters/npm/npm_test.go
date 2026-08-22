@@ -106,6 +106,13 @@ func TestUpdateInlineDependencyPreservesSurroundingBytes(t *testing.T) {
 		t.Fatalf("changed=%v err=%v\ngot  %s\nwant %s", changed, err, got, want)
 	}
 }
+func TestNPMRefreshOnlyUpdatesLockfileWithoutScripts(t *testing.T) {
+	got := strings.Join(refreshCommand("npm", "@acme/lib"), " ")
+	want := "npm install --package-lock-only --ignore-scripts --no-audit --no-fund"
+	if got != want {
+		t.Fatalf("refresh command = %q, want %q", got, want)
+	}
+}
 func copyFile(t *testing.T, src, dst string) []byte {
 	t.Helper()
 	b := mustRead(t, src)
