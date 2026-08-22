@@ -5,6 +5,7 @@ import (
 	"github.com/neprel/git-a2a/adapters/composer"
 	"github.com/neprel/git-a2a/adapters/gem"
 	"github.com/neprel/git-a2a/adapters/golang"
+	"github.com/neprel/git-a2a/adapters/hackage"
 	"github.com/neprel/git-a2a/adapters/hex"
 	"github.com/neprel/git-a2a/adapters/npm"
 	pubadapter "github.com/neprel/git-a2a/adapters/pub"
@@ -14,5 +15,5 @@ import (
 )
 
 func All() []adapter.Adapter {
-	return []adapter.Adapter{npm.Adapter{}, pypi.Adapter{}, golang.Adapter{}, cargo.Adapter{}, swift.Adapter{}, pubadapter.Adapter{}, gem.Adapter{}, composer.Adapter{}, hex.Adapter{}}
+	return []adapter.Adapter{npm.Adapter{}, pypi.Adapter{}, golang.Adapter{}, cargo.Adapter{}, swift.Adapter{}, pubadapter.Adapter{}, gem.Adapter{}, composer.Adapter{}, hex.Adapter{}, hackage.Adapter{}}
 }

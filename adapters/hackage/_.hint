@@ -1,0 +1,17 @@
+# decision One Hackage export adapter supports Cabal and Stack projects
+
+The adapter ecosystem is `hackage`. `stack.yaml` selects the Stack variant; otherwise
+`cabal.project` selects Cabal. Cabal wiring owns a delimited `source-repository-package` stanza
+whose locked `tag` is the full commit and whose floating `branch` is the declared ref. Stack
+wiring owns a delimited `extra-deps` git item whose `commit` is the same lock commit (or the
+declared ref when floating). Both native forms carry an export subdirectory.
+
+# invariant Haskell dependency blocks are precisely addressed
+
+The package export name appears only in comment delimiters around the owned stanza/item. Human
+Cabal fields and Stack entries outside those delimiters remain byte-for-byte unchanged.
+
+# test Hackage adapter
+
+- Cabal and Stack each have fixture/golden, idempotence, drift, and unwire coverage.
+- Drift checks the normalized Git URL and locked commit in either variant.

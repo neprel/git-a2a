@@ -1,0 +1,11 @@
+resolver: lts-23.0
+packages:
+- .
+extra-deps:
+- text-2.1.2
+# git-a2a:begin acme-lib-utils
+- git: https://github.com/acme/lib-utils.git
+  commit: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  subdirs:
+  - haskell/lib
+# git-a2a:end acme-lib-utils
