@@ -1,9 +1,11 @@
 # Releasing git-a2a
 
 Releases are created only by `.github/workflows/release.yml` after a `v*` tag is pushed. The tag
-must equal `v` plus `internal/version/VERSION`; build and tests must pass before publishing starts.
+must equal `v` plus `internal/version/VERSION`, optionally followed by a valid SemVer prerelease
+suffix; build and tests must pass before publishing starts.
 Use a release-candidate tag first, inspect every generated artifact and channel, fix the source,
-then update the version and create the stable tag. Do not rerun a failed publish with a moved tag.
+then create the stable tag on the reviewed commit. If the candidate needs a fix, use a new
+prerelease number on the fixing commit. Do not rerun a failed publish with a moved tag.
 
 ## GitHub configuration
 
@@ -34,9 +36,11 @@ package identity and publisher account exist; it is not part of the first automa
 
 ## Release checklist
 
-1. Set `internal/version/VERSION`, commit it, and run `.github/scripts/check-version.sh v<VERSION>`.
+1. Set `internal/version/VERSION`, commit it, and run `.github/scripts/check-version.sh v<VERSION>`
+   and `.github/scripts/check-version.sh v<VERSION>-rc.1`. npm keeps the SemVer prerelease form;
+   PyPI maps `-rc.N` to its equivalent `rcN` spelling.
 2. Run `go test ./...`, `go build ./...`, `goreleaser check`, and `goreleaser release --snapshot --clean`.
 3. Push the tag. Verify GitHub archives, checksums, SBOMs, deb/rpm/apk, GHCR, and every configured
    optional channel. A prerelease tag must remain a GitHub prerelease and must not become latest.
-4. For stable, update the source version in a new commit and create the stable tag only after the
-   release-candidate path is clean.
+4. Create the stable tag on the exact reviewed commit only after the release-candidate path is
+   clean. If any source changed, run a new release candidate first.

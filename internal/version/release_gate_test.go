@@ -18,6 +18,11 @@ func TestReleaseVersionGateRejectsMismatchedTag(t *testing.T) {
 	if output, err := matching.CombinedOutput(); err != nil {
 		t.Fatalf("matching tag failed: %v: %s", err, output)
 	}
+	prerelease := exec.Command(script, "v"+Current()+"-rc.1")
+	prerelease.Dir = root
+	if output, err := prerelease.CombinedOutput(); err != nil {
+		t.Fatalf("matching prerelease failed: %v: %s", err, output)
+	}
 
 	mismatch := exec.Command(script, "v999.0.0")
 	mismatch.Dir = root

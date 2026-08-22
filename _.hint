@@ -60,6 +60,7 @@ add a dependency for what the standard library does.
 
 # decision Cross-platform builds and distribution are part of the first release {#distribution}
 
+The first public release line is 1.0.x; the manifest schema remains independently versioned.
 `CGO_ENABLED=0` and `-trimpath` make one Go source tree build for darwin/linux/windows ×
 amd64/arm64 from any machine (`GOOS`/`GOARCH`), reproducibly. Releases are cut by goreleaser
 from a tag: archives + checksums + SBOM on GitHub Releases, a Homebrew tap (`brew install
@@ -107,8 +108,9 @@ https://caddyserver.com/docs/install when wiring the packaging.
 The project is public and open source. Tag-triggered GitHub Actions runners build and publish
 release artifacts and distribution wrappers; no paid or self-hosted release service is part of
 the design. Third-party actions are pinned to full commit SHAs. `internal/version/VERSION` is
-the single release-version source embedded by the CLI; the release workflow must reject a tag
-other than `v` plus that exact value and must pass build and tests before any publishing job.
+the single release-version source embedded by the CLI; the release workflow accepts `v` plus
+that exact value or that value followed by a valid SemVer prerelease suffix, and rejects every
+other tag before publishing. Build and tests pass before any publishing job.
 On Windows a standalone-binary upgrade renames the running executable to an adjacent `.old`
 file before installing its replacement; a failed install restores it, and the next invocation
 removes the `.old` remnant best-effort.

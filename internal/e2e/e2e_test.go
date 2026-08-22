@@ -731,7 +731,7 @@ func TestPolyglotConsumerFullDependencyLifecycle(t *testing.T) {
 	mustWrite(t, filepath.Join(consumer, "package.json"), []byte("{\"name\":\"consumer\",\"dependencies\":{\"left-pad\":\"^1.0.0\"}}\n"))
 	mustWrite(t, filepath.Join(consumer, "pyproject.toml"), []byte("[project]\nname = \"consumer\"\ndependencies = []\n"))
 	mustWrite(t, filepath.Join(consumer, "go.mod"), []byte("module example.test/consumer\n\ngo 1.24\n"))
-	mustWrite(t, filepath.Join(consumer, "Cargo.toml"), []byte("[package]\nname = \"consumer\"\nversion = \"0.1.0\"\n\n[dependencies]\nserde = \"1\"\n"))
+	mustWrite(t, filepath.Join(consumer, "Cargo.toml"), []byte("[package]\nname = \"consumer\"\nversion = \"1.0.0\"\n\n[dependencies]\nserde = \"1\"\n"))
 	mustWrite(t, filepath.Join(consumer, "Package.swift"), []byte("// swift-tools-version: 6.0\nimport PackageDescription\n\nlet package = Package(\n    name: \"Consumer\",\n    dependencies: [],\n    targets: [.target(name: \"Consumer\")]\n)\n"))
 	mustWrite(t, filepath.Join(consumer, "pubspec.yaml"), []byte("name: consumer\nenvironment:\n  sdk: ^3.8.0\ndependencies:\n  http: ^1.0.0\n"))
 	var out, errOut bytes.Buffer

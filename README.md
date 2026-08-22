@@ -17,7 +17,7 @@ the way microservices take dependencies on services at runtime.
   `AGENTS.md`, answers "who do I ask about this and how", exports and validates A2A agent
   cards, and reports liveness and drift.
 
-Status: **early release.** The normative spec is
+Status: **1.0.0 release candidate.** The normative spec is
 [`spec/_.hint`](spec/_.hint) (read it with `hint spec`); worked examples are in
 [`spec/examples/`](spec/examples/). Agent cards follow the
 [A2A protocol](https://a2a-protocol.org/) v1.0; git-a2a adds semantics through the extension
@@ -56,7 +56,7 @@ standalone `binary` channel. Package-manager installations must be upgraded by t
 Linux packages are attached to each GitHub Release. After downloading the matching asset, use
 `sudo dpkg -i git-a2a_*.deb`, `sudo rpm -i git-a2a_*.rpm`, or `sudo apk add --allow-untrusted
 git-a2a_*.apk`. The scratch container can be run directly with `docker run --rm
-ghcr.io/neprel/git-a2a:0.1.0 version`.
+ghcr.io/neprel/git-a2a:1.0.0 version`.
 
 For an agent container, add the matching release archive; Docker extracts its `git-a2a` binary
 and no runtime is required:

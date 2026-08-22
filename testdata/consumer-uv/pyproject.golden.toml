@@ -1,6 +1,6 @@
 [project]
 name = "consumer-uv"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
   "click>=8",
   "acme-lib-utils",
