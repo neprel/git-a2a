@@ -111,7 +111,7 @@ func (a Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, e
 	}
 	s := string(b)
 	target := ""
-	namePattern := regexp.MustCompile(`(?:["']` + regexp.QuoteMeta(exp.Name) + `["']\s*=|["']` + regexp.QuoteMeta(exp.Name) + `\s+@)`)
+	namePattern := regexp.MustCompile(`(?:` + tomlKeyPattern(exp.Name) + `[ \t]*=|["']` + regexp.QuoteMeta(exp.Name) + `\s+@)`)
 	for _, line := range strings.Split(s, "\n") {
 		if namePattern.MatchString(line) {
 			target = line
@@ -314,7 +314,7 @@ func upsertUVSource(s, name, value string) (string, bool) {
 		return s + sep + "\n[tool.uv.sources]\n" + line + "\n", true
 	}
 	body := s[start:end]
-	re := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(key) + `\s*=.*$`)
+	re := regexp.MustCompile(`(?m)^[ \t]*` + tomlKeyPattern(name) + `[ \t]*=.*$`)
 	if old := re.FindString(body); old != "" {
 		if strings.TrimSpace(old) == line {
 			return s, false
@@ -348,7 +348,7 @@ func removeUVSource(s, name string) (string, bool) {
 		return s, false
 	}
 	body := s[start:end]
-	re := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(fmt.Sprintf("%q", name)) + `\s*=.*\n?`)
+	re := regexp.MustCompile(`(?m)^[ \t]*` + tomlKeyPattern(name) + `[ \t]*=.*\n?`)
 	if !re.MatchString(body) {
 		return s, false
 	}
@@ -363,4 +363,15 @@ func removeUVSource(s, name string) (string, bool) {
 		}
 	}
 	return s[:start] + body + s[end:], true
+}
+
+func tomlKeyPattern(name string) string {
+	patterns := []string{
+		regexp.QuoteMeta(strconv.Quote(name)),
+		regexp.QuoteMeta("'" + strings.ReplaceAll(name, "'", "\\'") + "'"),
+	}
+	if regexp.MustCompile(`^[A-Za-z0-9_-]+$`).MatchString(name) {
+		patterns = append(patterns, regexp.QuoteMeta(name))
+	}
+	return `(?:` + strings.Join(patterns, `|`) + `)`
 }

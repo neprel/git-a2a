@@ -143,6 +143,15 @@ func dependencyURL(dep adapter.Dependency, locked adapter.Locked, variant, path 
 		ref = dep.Ref
 	}
 	url := dep.Git
+	if strings.HasPrefix(url, "git@") {
+		parts := strings.SplitN(url, ":", 2)
+		if len(parts) == 2 {
+			url = "ssh://" + parts[0] + "/" + parts[1]
+		}
+	}
+	if !strings.HasPrefix(url, "git+") {
+		url = "git+" + url
+	}
 	if variant == "yarn-berry" {
 		if dep.Track == "floating" {
 			url += "#head=" + ref
@@ -153,15 +162,6 @@ func dependencyURL(dep adapter.Dependency, locked adapter.Locked, variant, path 
 			url += "&workspace=" + path
 		}
 		return url
-	}
-	if strings.HasPrefix(url, "git@") {
-		parts := strings.SplitN(url, ":", 2)
-		if len(parts) == 2 {
-			url = "ssh://" + parts[0] + "/" + parts[1]
-		}
-	}
-	if !strings.HasPrefix(url, "git+") {
-		url = "git+" + url
 	}
 	url += "#" + ref
 	if path != "" && path != "." && variant == "pnpm" {

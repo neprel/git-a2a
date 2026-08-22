@@ -2,6 +2,7 @@ package golang
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -11,7 +12,9 @@ import (
 	"github.com/neprel/git-a2a/internal/adapter"
 )
 
-type Adapter struct{}
+type Adapter struct {
+	ResolveVersion func(context.Context, string, string, string) (string, error)
+}
 
 func (Adapter) Ecosystem() string { return "golang" }
 func (Adapter) Detect(root string) (bool, adapter.Variant, error) {
@@ -22,7 +25,7 @@ func (Adapter) Detect(root string) (bool, adapter.Variant, error) {
 	return err == nil, "go", err
 }
 
-func (Adapter) Wire(ctx context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) (adapter.Change, error) {
+func (a Adapter) Wire(ctx context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) (adapter.Change, error) {
 	p := filepath.Join(root, "go.mod")
 	b, err := os.ReadFile(p)
 	if err != nil {
@@ -33,7 +36,13 @@ func (Adapter) Wire(ctx context.Context, root string, dep adapter.Dependency, ex
 	if err != nil {
 		return adapter.Change{}, adapter.NotWirable(err.Error())
 	}
-	version := "v0.0.0-00010101000000-" + locked.Commit[:12]
+	if len(locked.Commit) != 40 {
+		return adapter.Change{}, fmt.Errorf("golang: locked commit must be a 40-character object ID")
+	}
+	version, err := a.resolveVersion(ctx, root, source, locked.Commit)
+	if err != nil {
+		return adapter.Change{}, err
+	}
 	args := []string{"mod", "edit"}
 	if source == exp.Name {
 		args = append(args, "-require="+exp.Name+"@"+version, "-dropreplace="+exp.Name)
@@ -46,6 +55,26 @@ func (Adapter) Wire(ctx context.Context, root string, dep adapter.Dependency, ex
 	next, err := os.ReadFile(p)
 	changed := string(next) != s
 	return adapter.Change{File: "go.mod", Entry: exp.Name, Changed: changed}, err
+}
+
+func (a Adapter) resolveVersion(ctx context.Context, root, source, commit string) (string, error) {
+	if a.ResolveVersion != nil {
+		return a.ResolveVersion(ctx, root, source, commit)
+	}
+	raw, err := adapter.CommandOutput(ctx, root, "go", "list", "-m", "-json", source+"@"+commit)
+	if err != nil {
+		return "", fmt.Errorf("golang: resolve %s at %s with Go: %w", source, commit, err)
+	}
+	var result struct {
+		Version string
+	}
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return "", fmt.Errorf("golang: decode resolved module version: %w", err)
+	}
+	if result.Version == "" {
+		return "", fmt.Errorf("golang: Go returned no version for %s at %s", source, commit)
+	}
+	return result.Version, nil
 }
 
 func (Adapter) Unwire(ctx context.Context, root string, _ adapter.Dependency, exp adapter.Export) (adapter.Change, error) {

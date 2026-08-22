@@ -23,7 +23,7 @@ func TestWireGoldenIdempotentUnwire(t *testing.T) {
 	dep := adapter.Dependency{Git: "https://github.com/acme/lib-utils.git", Ref: "main", Track: "locked"}
 	exp := adapter.Export{Ecosystem: "golang", Name: "acme.dev/lib-utils"}
 	locked := adapter.Locked{Git: dep.Git, Commit: strings.Repeat("a", 40)}
-	a := Adapter{}
+	a := testAdapter()
 	change, err := a.Wire(context.Background(), root, dep, exp, locked)
 	if err != nil || !change.Changed {
 		t.Fatalf("wire: %#v %v", change, err)
@@ -78,18 +78,32 @@ func TestWireFloatingUsesLockedPseudoVersionAndDoesNotDuplicateRequireBlock(t *t
 	commit := strings.Repeat("b", 40)
 	dep := adapter.Dependency{Git: "https://github.com/acme/lib.git", Ref: "main", Track: "floating"}
 	exp := adapter.Export{Ecosystem: "golang", Name: "acme.dev/lib"}
-	if _, err := (Adapter{}).Wire(context.Background(), root, dep, exp, adapter.Locked{Git: dep.Git, Commit: commit}); err != nil {
+	if _, err := testAdapter().Wire(context.Background(), root, dep, exp, adapter.Locked{Git: dep.Git, Commit: commit}); err != nil {
 		t.Fatal(err)
 	}
 	got := string(mustReadFile(t, filepath.Join(root, "go.mod")))
 	if strings.Count(got, "acme.dev/lib v0.0.0") != 1 {
 		t.Fatalf("require duplicated:\n%s", got)
 	}
-	if !strings.Contains(got, "github.com/acme/lib v0.0.0-00010101000000-bbbbbbbbbbbb") || strings.Contains(got, " main") {
+	if !strings.Contains(got, "github.com/acme/lib v0.0.0-20260822112233-bbbbbbbbbbbb") || strings.Contains(got, " main") {
 		t.Fatalf("floating dependency was not pinned to locked commit:\n%s", got)
 	}
 	if findings, err := (Adapter{}).Drift(context.Background(), root, dep, exp, adapter.Locked{Git: dep.Git, Commit: commit}); err != nil || len(findings) != 0 {
 		t.Fatalf("drift=%v err=%v", findings, err)
+	}
+}
+
+func TestWireRejectsMalformedLockedCommitWithoutPanic(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module acme.dev/consumer\n\ngo 1.24\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := testAdapter().Wire(context.Background(), root,
+		adapter.Dependency{Git: "https://github.com/acme/lib.git"},
+		adapter.Export{Ecosystem: "golang", Name: "acme.dev/lib"},
+		adapter.Locked{Commit: "short"})
+	if err == nil || !strings.Contains(err.Error(), "40-character") {
+		t.Fatalf("err=%v", err)
 	}
 }
 
@@ -115,4 +129,10 @@ func mustReadFile(t *testing.T, path string) []byte {
 		t.Fatal(err)
 	}
 	return b
+}
+
+func testAdapter() Adapter {
+	return Adapter{ResolveVersion: func(_ context.Context, _, _, commit string) (string, error) {
+		return "v0.0.0-20260822112233-" + commit[:12], nil
+	}}
 }

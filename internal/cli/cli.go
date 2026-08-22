@@ -1064,6 +1064,10 @@ type wireOutcome struct {
 }
 
 func wireAll(ctx context.Context, root string, dep manifest.Dependency, module *manifest.Manifest, locked manifest.LockedDependency, refresh bool) ([]wireOutcome, error) {
+	return wireAllUsing(ctx, root, dep, module, locked, refresh, adapters.All())
+}
+
+func wireAllUsing(ctx context.Context, root string, dep manifest.Dependency, module *manifest.Manifest, locked manifest.LockedDependency, refresh bool, implementations []adapter.Adapter) ([]wireOutcome, error) {
 	wanted := map[string]bool{}
 	if dep.Wire != nil {
 		for _, ecosystem := range *dep.Wire {
@@ -1075,7 +1079,7 @@ func wireAll(ctx context.Context, root string, dep manifest.Dependency, module *
 	}
 	wired := map[string]bool{}
 	var outcomes []wireOutcome
-	for _, implementation := range adapters.All() {
+	for _, implementation := range implementations {
 		if dep.Wire != nil && !wanted[implementation.Ecosystem()] {
 			continue
 		}

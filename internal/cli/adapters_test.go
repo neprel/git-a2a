@@ -7,6 +7,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/neprel/git-a2a/adapters/golang"
+	"github.com/neprel/git-a2a/adapters/npm"
+	"github.com/neprel/git-a2a/adapters/pypi"
+	"github.com/neprel/git-a2a/internal/adapter"
 	"github.com/neprel/git-a2a/internal/manifest"
 )
 
@@ -26,7 +30,14 @@ func TestWireAllPolyglotUsesOneCommit(t *testing.T) {
 	module := &manifest.Manifest{Module: manifest.Module{Exports: []manifest.Export{{Ecosystem: "npm", Name: "@acme/lib-utils"}, {Ecosystem: "pypi", Name: "acme-lib-utils"}, {Ecosystem: "golang", Name: "acme.dev/lib-utils"}}}}
 	commit := strings.Repeat("a", 40)
 	locked := manifest.LockedDependency{Commit: commit}
-	if _, err := wireAll(context.Background(), root, dep, module, locked, false); err != nil {
+	implementations := []adapter.Adapter{
+		npm.Adapter{},
+		pypi.Adapter{},
+		golang.Adapter{ResolveVersion: func(_ context.Context, _, _, commit string) (string, error) {
+			return "v0.0.0-20260822112233-" + commit[:12], nil
+		}},
+	}
+	if _, err := wireAllUsing(context.Background(), root, dep, module, locked, false, implementations); err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"package.json", "pyproject.toml", "go.mod"} {

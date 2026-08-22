@@ -11,3 +11,6 @@ requested export's dependency/source entry and compares both the normalised git 
 locked commit; it must not accidentally match another git dependency elsewhere in the file.
 When the matching PEP 621 requirement already exists, wiring replaces that item in place if its
 git source or locked revision changed; mere presence of the project name does not make it current.
+UV source keys may be bare or single-/double-quoted TOML keys. Matching consumes horizontal
+indentation only, never the newline after `[tool.uv.sources]`, so replacing a key cannot join it
+to the table header or create a quoted duplicate beside a bare key.

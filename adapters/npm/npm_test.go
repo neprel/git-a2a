@@ -113,6 +113,25 @@ func TestNPMRefreshOnlyUpdatesLockfileWithoutScripts(t *testing.T) {
 		t.Fatalf("refresh command = %q, want %q", got, want)
 	}
 }
+
+func TestYarnBerryDependencyURLUsesGitTransport(t *testing.T) {
+	commit := strings.Repeat("a", 40)
+	for _, gitURL := range []string{
+		"git@example.test:acme/lib.git",
+		"ssh://git@example.test/acme/lib.git",
+		"https://example.test/acme/lib.git",
+	} {
+		got := dependencyURL(
+			adapter.Dependency{Git: gitURL, Track: "locked"},
+			adapter.Locked{Commit: commit},
+			"yarn-berry",
+			".",
+		)
+		if !strings.HasPrefix(got, "git+") || !strings.HasSuffix(got, "#commit="+commit) {
+			t.Errorf("dependencyURL(%q) = %q", gitURL, got)
+		}
+	}
+}
 func copyFile(t *testing.T, src, dst string) []byte {
 	t.Helper()
 	b := mustRead(t, src)

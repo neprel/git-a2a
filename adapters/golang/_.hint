@@ -2,8 +2,9 @@
 
 The Go adapter uses `go mod edit` for `-require`, `-replace`, `-droprequire`, and
 `-dropreplace`; it does not parse or reconstruct `go.mod`. Locked and floating dependencies
-both write a pseudo-version derived from the resolved commit so Go never receives an invalid
-raw revision in a `require` directive. Unrelated directives, comments, and blank lines survive.
+both ask `go list -m -json <module>@<commit>` for the native version and give that exact
+pseudo-version to `go mod edit`; a fabricated zero timestamp is invalid for a real module and
+must never be written. Unrelated directives, comments, and blank lines survive.
 
 # decision Go refresh is intentionally empty
 
@@ -15,4 +16,6 @@ dependency workflow separately when they choose.
 
 - Existing require blocks gain no duplicate directives.
 - Floating and locked wiring both contain the locked commit prefix.
+- A malformed locked object ID returns an error rather than slicing or panicking.
+- The resolved pseudo-version carries the commit timestamp returned by the Go toolchain.
 - Unwire removes only the owned require/replace pair and preserves surrounding bytes.

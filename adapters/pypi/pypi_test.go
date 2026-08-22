@@ -119,3 +119,35 @@ func TestWireUpdatesExistingPEP621GitPin(t *testing.T) {
 		t.Fatalf("dependency was not updated minimally:\n%s", got)
 	}
 }
+
+func TestWireUpdatesBareUVSourceWithoutDuplicatingOrJoiningHeader(t *testing.T) {
+	root := t.TempDir()
+	oldCommit := strings.Repeat("a", 40)
+	newCommit := strings.Repeat("b", 40)
+	content := "[project]\nname = \"consumer\"\ndependencies = [\"acme_lib\"]\n\n[tool.uv.sources]\nacme_lib = { git = \"https://example.test/acme/lib.git\", rev = \"" + oldCommit + "\" }\n\n[tool.other]\nkeep = true\n"
+	if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "uv.lock"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dep := adapter.Dependency{Git: "https://example.test/acme/lib.git", Track: "locked"}
+	exp := adapter.Export{Ecosystem: "pypi", Name: "acme_lib"}
+	if _, err := (Adapter{}).Wire(context.Background(), root, dep, exp, adapter.Locked{Git: dep.Git, Commit: newCommit}); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := os.ReadFile(filepath.Join(root, "pyproject.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(updated)
+	if strings.Count(got, "rev =") != 1 || strings.Contains(got, oldCommit) || !strings.Contains(got, "[tool.uv.sources]\n\"acme_lib\" =") {
+		t.Fatalf("UV source was not replaced minimally:\n%s", got)
+	}
+	if !strings.Contains(got, "\n[tool.other]\nkeep = true") {
+		t.Fatalf("following table was changed:\n%s", got)
+	}
+	if findings, err := (Adapter{}).Drift(context.Background(), root, dep, exp, adapter.Locked{Git: dep.Git, Commit: newCommit}); err != nil || len(findings) != 0 {
+		t.Fatalf("drift=%v err=%v", findings, err)
+	}
+}

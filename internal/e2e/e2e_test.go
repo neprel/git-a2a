@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -682,6 +684,32 @@ func TestRemoveDoesNotReportSuccessWhenMissingCacheCannotRecover(t *testing.T) {
 
 func TestPolyglotConsumerFullDependencyLifecycle(t *testing.T) {
 	tmp := t.TempDir()
+	goProxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		const marker = "/@v/"
+		markerAt := strings.Index(r.URL.Path, marker)
+		if markerAt < 1 {
+			http.NotFound(w, r)
+			return
+		}
+		modulePath := strings.TrimPrefix(r.URL.Path[:markerAt], "/")
+		name := r.URL.Path[markerAt+len(marker):]
+		switch {
+		case strings.HasSuffix(name, ".info"):
+			revision := strings.TrimSuffix(name, ".info")
+			if len(revision) == 40 {
+				fmt.Fprintf(w, `{"Version":"v0.0.0-20260822112233-%s","Time":"2026-08-22T11:22:33Z"}`, revision[:12])
+				return
+			}
+			fmt.Fprintf(w, `{"Version":%q,"Time":"2026-08-22T11:22:33Z"}`, revision)
+		case strings.HasSuffix(name, ".mod"):
+			fmt.Fprintf(w, "module %s\n\ngo 1.24\n", modulePath)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer goProxy.Close()
+	t.Setenv("GOPROXY", goProxy.URL)
+	t.Setenv("GONOSUMDB", "example.test/acme/lib")
 	source := filepath.Join(tmp, "source")
 	original := filepath.Join(tmp, "original.git")
 	fork := filepath.Join(tmp, "fork.git")

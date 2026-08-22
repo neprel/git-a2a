@@ -4,6 +4,9 @@ The npm adapter changes only the matching `dependencies` entry. Existing inline 
 surrounding bytes and unrelated dependencies; no whole-document pretty-print is allowed.
 Locked wiring uses the canonical Git URL plus the full locked commit, and drift reads
 `package.json` even when no package lock exists.
+All Git dependencies use an explicit `git+` transport. In particular, Yarn Berry receives
+`git+ssh://...#commit=<sha>` (with SCP-style SSH URLs normalised first); bare `ssh://` and
+`https://` selectors are not valid Yarn Git dependencies.
 
 # decision npm refresh cannot run lifecycle scripts
 
@@ -16,3 +19,4 @@ use their dependency-specific native update command.
 - Wire and unwire are idempotent and preserve unrelated inline JSON bytes.
 - Tampering with the manifest pin is drift even without `package-lock.json`.
 - npm refresh is lockfile-only and disables scripts, audit, and funding requests.
+- Yarn Berry output carries a `git+` transport for HTTPS, SSH, and SCP-style inputs.
