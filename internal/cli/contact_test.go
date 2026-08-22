@@ -43,6 +43,30 @@ func TestContactA2AFromStdinPrintsOneRecordAndStoresNothing(t *testing.T) {
 	}
 }
 
+func TestContactPreservesOrderForInstructionDriver(t *testing.T) {
+	root := t.TempDir()
+	cache := filepath.Join(root, ".git-a2a", "cache", "acme-lib")
+	if err := os.MkdirAll(cache, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := "schema: 1\nmodule: {id: acme-lib}\nagents:\n  - name: owner\n    role: owner\n    contacts:\n      - intents: [question]\n        kind: email\n        address: owner@example.test\n      - intents: [question]\n        kind: a2a\n        url: https://should-not-run.example.test\n"
+	if err := os.WriteFile(filepath.Join(cache, "a2amodule.yml"), []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "message.md"), []byte("Question\nDetails\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out, errOut bytes.Buffer
+	app := New(&out, &errOut)
+	app.Root = root
+	if code := app.Run([]string{"ask", "acme-lib", "--message", "message.md"}); code != 0 {
+		t.Fatalf("exit=%d stderr=%s", code, errOut.String())
+	}
+	if strings.Count(strings.TrimSpace(out.String()), "\n") != 0 || !strings.Contains(out.String(), "kind=email") || !strings.Contains(out.String(), "state=instruction") {
+		t.Fatalf("stdout=%q", out.String())
+	}
+}
+
 func directoryFiles(t *testing.T, root string) []string {
 	t.Helper()
 	var files []string

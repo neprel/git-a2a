@@ -15,14 +15,19 @@ type Request struct {
 }
 
 type Record struct {
-	Agent string
-	Kind  string
-	ID    string
-	State string
+	Agent       string
+	Kind        string
+	ID          string
+	State       string
+	Instruction string
 }
 
 func (r Record) String() string {
-	return fmt.Sprintf("agent=%q kind=%s id=%q state=%s", r.Agent, r.Kind, r.ID, r.State)
+	value := fmt.Sprintf("agent=%q kind=%s id=%q state=%s", r.Agent, r.Kind, r.ID, r.State)
+	if r.Instruction != "" {
+		value += fmt.Sprintf(" instruction=%q", r.Instruction)
+	}
+	return value
 }
 
 type Driver interface {

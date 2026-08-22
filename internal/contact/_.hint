@@ -17,6 +17,13 @@ does the driver call the GitHub Issues REST API, using `GH_TOKEN` then `GITHUB_T
 `GITHUB_API_URL` for GitHub Enterprise. A present but failing `gh` is reported, not silently
 replayed through REST, so one request cannot create two issues.
 
+# decision Passive contacts print an actionable record
+
+`url`, `email`, Mattermost, Slack, Discord, Telegram, and Teams do not cause external delivery.
+Their drivers emit a one-line instruction naming the declared destination and referring to the
+supplied message without copying multiline message content into stdout. Because instruction
+kinds are real drivers, their declaration order relative to active drivers is preserved.
+
 # test Contact drivers
 
 - An httptest A2A endpoint observes the exact method, protocol header, user role, and text part.
