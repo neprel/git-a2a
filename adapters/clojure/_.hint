@@ -1,0 +1,12 @@
+# decision tools.deps git coordinates stay commit-pinned
+
+The Clojure adapter owns one delimited qualified lib entry in the top-level `:deps` map in
+`deps.edn`. It writes `:git/url` and the full lock commit as `:git/sha`; `:deps/root` carries an
+export subdirectory. tools.deps has no branch-following coordinate, so even a floating module
+dependency is rewired to the commit most recently resolved by git-a2a.
+
+# test Clojure adapter
+
+- Fixture/golden wiring is idempotent and preserves unrelated EDN forms and comments.
+- Unqualified library names are typed not-wirable.
+- Drift checks the normalized Git URL and full SHA; unwire removes only the delimited entry.

@@ -1,0 +1,7 @@
+{:paths ["src"]
+ :deps {
+   org.clojure/clojure {:mvn/version "1.12.0"}
+   ;; git-a2a:begin acme/lib-utils
+   acme/lib-utils {:git/url "https://github.com/acme/lib-utils.git" :git/sha "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" :deps/root "clojure/lib"}
+   ;; git-a2a:end acme/lib-utils
+ }}
