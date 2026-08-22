@@ -17,6 +17,13 @@ import (
 
 func TestHintEntityFieldsMatchSchemaAndGoTypes(t *testing.T) {
 	root := filepath.Clean("..")
+	// HINT reads these files in a child process, which the Go test cache cannot
+	// observe. Reading them here makes changes part of this test's cache inputs.
+	for _, path := range []string{"_.hint", filepath.Join("spec", "_.hint")} {
+		if _, err := os.ReadFile(filepath.Join(root, path)); err != nil {
+			t.Fatalf("read HINT cache input %s: %v", path, err)
+		}
+	}
 	command := exec.Command("hint", "spec")
 	command.Dir = root
 	compiled, err := command.Output()

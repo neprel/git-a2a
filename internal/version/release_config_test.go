@@ -22,6 +22,7 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 		return string(body)
 	}
 	workflow := read(".github/workflows/release.yml")
+	ciWorkflow := read(".github/workflows/ci.yml")
 	for _, required := range []string{"needs: test", "permissions: {}", "contents: write", "packages: write", "id-token: write", "--skip=homebrew", "--skip=scoop", "NPM_TOKEN == ''"} {
 		if !strings.Contains(workflow, required) {
 			t.Errorf("release workflow missing %q", required)
@@ -30,7 +31,12 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	if regexp.MustCompile(`(?m)^\s*if:\s*\$\{\{\s*secrets\.`).MatchString(workflow) {
 		t.Error("GitHub Actions does not allow the secrets context directly in an if expression")
 	}
-	allWorkflows := workflow + "\n" + read(".github/workflows/ci.yml")
+	for name, body := range map[string]string{"release": workflow, "CI": ciWorkflow} {
+		if !strings.Contains(body, "npm install --global --ignore-scripts @openhint/cli@1.5.1") || !strings.Contains(body, "go test -count=1 ./...") {
+			t.Errorf("%s workflow must install the pinned HINT compiler and bypass stale test results", name)
+		}
+	}
+	allWorkflows := workflow + "\n" + ciWorkflow
 	action := regexp.MustCompile(`(?m)^\s*- uses: [^@]+@[0-9a-f]{40}(?:\s+# v[^\s]+)$`)
 	uses := regexp.MustCompile(`(?m)^\s*- uses:`).FindAllStringIndex(allWorkflows, -1)
 	if matches := action.FindAllStringIndex(allWorkflows, -1); len(matches) != len(uses) {
