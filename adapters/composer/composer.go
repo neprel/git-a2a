@@ -91,8 +91,8 @@ func (Adapter) Unwire(_ context.Context, root string, dep adapter.Dependency, ex
 	return adapter.Change{File: "composer.json", Entry: "require." + exp.Name, Changed: requireChanged || repositoryChanged}, err
 }
 
-func (Adapter) Refresh(context.Context, string, adapter.Dependency, adapter.Export, adapter.Locked) error {
-	return nil
+func (Adapter) Refresh(ctx context.Context, _ string, _ adapter.Dependency, _ adapter.Export, _ adapter.Locked) error {
+	return adapter.RequireTool(ctx, "composer", "composer")
 }
 
 func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {

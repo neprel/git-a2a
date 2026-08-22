@@ -4,6 +4,8 @@
 `application/a2a-agent-card+json` entry per declared module agent. Absolute card URLs remain
 references; repository-relative cards and synthesized cards are embedded as `data`. Entries do
 not copy descriptions, skills, or trust claims beside the native Agent Card.
+Synthesized extension parameters resolve the repository's symbolic default branch before
+emitting `ref`; if no branch can be resolved, `ref` is omitted and never serialized as `HEAD`.
 
 # invariant ARD identities are deterministic and domain anchored
 

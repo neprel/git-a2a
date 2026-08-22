@@ -265,4 +265,8 @@ adapter on fixture repositories under `testdata/` (the `acme-lib-utils` / `acme-
 determinism (render twice, compare bytes); an end-to-end test against local bare repositories
 created by the test (`file://` URLs, `uploadpack.allowFilter=true` set on the fixture) so no
 network is required; schema validation of every file under `spec/examples/`. `hint status` is
-run in CI as an advisory.
+run in CI as an advisory. Verification also includes a ten-manifest public corpus per ecosystem,
+spec/schema/Go-field parity, Windows unit tests, weekly/manual real-toolchain matrices, opt-in
+real-host fetch tests, and the pinned A2A-proto conformance script. Prerequisite tests use a fake
+`PATH`; they must prove `doctor` fails clearly while wiring remains available without installing
+or downloading a toolchain.

@@ -69,8 +69,8 @@ func (Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, exp 
 	return adapter.Change{File: "pubspec.yaml", Entry: exp.Name, Changed: true}, err
 }
 
-func (Adapter) Refresh(context.Context, string, adapter.Dependency, adapter.Export, adapter.Locked) error {
-	return nil
+func (Adapter) Refresh(ctx context.Context, _ string, _ adapter.Dependency, _ adapter.Export, _ adapter.Locked) error {
+	return adapter.RequireTool(ctx, "pub", "pub")
 }
 
 func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {

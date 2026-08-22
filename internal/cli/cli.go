@@ -113,6 +113,8 @@ func (a *App) Run(args []string) int {
 		return a.catalog(args[1:])
 	case "fmt":
 		return a.format(args[1:])
+	case "doctor":
+		return a.doctor(args[1:])
 	case "help", "-h", "--help":
 		a.usage()
 		return 0
@@ -124,7 +126,7 @@ func (a *App) Run(args []string) int {
 }
 
 func (a *App) usage() {
-	fmt.Fprintln(a.Out, "usage: git-a2a <init|validate|add|set|pin|unpin|wire|update|remove|show|sync|who|contact|status|card|catalog|fmt|version|upgrade> [options]")
+	fmt.Fprintln(a.Out, "usage: git-a2a <init|validate|add|set|pin|unpin|wire|update|remove|show|sync|who|contact|status|card|catalog|fmt|doctor|version|upgrade> [options]")
 }
 func (a *App) commandUsage(command string) {
 	usage := map[string]string{
@@ -139,6 +141,7 @@ func (a *App) commandUsage(command string) {
 		"status": "git-a2a status [ID ...] [--offline] [--json] [-v]", "card": "git-a2a card <export|validate|verify|show> [options]",
 		"catalog": "git-a2a catalog export [--out FILE]",
 		"fmt":     "git-a2a fmt [--check] [PATH...]", "version": "git-a2a version [--check]", "upgrade": "git-a2a upgrade [--to VERSION]",
+		"doctor": "git-a2a doctor [--json]",
 	}
 	if line := usage[command]; line != "" {
 		fmt.Fprintln(a.Out, "usage: "+line)
@@ -586,6 +589,9 @@ func (a *App) add(args []string) int {
 		if !outcome.Wired {
 			fmt.Fprintf(a.Err, "%s: not wired: %s\n", outcome.Ecosystem, outcome.Reason)
 		}
+		if outcome.Warning != "" {
+			fmt.Fprintf(a.Err, "warning: %s\n", outcome.Warning)
+		}
 	}
 	return 0
 }
@@ -816,6 +822,9 @@ func (a *App) update(args []string) int {
 		for _, outcome := range outcomes {
 			if !outcome.Wired {
 				advisories = append(advisories, fmt.Sprintf("%s: %s not wired: %s", d.ID, outcome.Ecosystem, outcome.Reason))
+			}
+			if outcome.Warning != "" {
+				advisories = append(advisories, "warning: "+outcome.Warning)
 			}
 		}
 	}
@@ -1160,6 +1169,7 @@ func (a *App) format(args []string) int {
 type wireOutcome struct {
 	Ecosystem string
 	Reason    string
+	Warning   string
 	Changed   bool
 	Wired     bool
 }
@@ -1207,6 +1217,10 @@ func wireAllUsing(ctx context.Context, root string, dep manifest.Dependency, mod
 			outcomes = append(outcomes, wireOutcome{Ecosystem: exp.Ecosystem, Changed: change.Changed, Wired: true})
 			if refresh && change.Changed {
 				if err := implementation.Refresh(ctx, root, dep, exp, locked); err != nil {
+					if adapter.IsToolUnavailable(err) {
+						outcomes[len(outcomes)-1].Warning = err.Error()
+						continue
+					}
 					return nil, err
 				}
 			}

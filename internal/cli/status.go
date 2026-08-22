@@ -15,6 +15,7 @@ import (
 
 	"github.com/neprel/git-a2a/adapters"
 	"github.com/neprel/git-a2a/internal/a2a"
+	"github.com/neprel/git-a2a/internal/adapter"
 	"github.com/neprel/git-a2a/internal/cache"
 	"github.com/neprel/git-a2a/internal/fetch"
 	"github.com/neprel/git-a2a/internal/gitx"
@@ -176,6 +177,25 @@ func (a *App) status(args []string) int {
 				if verbose {
 					for _, state := range wiringStates {
 						ecosystem, _, _ := strings.Cut(state, " ")
+						for _, implementation := range adapters.All() {
+							if implementation.Ecosystem() != ecosystem {
+								continue
+							}
+							ok, variant, detectErr := implementation.Detect(root)
+							if detectErr != nil || !ok {
+								break
+							}
+							tool := adapter.InspectTool(a.context(), adapter.ToolFor(ecosystem, variant))
+							if !tool.Ready {
+								row.failed = true
+								if !tool.Found {
+									row.Details = append(row.Details, ecosystem+": tool missing ("+tool.Command+") — install: "+tool.Install)
+								} else {
+									row.Details = append(row.Details, ecosystem+": tool incompatible ("+tool.Version+") — install: "+tool.Install)
+								}
+							}
+							break
+						}
 						if adapters.Verification(ecosystem) == "form-verified" {
 							row.Details = append(row.Details, ecosystem+": form-verified (real toolchain integration pending)")
 						}
@@ -198,6 +218,29 @@ func (a *App) status(args []string) int {
 	}
 	if len(wanted) == 0 {
 		state, failed, details := checkAgents(own, nil, root, root, offline)
+		if verbose {
+			for _, implementation := range adapters.All() {
+				ok, variant, detectErr := implementation.Detect(root)
+				if detectErr != nil {
+					details = append(details, implementation.Ecosystem()+": prerequisite detection failed: "+detectErr.Error())
+					failed = true
+					continue
+				}
+				if !ok {
+					continue
+				}
+				tool := adapter.InspectTool(a.context(), adapter.ToolFor(implementation.Ecosystem(), variant))
+				if tool.Ready {
+					details = append(details, implementation.Ecosystem()+": tool "+tool.Command+" found ("+tool.Version+")")
+				} else if !tool.Found {
+					details = append(details, implementation.Ecosystem()+": tool missing ("+tool.Command+") — install: "+tool.Install)
+					failed = true
+				} else {
+					details = append(details, implementation.Ecosystem()+": tool incompatible ("+tool.Version+") — install: "+tool.Install)
+					failed = true
+				}
+			}
+		}
 		rows = append(rows, statusRow{ID: own.Module.ID, Source: "self", Ref: "self", Upstream: "self", Manifest: "valid", Wiring: "none", Agents: state, Sync: syncState, Details: details, failed: failed || syncState == "stale"})
 	}
 	failures := 0

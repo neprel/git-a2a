@@ -91,3 +91,29 @@ func TestWireAllSkipsImplicitlyUnwirableAndRejectsExplicit(t *testing.T) {
 		t.Fatal("explicitly requested unwirable ecosystem succeeded")
 	}
 }
+
+type missingRefreshAdapter struct{}
+
+func (missingRefreshAdapter) Ecosystem() string                            { return "demo" }
+func (missingRefreshAdapter) Detect(string) (bool, adapter.Variant, error) { return true, "demo", nil }
+func (missingRefreshAdapter) Wire(context.Context, string, adapter.Dependency, adapter.Export, adapter.Locked) (adapter.Change, error) {
+	return adapter.Change{Changed: true}, nil
+}
+func (missingRefreshAdapter) Unwire(context.Context, string, adapter.Dependency, adapter.Export) (adapter.Change, error) {
+	return adapter.Change{}, nil
+}
+func (missingRefreshAdapter) Refresh(context.Context, string, adapter.Dependency, adapter.Export, adapter.Locked) error {
+	requirement := adapter.ToolRequirement{Ecosystem: "demo", Command: "demo", Install: "https://example.test/install"}
+	return adapter.MissingToolError{Requirement: requirement}
+}
+func (missingRefreshAdapter) Drift(context.Context, string, adapter.Dependency, adapter.Export, adapter.Locked) ([]adapter.Finding, error) {
+	return nil, nil
+}
+
+func TestWireWarnsAndSucceedsWhenRefreshToolIsMissing(t *testing.T) {
+	module := &manifest.Manifest{Module: manifest.Module{Exports: []manifest.Export{{Ecosystem: "demo", Name: "demo"}}}}
+	outcomes, err := wireAllUsing(context.Background(), t.TempDir(), manifest.Dependency{}, module, manifest.LockedDependency{}, true, []adapter.Adapter{missingRefreshAdapter{}})
+	if err != nil || len(outcomes) != 1 || !strings.Contains(outcomes[0].Warning, "demo: demo not found — install:") {
+		t.Fatalf("outcomes=%+v err=%v", outcomes, err)
+	}
+}

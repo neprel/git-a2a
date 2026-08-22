@@ -4,15 +4,18 @@ The npm adapter changes only the matching `dependencies` entry. Existing inline 
 surrounding bytes and unrelated dependencies; no whole-document pretty-print is allowed.
 Locked wiring uses the canonical Git URL plus the full locked commit, and drift reads
 `package.json` even when no package lock exists.
-All Git dependencies use an explicit `git+` transport. In particular, Yarn Berry receives
-`git+ssh://...#commit=<sha>` (with SCP-style SSH URLs normalised first); bare `ssh://` and
-`https://` selectors are not valid Yarn Git dependencies.
+HTTP(S) and SSH Git dependencies use an explicit `git+` transport. In particular, Yarn Berry
+receives `git+ssh://...#commit=<sha>` (with SCP-style SSH URLs normalised first); bare `ssh://`
+and `https://` selectors are not valid Yarn Git dependencies. A native `git://` URL stays
+`git://` rather than becoming the invalid `git+git://` form.
 
 # decision npm refresh cannot run lifecycle scripts
 
 When `package-lock.json` exists, refresh uses `npm install --package-lock-only --ignore-scripts
 --no-audit --no-fund`. Without a package lock it performs no command. Yarn Berry, pnpm, and Bun
 use their dependency-specific native update command.
+Before either path, Refresh checks the detected executable through the shared prerequisite
+layer; a missing tool returns the same actionable error as `doctor`.
 
 # test npm adapter preservation
 

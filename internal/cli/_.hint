@@ -22,3 +22,12 @@ state belongs in the manifest, lock, or `.git-a2a/`; command delivery history is
 
 `--dry-run`, `--check`, offline inspection, help, and validation paths do not change tracked files,
 the lock, or `.git-a2a/`.
+
+# decision Prerequisite reporting is shared with adapters
+
+`doctor` always checks Git >= 2.25, warns below 2.27, and unions tools from detected ecosystem
+markers with ecosystems explicitly named by wired dependencies. Human and JSON output include
+version, PATH state, and the platform install hint; any required missing or incompatible tool is
+exit 1. `status -v` exposes the same state. `add`, `wire`, `update`, and `set` preserve a completed
+manifest edit and warn when only downstream Refresh is unavailable; a direct adapter `Refresh`
+returns the shared actionable error.

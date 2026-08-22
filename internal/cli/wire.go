@@ -75,6 +75,9 @@ func (a *App) wire(args []string) int {
 			return 1
 		}
 		for _, outcome := range outcomes {
+			if outcome.Warning != "" {
+				fmt.Fprintf(a.Err, "warning: %s\n", outcome.Warning)
+			}
 			if outcome.Changed {
 				changed++
 				output = append(output, fmt.Sprintf("%s: wired %s", outcome.Ecosystem, original.ID))

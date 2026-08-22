@@ -85,8 +85,12 @@ func (a Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, ex
 	return adapter.Change{File: file, Entry: exp.Name, Changed: true}, err
 }
 
-func (Adapter) Refresh(context.Context, string, adapter.Dependency, adapter.Export, adapter.Locked) error {
-	return nil
+func (a Adapter) Refresh(ctx context.Context, root string, _ adapter.Dependency, _ adapter.Export, _ adapter.Locked) error {
+	_, variant, err := a.Detect(root)
+	if err != nil {
+		return err
+	}
+	return adapter.RequireTool(ctx, "hackage", variant)
 }
 
 func (a Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {

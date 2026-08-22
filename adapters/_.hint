@@ -49,3 +49,11 @@ Every adapter is regression-tested against at least ten unmodified public manife
 When a native format has no addressable metadata for ownership, git-a2a uses ecosystem-valid
 delimiters and records whether it created a container or separator. That provenance makes
 removal reversible without guessing about a human's empty table, trailing comma, or formatting.
+
+# invariant Refresh checks its native tool first
+
+Every adapter calls the shared prerequisite check before `Refresh`, including adapters whose
+safe refresh operation is otherwise empty. The detected variant chooses the command (`yarn`,
+`pnpm`, `uv`, `poetry`, `cabal`, or `stack`); missing tools return the same actionable
+`<ecosystem>: <tool> not found — install: <platform hint>` error that `doctor` reports. `Wire`
+is a text edit and remains available without the tool.

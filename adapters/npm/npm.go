@@ -91,6 +91,9 @@ func (a Adapter) Refresh(ctx context.Context, root string, _ adapter.Dependency,
 	if err != nil {
 		return err
 	}
+	if err := adapter.RequireTool(ctx, a.Ecosystem(), v); err != nil {
+		return err
+	}
 	if v == "npm" {
 		if _, err := os.Stat(filepath.Join(root, "package-lock.json")); os.IsNotExist(err) {
 			return nil

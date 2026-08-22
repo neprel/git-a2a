@@ -102,6 +102,9 @@ func (a Adapter) Refresh(ctx context.Context, root string, _ adapter.Dependency,
 	if err != nil {
 		return err
 	}
+	if err := adapter.RequireTool(ctx, a.Ecosystem(), v); err != nil {
+		return err
+	}
 	switch v {
 	case "uv":
 		return adapter.Command(ctx, root, "uv", "lock", "--upgrade-package", exp.Name)

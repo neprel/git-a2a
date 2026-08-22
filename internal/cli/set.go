@@ -302,6 +302,9 @@ func (a *App) applySet(o setOptions) int {
 		fmt.Fprintf(a.Err, "ref %s is ambiguous; selected %s\n", next.Ref, resolution.FullRef)
 	}
 	for _, outcome := range outcomes {
+		if outcome.Warning != "" {
+			fmt.Fprintf(a.Err, "warning: %s\n", outcome.Warning)
+		}
 		if outcome.Changed {
 			fmt.Fprintf(a.Out, "%s: rewired %s\n", outcome.Ecosystem, next.ID)
 		} else if !outcome.Wired {
@@ -373,6 +376,10 @@ func rewireSet(ctx context.Context, root string, oldDep, newDep manifest.Depende
 			if change.Changed {
 				if refresh {
 					if err = impl.Refresh(ctx, root, newDep, exp, locked); err != nil {
+						if adapter.IsToolUnavailable(err) {
+							outcomes[len(outcomes)-1].Warning = err.Error()
+							continue
+						}
 						return nil, err
 					}
 				}

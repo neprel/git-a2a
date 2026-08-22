@@ -92,7 +92,7 @@ func (Adapter) Unwire(ctx context.Context, root string, _ adapter.Dependency, ex
 	return adapter.Change{File: "go.mod", Entry: exp.Name, Changed: changed}, err
 }
 func (Adapter) Refresh(ctx context.Context, root string, _ adapter.Dependency, _ adapter.Export, _ adapter.Locked) error {
-	return nil
+	return adapter.RequireTool(ctx, "golang", "go")
 }
 func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
 	b, err := os.ReadFile(filepath.Join(root, "go.mod"))
