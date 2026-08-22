@@ -36,6 +36,8 @@
         "description": { "type": "string" },
         "languages": { "type": "array", "items": { "type": "string" } },
         "surface": { "$ref": "#/$defs/relativePath" },
+        "repository": { "type": "string" },
+        "moved-to": { "$ref": "#/$defs/movedTo" },
         "docs": { "type": "string", "format": "uri" },
         "release": { "$ref": "#/$defs/release" },
         "exports": { "type": "array", "items": { "$ref": "#/$defs/export" } }
@@ -48,6 +50,17 @@
       "properties": {
         "channel": { "type": "string" },
         "tags": { "type": "boolean" },
+        "notes": { "type": "string" }
+      },
+      "patternProperties": { "^x-": {} },
+      "additionalProperties": false
+    },
+    "movedTo": {
+      "type": "object",
+      "required": ["git"],
+      "properties": {
+        "git": { "type": "string" },
+        "path": { "$ref": "#/$defs/relativePath" },
         "notes": { "type": "string" }
       },
       "patternProperties": { "^x-": {} },

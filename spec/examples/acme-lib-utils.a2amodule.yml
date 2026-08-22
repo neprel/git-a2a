@@ -10,6 +10,7 @@ module:
     differences between the three implementations, and when a change lands in each; ask the
     spec agent for anything that changes the contract.
   languages: [typescript, python, go]
+  repository: ssh://git@github.com/acme/lib-utils.git
   surface: surface/
   release:
     channel: main

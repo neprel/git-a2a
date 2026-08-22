@@ -74,6 +74,31 @@ image. All channels install the same binary with the same version string (`git-a
 prints version, commit, and build target). Wrappers contain no logic: they locate and exec the
 binary, nothing else, so behaviour never depends on the channel.
 
+Learn from Caddy (Go, no npm/PyPI at all): its channels are the Go toolchain itself
+(`go install github.com/caddyserver/caddy/v2/cmd/caddy@latest`, and `go run <module>@<version>`
+is Go's own zero-install equivalent of `npx`/`uvx` — it works for git-a2a as
+`go run github.com/neprel/git-a2a/cmd/git-a2a@latest`), static binaries on GitHub Releases, OS
+package repositories (deb/rpm built with nfpm and hosted as apt/dnf repos — Caddy uses
+Cloudsmith and Fedora COPR), Homebrew, Chocolatey/Scoop/winget, Docker images, a webi/curl
+installer, and distro packages maintained by the distros. Priority for git-a2a therefore: (1)
+GitHub Releases + `go install`/`go run` + curl installer — free with goreleaser and enough for
+every CI and agent container that has Go or curl; (2) Homebrew tap, Scoop/winget, deb/rpm via
+nfpm (goreleaser does it) with an apt/dnf repository when there are users to justify hosting;
+(3) Docker image; (4) the npm and PyPI thin wrappers — a convenience for harnesses that have
+node/python but neither Go nor curl, never a blocker for a release. Updating the tool: when a package manager installed it, that manager updates it — git-a2a
+never writes over a binary it does not own; zero-install forms (`go run …@latest`, `npx`,
+`uvx`) resolve per run and are pinned with `@version` in scripts; for the standalone binary
+(curl installer, Releases download, baked into an image) an **explicit** `git-a2a upgrade
+[--to X.Y.Z]` — like `caddy upgrade` — downloads the release for its platform, verifies the
+checksum, replaces the file atomically, and prints the changelog. Explicit means on request,
+never at start-up and never silently: a CLI that updates itself out of its pins breaks every
+image that pinned it (a lesson already paid for). `git-a2a version [--check]` prints version,
+commit, build target and the install channel (set by ldflags at build: brew, npm, pypi, deb,
+rpm, binary, go), and with `--check` the latest release and the update command for *that*
+channel; no network without `--check`. Agent images pin the version as a build ARG and bump it
+deliberately. Verify the Caddy specifics against
+https://caddyserver.com/docs/install when wiring the packaging.
+
 # decision Public releases are published by GitHub Actions
 
 The project is public and open source. Tag-triggered GitHub Actions runners build and publish

@@ -90,6 +90,20 @@ is.
 string; relative directory path. Published content for consumers. Absent means nothing is
 published beyond the manifest.
 
+## field repository
+
+string; the canonical git URL of this module as its owner declares it. Lets a consumer that
+obtained the module from elsewhere (a fork, a mirror, a copy) see that it is not on the
+canonical source — and that the `agents` listed may belong to the original owner rather than
+to whoever maintains the copy. Informative; never used to fetch.
+
+## field moved-to
+
+object, optional: `git` (string, required; the new canonical URL), `path` (string), `notes`
+(string). An owner leaves it in the last manifest at the old location when the module moves.
+Consumers are told on `update` and follow it only on explicit request; a tool never switches a
+source silently.
+
 ## field docs
 
 string; URL of human documentation.
@@ -215,7 +229,13 @@ Stored exactly as given; credentials are never stored.
 ## field ref
 
 string. Branch, tag or commit to follow. Default: the dependency's `release.channel`, else the
-remote HEAD.
+remote HEAD. Resolution: a 40-hex string is a commit; a full refname (`refs/heads/x`,
+`refs/tags/x`) is exactly that; a short name is resolved in git's own order — `refs/tags/<ref>`
+before `refs/heads/<ref>` — and an ambiguity is reported with the name chosen. A commit ref
+implies `track: locked`. Changing `ref`, `git` or `path` of an existing dependency is an
+ordinary edit (`git-a2a set`): identity is `module.id`, so the fetched manifest must carry the
+same id unless the consumer explicitly accepts a different one; every wired ecosystem follows
+the new source and pin together.
 
 ## field path
 

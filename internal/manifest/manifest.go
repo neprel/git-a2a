@@ -67,6 +67,13 @@ func (m *Manifest) Validate() error {
 	if m.Module.Release != nil {
 		validateExtensions("module.release", m.Module.Release.Extensions, &errs)
 	}
+	if m.Module.MovedTo != nil {
+		if m.Module.MovedTo.Git == "" {
+			errs = append(errs, fmt.Errorf("module.moved-to.git: required"))
+		}
+		validateRelative("module.moved-to.path", m.Module.MovedTo.Path, &errs)
+		validateExtensions("module.moved-to", m.Module.MovedTo.Extensions, &errs)
+	}
 	for i, e := range m.Module.Exports {
 		p := fmt.Sprintf("module.exports[%d]", i)
 		if e.Ecosystem == "" {

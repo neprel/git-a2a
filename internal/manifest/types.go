@@ -15,10 +15,21 @@ type Module struct {
 	Description string         `yaml:"description,omitempty" json:"description,omitempty"`
 	Languages   []string       `yaml:"languages,omitempty" json:"languages,omitempty"`
 	Surface     string         `yaml:"surface,omitempty" json:"surface,omitempty"`
+	Repository  string         `yaml:"repository,omitempty" json:"repository,omitempty"`
+	MovedTo     *MovedTo       `yaml:"moved-to,omitempty" json:"moved-to,omitempty"`
 	Docs        string         `yaml:"docs,omitempty" json:"docs,omitempty"`
 	Release     *Release       `yaml:"release,omitempty" json:"release,omitempty"`
 	Exports     []Export       `yaml:"exports,omitempty" json:"exports,omitempty"`
 	Extensions  map[string]any `yaml:",inline" json:"-"`
+}
+
+// MovedTo is the owner's announcement, left at the old location, that the module now lives
+// elsewhere. Consumers are told on update and follow it only on explicit request.
+type MovedTo struct {
+	Git        string         `yaml:"git" json:"git"`
+	Path       string         `yaml:"path,omitempty" json:"path,omitempty"`
+	Notes      string         `yaml:"notes,omitempty" json:"notes,omitempty"`
+	Extensions map[string]any `yaml:",inline" json:"-"`
 }
 
 type Release struct {
