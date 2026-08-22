@@ -18,3 +18,6 @@ the enclosing dependency transaction rolls back. An empty explicit list means wi
 Locked dependencies write the exact resolved commit in every supported ecosystem. Floating
 syntax may name a branch where the ecosystem supports it, but drift still checks the commit
 recorded in `a2amodule.lock`; ecosystem lockfiles are downstream state, never authority.
+When an ecosystem requires metadata in addition to the commit (for example Go's pseudo-version
+timestamp), its own tool resolves the native selector; adapters never fabricate metadata or
+emit a syntactically convenient value that the ecosystem rejects during a real build.
