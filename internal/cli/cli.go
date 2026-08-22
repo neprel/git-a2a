@@ -44,6 +44,7 @@ func New(out, errOut io.Writer) *App {
 }
 
 func (a *App) Run(args []string) int {
+	cleanupPreviousUpgrade()
 	if len(args) == 0 {
 		a.usage()
 		return 2

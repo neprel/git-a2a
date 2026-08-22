@@ -84,3 +84,9 @@ func TestUpgradeRefusesManagedChannel(t *testing.T) {
 		t.Fatalf("exit %d err=%q", code, errOut.String())
 	}
 }
+
+func TestUpgradeBackupPathIsAdjacentToExecutable(t *testing.T) {
+	if got, want := upgradeBackupPath(`C:\tools\git-a2a.exe`), `C:\tools\git-a2a.exe.old`; got != want {
+		t.Fatalf("upgradeBackupPath() = %q, want %q", got, want)
+	}
+}

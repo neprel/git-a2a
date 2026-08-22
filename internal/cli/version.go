@@ -155,7 +155,7 @@ func (a *App) upgrade(args []string) int {
 		err = closeErr
 	}
 	if err == nil {
-		err = os.Rename(tmpName, executable)
+		err = replaceExecutable(executable, tmpName)
 	}
 	if err != nil {
 		fmt.Fprintf(a.Err, "upgrade: atomic replacement failed: %v\n", err)
