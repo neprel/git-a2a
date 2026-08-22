@@ -1,0 +1,20 @@
+# git-a2a
+
+> git-a2a is an open standard and CLI for importing git modules together with the agents that own them. A repository publishes one `a2amodule.yml`; consumers resolve one git commit, wire it into their native package managers, and retain the owner's contact and policy metadata.
+
+Use this file as a map to the canonical specification and documentation. The website is explanatory; the repository specification and schemas define behavior.
+
+## Primary documentation
+
+- [Specification](https://github.com/neprel/git-a2a/blob/main/spec/README.md): manifest, lock, routing, trust, wire, repository, and moved-to semantics.
+- [CLI reference](https://github.com/neprel/git-a2a/blob/main/docs/cli.md): every command, option, output, and exit-code contract.
+- [A2A agent-card extension](https://git-a2a.com/ext/module/v1): binds an agent card to a module, repository, role, scope, and ref.
+- [Manifest JSON Schema](https://git-a2a.com/schema/a2amodule.v1.json): editor and validation schema for `a2amodule.yml`.
+- [Lock JSON Schema](https://git-a2a.com/schema/a2amodule-lock.v1.json): schema for the generated `a2amodule.lock`.
+
+## Project and installation
+
+- [Project source](https://github.com/neprel/git-a2a): Go reference CLI, adapters, examples, tests, and MIT license.
+- [Releases](https://github.com/neprel/git-a2a/releases): binaries, packages, checksums, and SBOMs.
+- [Install](https://git-a2a.com/#install): checksum-verifying installers and supported distribution channels.
+- [Full machine-readable overview](https://git-a2a.com/llms-full.txt): self-contained terminology, lifecycle, commands, and invariants.

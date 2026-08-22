@@ -1,9 +1,10 @@
 # git-a2a.com static publication package
 
 This directory contains the sources for `https://git-a2a.com`. Pushes to `main` that change the
-site or its canonical inputs verify and deploy it through the dedicated `Static site` workflow.
-CLI tags do not deploy the site. Serve files without rewriting their contents and route directory
-paths to their `index.html`.
+site or its canonical inputs verify it through the dedicated `Static site` workflow. Automatic
+deployment remains disabled until the repository variable `SITE_AUTO_DEPLOY=true` is explicitly
+approved and set; CLI tags never deploy the site. Serve files without rewriting their contents
+and route directory paths to their `index.html`.
 
 | Public path | Source file |
 | --- | --- |
@@ -12,17 +13,22 @@ paths to their `index.html`.
 | `/schema/` | `schema/index.html` |
 | `/schema/a2amodule.v1.json` | `schema/a2amodule.v1.json` |
 | `/schema/a2amodule-lock.v1.json` | `schema/a2amodule-lock.v1.json` |
+| `/sitemap.xml` | `sitemap.xml` |
+| `/robots.txt` | `robots.txt` |
+| `/llms.txt` | `llms.txt` |
+| `/llms-full.txt` | `llms-full.txt` |
 | `/install.sh` | `install.sh`, byte-identical to the repository-root installer |
 | `/install.ps1` | `install.ps1` |
 
 The optional project catalog, when published, belongs at `/.well-known/ai-catalog.json`.
-`scripts/site-package.sh` builds the upload directory from the five top-level public files in the
-table plus `assets/`, `fonts/`, `ext/`, and `schema/`. It excludes `tools/`, this README, and
+`scripts/site-package.sh` builds the upload directory from the explicitly listed top-level public
+files plus `assets/`, `fonts/`, `ext/`, and `schema/`. It excludes `tools/`, this README, and
 `sites/design/`; those are reproducibility and operator material, not public routes.
 
 ## Deployment
 
-The `site-production` GitHub Environment must define these secrets:
+After approval of automatic deployment, the repository variable `SITE_AUTO_DEPLOY` must be set to
+`true`, and the `site-production` GitHub Environment must define these secrets:
 
 | Secret | Value |
 | --- | --- |
@@ -69,19 +75,22 @@ python3 -m http.server --directory sites/git-a2a.com 8080
 ```
 
 `site-check` verifies installer and schema byte identity, strict HTML nesting and unique ids,
-internal links, allowed prose, command documentation, identical header/footer blocks, the
-outlined wordmark, transcript synchronization, and the 250 KB above-the-fold budget.
+internal links, allowed prose, command documentation, identical header/footer blocks, canonical
+SEO metadata, JSON-LD, sitemap/robots, LLM discovery files, the outlined wordmark, transcript
+synchronization, and the 250 KB above-the-fold budget. Set `SITE_BROWSER=1` to add the pinned
+Playwright and axe browser suite; CI does this for every `sites/**` change.
 
-The browser checklist, for both `file://.../index.html` and `http://127.0.0.1:8080/`, is:
+The automated browser checks cover:
 
-- 1440 px and 375 px match the source-of-truth design under `sites/design/`.
 - At 375 px, `document.body.scrollWidth === window.innerWidth`.
 - Reduced motion renders the completed transcript immediately.
 - Left/Right, Home, and End move focus and selection across install tabs.
 - Every link and button has a visible teal focus ring.
 - Copy labels say `copied` for 1400 ms and announce the change.
 - Accessibility inspection has no serious findings.
-- Lighthouse performance is at least 95.
+
+Visual comparison against the source-of-truth design under `sites/design/` remains a review step
+at 1440 px and 375 px. Lighthouse performance must remain at least 95 before publication.
 
 ## Rebuilding assets
 
@@ -111,10 +120,20 @@ git-a2a who acme-lib-utils --intent change
 git-a2a status
 ```
 
-The actual `add` used the fixture's local `file://` bare URL; the output does not contain that
-machine path. Verdict-only lines from `who` were trimmed so the transcript retains the design's
-line count. The HTML contains the same finished transcript for no-JavaScript and `file://`
-operation; `site-check` compares its JSON payload to the asset.
+`tools/transcript-generate.sh` creates the bare repository and uses process-scoped Git
+`insteadOf` settings for the displayed SSH URL and Go's HTTPS module URL. npm, uv, and Go resolve
+the dependency from that local bare repository: npm and uv refresh their lock files, and an
+offline `go mod tidy` verifies the Go module path. No machine path reaches the output. During the
+run, `python3 -m http.server` serves the two committed v1.0 cards under
+`tools/transcript-fixture/cards/`, making the `AGENTS` result genuinely `up`.
+
+The JSON stores each command's stdout and stderr verbatim, including line endings and alignment
+spaces. Rendering splits only the newline delimiters and gives every output line
+`white-space: pre` in JetBrains Mono. The verdict-only `who` stderr remains captured but is not
+displayed, as required by the design. The HTML contains the same finished transcript for
+no-JavaScript and `file://` operation. `site-check` runs the fixture afresh and compares every
+captured line, normalizing only the dependency commit hash; it also rejects warnings or an
+unhealthy result.
 
 ## External links
 

@@ -1,0 +1,16 @@
+{
+  "name": "acme-pm",
+  "description": "Reviews dependency contract changes for the Acme module.",
+  "version": "1.0.0",
+  "supportedInterfaces": [
+    {
+      "url": "https://agents.acme.example/package-management/a2a",
+      "protocolBinding": "JSONRPC",
+      "protocolVersion": "1.0"
+    }
+  ],
+  "capabilities": {},
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain"],
+  "skills": []
+}

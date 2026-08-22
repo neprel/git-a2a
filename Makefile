@@ -20,6 +20,7 @@ installers-check:
 
 site-check: installers-check
 	python3 sites/git-a2a.com/tools/site_check.py
+	@if [ "$${SITE_BROWSER:-0}" = 1 ]; then ./scripts/site-browser-check.sh; fi
 
 site-publish: site-check
 	./scripts/site-publish.sh

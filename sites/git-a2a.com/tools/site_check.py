@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import html.parser
+import difflib
 import json
 import os
 import pathlib
@@ -9,6 +10,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 from urllib.parse import urlsplit
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
@@ -63,6 +65,53 @@ class Document(html.parser.HTMLParser):
             self.code_text.append(data)
 
 
+class VisibleText(html.parser.HTMLParser):
+    def __init__(self, route: str, prototype: bool) -> None:
+        super().__init__(convert_charrefs=True)
+        self.route = route
+        self.prototype = prototype
+        self.nodes: list[str] = []
+        self.stack: list[tuple[bool, bool, bool]] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        values = dict(attrs)
+        ignored = tag in {"head", "script", "style", "helmet"}
+        allowed = True
+        if self.prototype and tag == "sc-if":
+            condition = values.get("value", "")
+            routes = {"{{ isLanding }}": "landing", "{{ isExt }}": "extension", "{{ isSchema }}": "schema"}
+            if condition in routes:
+                allowed = routes[condition] == self.route
+        dynamic = tag == "sc-for"
+        if not self.prototype:
+            dynamic = "data-copy" in values or values.get("id") in {"terminal-body", "transcript-data"}
+        self.stack.append((ignored, allowed, dynamic))
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.handle_starttag(tag, attrs)
+        self.stack.pop()
+
+    def handle_endtag(self, tag: str) -> None:
+        if self.stack:
+            self.stack.pop()
+
+    def handle_data(self, data: str) -> None:
+        if any(ignored or not allowed or dynamic for ignored, allowed, dynamic in self.stack):
+            return
+        if "{{" in data or "}}" in data:
+            return
+        text = " ".join(data.split())
+        if text:
+            self.nodes.append(text)
+
+
+def visible_text(body: str, route: str, prototype: bool = False) -> list[str]:
+    parser = VisibleText(route, prototype)
+    parser.feed(body)
+    parser.close()
+    return parser.nodes
+
+
 def block(body: str, name: str) -> str:
     match = re.search(rf"<!-- {name}:start -->\n(.*?)\n<!-- {name}:end -->", body, re.S)
     if not match:
@@ -104,7 +153,8 @@ def main() -> None:
             stdout=subprocess.DEVNULL,
         )
         expected_top_level = {
-            "index.html", "404.html", "robots.txt", "install.sh", "install.ps1",
+            "index.html", "404.html", "robots.txt", "sitemap.xml", "llms.txt", "llms-full.txt",
+            "install.sh", "install.ps1",
             "assets", "fonts", "ext", "schema",
         }
         packaged_top_level = {path.name for path in package.iterdir()}
@@ -149,6 +199,61 @@ def main() -> None:
             fail("manual publication does not upload the staged allowlist")
 
     bodies = [page.read_text() for page in PAGES]
+
+    expected_canonicals = [
+        "https://git-a2a.com/",
+        "https://git-a2a.com/ext/module/v1",
+        "https://git-a2a.com/schema/",
+    ]
+    for page, body, canonical in zip(PAGES, bodies, expected_canonicals):
+        if body.count(f'<link rel="canonical" href="{canonical}">') != 1:
+            fail(f"missing or duplicate canonical URL in {page.relative_to(ROOT)}")
+        if f'<meta property="og:url" content="{canonical}">' not in body:
+            fail(f"Open Graph URL differs from canonical in {page.relative_to(ROOT)}")
+        if '<link rel="alternate" type="text/plain" href="https://git-a2a.com/llms.txt" title="LLM project guide">' not in body:
+            fail(f"LLM discovery link missing in {page.relative_to(ROOT)}")
+        if 'name="robots" content="index,follow,max-image-preview:large,max-snippet:-1"' not in body:
+            fail(f"indexing directives missing in {page.relative_to(ROOT)}")
+        structured = re.findall(r'<script type="application/ld\+json">(.*?)</script>', body, re.S)
+        if len(structured) != 1:
+            fail(f"expected one structured-data graph in {page.relative_to(ROOT)}")
+        try:
+            graph = json.loads(structured[0])
+        except json.JSONDecodeError as error:
+            fail(f"invalid structured data in {page.relative_to(ROOT)}: {error}")
+        if graph.get("@context") != "https://schema.org":
+            fail(f"structured-data context missing in {page.relative_to(ROOT)}")
+
+    try:
+        sitemap = ET.parse(SITE / "sitemap.xml")
+    except ET.ParseError as error:
+        fail(f"invalid sitemap.xml: {error}")
+    sitemap_urls = {
+        element.text for element in sitemap.findall("{http://www.sitemaps.org/schemas/sitemap/0.9}url/{http://www.sitemaps.org/schemas/sitemap/0.9}loc")
+    }
+    if sitemap_urls != set(expected_canonicals):
+        fail(f"sitemap URLs differ from page canonicals: {sorted(sitemap_urls)}")
+    if "Sitemap: https://git-a2a.com/sitemap.xml" not in (SITE / "robots.txt").read_text():
+        fail("robots.txt does not advertise sitemap.xml")
+    for llms_name in ("llms.txt", "llms-full.txt"):
+        llms = (SITE / llms_name).read_text()
+        for required in (
+            "https://git-a2a.com/",
+            "https://github.com/neprel/git-a2a/blob/main/spec/README.md",
+            "https://github.com/neprel/git-a2a/blob/main/docs/cli.md",
+        ):
+            if required not in llms:
+                fail(f"{llms_name} lacks canonical reference {required}")
+
+    prototype = (ROOT / "sites/design/git-a2a Landing.dc.html").read_text()
+    for route, page, body in zip(("landing", "extension", "schema"), PAGES, bodies):
+        expected = visible_text(prototype, route, prototype=True)
+        actual = visible_text(body, route)
+        if actual != expected:
+            difference = "\n".join(difflib.unified_diff(
+                expected, actual, fromfile="design/" + route, tofile=str(page.relative_to(ROOT)), lineterm=""
+            ))
+            fail(f"visible copy differs from the design prototype:\n{difference}")
     for name in ("site-header", "site-footer"):
         values = [block(body, name) for body in bodies]
         if len(set(values)) != 1:
@@ -188,6 +293,29 @@ def main() -> None:
     transcript = json.loads((SITE / "assets/transcript.json").read_text())
     if embedded != transcript:
         fail("embedded transcript differs from assets/transcript.json")
+    try:
+        subprocess.run(
+            [str(SITE / "tools/transcript-generate.sh"), "--check"],
+            cwd=ROOT,
+            check=True,
+        )
+    except subprocess.CalledProcessError:
+        fail("published transcript does not match a fresh fixture run")
+    transcript_text = "\n".join(
+        str(group.get(stream, ""))
+        for group in transcript.get("groups", [])
+        for stream in ("stdout", "stderr")
+    )
+    for forbidden in ("warning:", "unhealthy"):
+        if forbidden in transcript_text.lower():
+            fail(f"transcript contains forbidden verdict {forbidden}")
+    for required in (
+        "npm clean, pypi clean, golang clean",
+        "consumer-app: manifest valid · agents none · roster none",
+        "1 dependency: clean",
+    ):
+        if required not in transcript_text:
+            fail(f"transcript lacks required result: {required}")
 
     references = (ROOT / "docs/cli.md").read_text() + "\n" + (ROOT / "README.md").read_text()
     commands = {text.strip() for text in documents[0].code_text if re.match(r"^(?:git-a2a|go install|go run|curl -fsSL|irm |brew install|scoop install|npx |uvx |docker run)", text.strip())}
@@ -201,7 +329,9 @@ def main() -> None:
     size = sum(path.stat().st_size for path in above_fold)
     if size >= 250 * 1024:
         fail(f"above-the-fold transfer budget exceeded: {size} bytes")
+    print("site-check: visible text on 3 pages matches the design prototype")
     print(f"site-check: 3 pages valid, links resolved, canonical files synchronized")
+    print("site-check: canonical metadata, structured data, sitemap, and LLM guides valid")
     print("site-check: publication package contains only allowlisted files")
     print("site-check: manual publication uses ignored environment settings and staged files")
     print(f"site-check: header/footer identical; above-fold budget {size} bytes (< 256000)")

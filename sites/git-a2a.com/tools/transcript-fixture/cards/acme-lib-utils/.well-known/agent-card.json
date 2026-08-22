@@ -1,0 +1,16 @@
+{
+  "name": "acme-lib-utils",
+  "description": "Owns the Acme shared string utilities module.",
+  "version": "1.0.0",
+  "supportedInterfaces": [
+    {
+      "url": "https://agents.acme.example/lib-utils/a2a",
+      "protocolBinding": "JSONRPC",
+      "protocolVersion": "1.0"
+    }
+  ],
+  "capabilities": {},
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain"],
+  "skills": []
+}

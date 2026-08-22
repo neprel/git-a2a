@@ -6,6 +6,8 @@ plans/
 
 # toolchains
 node_modules/
+playwright-report/
+test-results/
 dist/*
 !dist/npm/
 !dist/npm/**

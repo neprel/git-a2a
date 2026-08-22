@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://git-a2a.com/
+Sitemap: https://git-a2a.com/sitemap.xml

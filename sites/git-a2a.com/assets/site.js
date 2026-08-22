@@ -16,13 +16,33 @@
   };
   const clearTimers = () => { timers.forEach(window.clearTimeout); timers.clear(); };
   const escapeText = text => document.createTextNode(text);
+  const outputLines = group => group.render.flatMap(segment => {
+    const values = group[segment.stream].split('\n');
+    if (values.at(-1) === '') values.pop();
+    return values.map((text, index) => ({ text, class: segment.classes[index] }));
+  });
+  const copyText = async text => {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch (_) {
+      const fallback = document.createElement('textarea');
+      fallback.value = text;
+      fallback.setAttribute('readonly', '');
+      fallback.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+      document.body.append(fallback);
+      fallback.select();
+      document.execCommand('copy');
+      fallback.remove();
+    }
+  };
 
   document.querySelectorAll('[data-copy]').forEach(button => {
     button.addEventListener('click', async () => {
       const source = button.dataset.copy === 'terminal'
         ? window.gitA2ATranscript.groups.map(group => group.command).join('\n')
         : document.querySelector(button.dataset.copy).textContent;
-      await navigator.clipboard.writeText(source);
+      await copyText(source);
       const label = button.querySelector('[aria-live]');
       label.textContent = 'copied';
       later(() => { label.textContent = 'copy'; }, 1400);
@@ -71,7 +91,7 @@
     body.replaceChildren();
     window.gitA2ATranscript.groups.forEach((group, index) => {
       line('command', group.command, group.comment);
-      group.output.forEach(item => line(item.class, item.text));
+      outputLines(group).forEach(item => line(item.class, item.text));
       if (index < window.gitA2ATranscript.groups.length - 1) line('blank', '');
     });
     caret();
@@ -90,11 +110,11 @@
         const type = () => {
           if (index < group.command.length) { row.append(escapeText(group.command[index++])); later(type, timing.character); return; }
           if (group.comment) { const span = document.createElement('span'); span.className = 'term-comment'; span.textContent = `  ${group.comment}`; row.append(span); }
-          group.output.forEach((item, outputIndex) => later(() => line(item.class, item.text), timing.afterCommand + outputIndex * timing.betweenOutput));
+          outputLines(group).forEach((item, outputIndex) => later(() => line(item.class, item.text), timing.afterCommand + outputIndex * timing.betweenOutput));
         };
         type();
       }, wait);
-      wait += group.command.length * timing.character + timing.afterCommand + group.output.length * timing.betweenOutput;
+      wait += group.command.length * timing.character + timing.afterCommand + outputLines(group).length * timing.betweenOutput;
       if (groupIndex < window.gitA2ATranscript.groups.length - 1) later(() => line('blank', ''), wait);
       wait += timing.betweenGroups;
     });

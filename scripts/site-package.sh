@@ -20,7 +20,7 @@ if [ -n "$(find "$destination" -mindepth 1 -maxdepth 1 -print -quit)" ]; then
   exit 1
 fi
 
-for file in index.html 404.html robots.txt install.sh install.ps1; do
+for file in index.html 404.html robots.txt sitemap.xml llms.txt llms-full.txt install.sh install.ps1; do
   cp "$site_root/$file" "$destination/$file"
 done
 for directory in assets fonts ext schema; do

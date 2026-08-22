@@ -7,6 +7,8 @@ documentation, public schemas, the A2A extension description, and checksum-verif
 
 Pushes to `main` that change the static site or its canonical inputs run the dedicated site
 workflow after `make site-check`; CLI tags and the release workflow never deploy the site. The
+deployment job is additionally gated by the explicit repository variable `SITE_AUTO_DEPLOY=true`
+and stays skipped until the dedicated deployment identity and protected environment are approved. The
 workflow stages an explicit allowlist through `scripts/site-package.sh` and uploads that staging
 directory with OpenSSH. Hosting account, endpoint, port, document root, private key, and host-key
 material exist only as protected `site-production` environment secrets; workflow source and logs
@@ -39,13 +41,29 @@ size-specific favicons by ImageMagick, and social cards by the committed headles
 
 # invariant The transcript is real and accessible {#transcript}
 
-`assets/transcript.json` contains trimmed real 1.0.0 CLI output from local acme bare repositories.
-The landing embeds identical completed data as its no-JavaScript and `file://` fallback. Reduced
-motion skips typing, replay clears every timer, and the terminal copy action returns only the four
-commands.
+`assets/transcript.json` contains real 1.0.0 CLI stdout and stderr bytes from local acme bare
+repositories, including line endings and alignment spaces. The displayed add command is exactly
+the design command with no hidden flag; npm, uv, and Go resolve and refresh against the local bare
+repository through process-scoped Git URL rewrites. The landing embeds identical completed data
+as its no-JavaScript and `file://` fallback. Output lines use `white-space: pre` and JetBrains Mono.
+Reduced motion skips typing, replay clears every timer, and the terminal copy action returns only
+the four commands. The site gate reruns `tools/transcript-generate.sh --check` and permits only the
+resolved fixture commit hash to vary.
+
+# decision Search and machine discovery are static and canonical {#discovery}
+
+Each public HTML page has one canonical URL, unique descriptive metadata, social-card metadata,
+and Schema.org JSON-LD limited to facts asserted by the project. `sitemap.xml` lists the three
+canonical HTML pages and `robots.txt` points to it; the 404 response is `noindex`. `llms.txt` is
+a concise map to the canonical specification, CLI reference, schemas and extension, while
+`llms-full.txt` is a self-contained factual overview for retrieval systems. Both are guidance,
+not alternative specifications, and must not invent capabilities or override `spec/README.md`.
 
 # build Site and installer checks
 
 `make installers-check` parses and dry-runs the POSIX installer without network access. The
 complete site gate is `make site-check`; it verifies synced files, HTML and links, duplicated
-header/footer bytes, content policy, and the transfer budget.
+header/footer bytes, visible-copy parity with the design, discovery metadata, transcript facts,
+content policy, and the transfer budget. With `SITE_BROWSER=1`, a pinned Playwright/Chromium suite
+also checks mobile overflow, reduced motion, keyboard tabs, focus rings, and serious axe findings;
+CI always enables that browser gate for site changes.

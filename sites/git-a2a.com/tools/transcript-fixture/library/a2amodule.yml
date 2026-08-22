@@ -1,20 +1,23 @@
 schema: 1
 module:
   id: acme-lib-utils
+  repository: ssh://git@github.com/acme/lib-utils.git
   description: Shared string utilities for Acme.
   release:
     channel: main
   exports:
     - { ecosystem: npm, name: "@acme/lib-utils" }
     - { ecosystem: pypi, name: acme_lib_utils }
-    - { ecosystem: golang, name: acme.dev/lib-utils }
+    - { ecosystem: golang, name: github.com/acme/lib-utils }
 agents:
   - name: acme-lib-utils
     role: owner
+    card: http://127.0.0.1:__CARD_PORT__/acme-lib-utils/.well-known/agent-card.json
     contacts:
       - { intents: [question, bug], kind: github-issue, repo: acme/lib-utils }
   - name: acme-pm
     role: spec
+    card: http://127.0.0.1:__CARD_PORT__/acme-pm/.well-known/agent-card.json
     contacts:
       - { intents: [change], kind: github-issue, repo: acme/lib-utils, labels: [change-request] }
 policy:
