@@ -279,20 +279,29 @@ func detectExports(root string) []manifest.Export {
 			}
 		}
 	}
+	if b, err := os.ReadFile(filepath.Join(root, "Cargo.toml")); err == nil {
+		if name := tomlNamedSectionValue(string(b), "package", "name"); name != "" {
+			out = append(out, manifest.Export{Ecosystem: "cargo", Name: name})
+		}
+	}
 	return out
 }
 
 func tomlProjectName(s string) string {
+	return tomlNamedSectionValue(s, "project", "name")
+}
+
+func tomlNamedSectionValue(s, section, key string) string {
 	inProject := false
 	for _, line := range strings.Split(s, "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "[") {
-			inProject = line == "[project]"
+			inProject = line == "["+section+"]"
 			continue
 		}
-		if inProject && strings.HasPrefix(line, "name") {
+		if inProject {
 			p := strings.SplitN(line, "=", 2)
-			if len(p) == 2 {
+			if len(p) == 2 && strings.TrimSpace(p[0]) == key {
 				return strings.Trim(strings.TrimSpace(p[1]), "\"'")
 			}
 		}

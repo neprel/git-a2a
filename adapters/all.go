@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"github.com/neprel/git-a2a/adapters/cargo"
 	"github.com/neprel/git-a2a/adapters/golang"
 	"github.com/neprel/git-a2a/adapters/npm"
 	"github.com/neprel/git-a2a/adapters/pypi"
@@ -8,5 +9,5 @@ import (
 )
 
 func All() []adapter.Adapter {
-	return []adapter.Adapter{npm.Adapter{}, pypi.Adapter{}, golang.Adapter{}}
+	return []adapter.Adapter{npm.Adapter{}, pypi.Adapter{}, golang.Adapter{}, cargo.Adapter{}}
 }

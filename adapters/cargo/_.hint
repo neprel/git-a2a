@@ -1,0 +1,17 @@
+# decision Cargo git dependencies use rev or branch
+
+The Cargo adapter owns one entry in `[dependencies]`. Locked wiring writes the full lock commit
+as `rev`; floating wiring writes the declared ref as `branch`. Cargo discovers a named crate
+anywhere in the Git repository, so an export subdirectory does not become a Cargo `path` key.
+Unrelated TOML text and dependency entries remain byte-for-byte unchanged.
+
+# decision Cargo.lock stays downstream
+
+The adapter does not run `cargo update` while wiring. That command can resolve and rewrite
+unrelated packages; the consumer's normal Cargo workflow creates or refreshes `Cargo.lock`.
+
+# test Cargo adapter
+
+- Fixture/golden wiring is idempotent and preserves unrelated entries and comments.
+- Drift checks both the normalized Git URL and the locked revision.
+- Unwire removes only the exported crate entry.

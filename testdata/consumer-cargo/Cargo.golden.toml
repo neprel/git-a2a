@@ -1,0 +1,7 @@
+[package]
+name = "consumer"
+version = "0.1.0"
+
+[dependencies]
+serde = "1" # keep
+acme-lib-utils = { git = "https://github.com/acme/lib-utils.git", rev = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }

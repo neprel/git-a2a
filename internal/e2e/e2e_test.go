@@ -720,7 +720,7 @@ func TestPolyglotConsumerFullDependencyLifecycle(t *testing.T) {
 	git(t, source, "init", "-b", "main")
 	git(t, source, "config", "user.email", "test@example.com")
 	git(t, source, "config", "user.name", "Test")
-	manifestOne := []byte("schema: 1\nmodule:\n  id: acme-lib\n  repository: " + publicOriginal + "\n  release:\n    channel: main\n  exports:\n    - ecosystem: npm\n      name: '@acme/lib'\n    - ecosystem: pypi\n      name: acme-lib\n    - ecosystem: golang\n      name: example.test/acme/lib\nagents:\n  - name: owner\n    role: owner\n    contacts:\n      - intents: ['*']\n        kind: url\n        url: https://owner.example.test/\n")
+	manifestOne := []byte("schema: 1\nmodule:\n  id: acme-lib\n  repository: " + publicOriginal + "\n  release:\n    channel: main\n  exports:\n    - ecosystem: npm\n      name: '@acme/lib'\n    - ecosystem: pypi\n      name: acme-lib\n    - ecosystem: golang\n      name: example.test/acme/lib\n    - ecosystem: cargo\n      name: acme-lib\nagents:\n  - name: owner\n    role: owner\n    contacts:\n      - intents: ['*']\n        kind: url\n        url: https://owner.example.test/\n")
 	mustWrite(t, filepath.Join(source, "a2amodule.yml"), manifestOne)
 	git(t, source, "add", "a2amodule.yml")
 	git(t, source, "commit", "-m", "one")
@@ -731,6 +731,7 @@ func TestPolyglotConsumerFullDependencyLifecycle(t *testing.T) {
 	mustWrite(t, filepath.Join(consumer, "package.json"), []byte("{\"name\":\"consumer\",\"dependencies\":{\"left-pad\":\"^1.0.0\"}}\n"))
 	mustWrite(t, filepath.Join(consumer, "pyproject.toml"), []byte("[project]\nname = \"consumer\"\ndependencies = []\n"))
 	mustWrite(t, filepath.Join(consumer, "go.mod"), []byte("module example.test/consumer\n\ngo 1.24\n"))
+	mustWrite(t, filepath.Join(consumer, "Cargo.toml"), []byte("[package]\nname = \"consumer\"\nversion = \"0.1.0\"\n\n[dependencies]\nserde = \"1\"\n"))
 	var out, errOut bytes.Buffer
 	app := cli.New(&out, &errOut)
 	app.Root = consumer
@@ -755,7 +756,7 @@ func TestPolyglotConsumerFullDependencyLifecycle(t *testing.T) {
 	run("add", publicOriginal)
 	assertPolyglotPins(t, consumer)
 	run("sync")
-	if text := run("status", "acme-lib", "--offline"); !strings.Contains(text, "npm clean, pypi clean, golang clean") {
+	if text := run("status", "acme-lib", "--offline"); !strings.Contains(text, "npm clean, pypi clean, golang clean, cargo clean") {
 		t.Fatalf("polyglot status is not clean:\n%s", text)
 	}
 
@@ -792,6 +793,10 @@ func TestPolyglotConsumerFullDependencyLifecycle(t *testing.T) {
 	goMod, _ := os.ReadFile(filepath.Join(consumer, "go.mod"))
 	if strings.Contains(string(goMod), "example.test/acme/lib") {
 		t.Fatalf("Go wiring remains:\n%s", goMod)
+	}
+	cargoManifest, _ := os.ReadFile(filepath.Join(consumer, "Cargo.toml"))
+	if strings.Contains(string(cargoManifest), "acme-lib") {
+		t.Fatalf("Cargo wiring remains:\n%s", cargoManifest)
 	}
 	t.Logf("scenario output:\n%s", transcript.String())
 }
@@ -843,6 +848,7 @@ func assertPolyglotPins(t *testing.T, root string) {
 		{"package.json", commit},
 		{"pyproject.toml", commit},
 		{"go.mod", commit[:12]},
+		{"Cargo.toml", commit},
 	} {
 		body, readErr := os.ReadFile(filepath.Join(root, test.file))
 		if readErr != nil || !strings.Contains(string(body), test.pin) {
