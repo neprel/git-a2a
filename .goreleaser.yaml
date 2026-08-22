@@ -14,45 +14,45 @@ builds:
     goos: [darwin, linux, windows]
     goarch: [amd64, arm64]
     ldflags:
-      - -s -w -X github.com/neprel/git-a2a/internal/cli.Version={{.Version}} -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=binary
+      - -s -w -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=binary
   - <<: *binary-build
     id: brew
     goos: [darwin]
     ldflags:
-      - -s -w -X github.com/neprel/git-a2a/internal/cli.Version={{.Version}} -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=brew
+      - -s -w -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=brew
   - <<: *binary-build
     id: scoop
     goos: [windows]
     ldflags:
-      - -s -w -X github.com/neprel/git-a2a/internal/cli.Version={{.Version}} -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=scoop
+      - -s -w -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=scoop
   - <<: *binary-build
     id: npm
     ldflags:
-      - -s -w -X github.com/neprel/git-a2a/internal/cli.Version={{.Version}} -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=npm
+      - -s -w -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=npm
   - <<: *binary-build
     id: pypi
     ldflags:
-      - -s -w -X github.com/neprel/git-a2a/internal/cli.Version={{.Version}} -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=pypi
+      - -s -w -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=pypi
   - <<: *binary-build
     id: deb
     goos: [linux]
     ldflags:
-      - -s -w -X github.com/neprel/git-a2a/internal/cli.Version={{.Version}} -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=deb
+      - -s -w -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=deb
   - <<: *binary-build
     id: rpm
     goos: [linux]
     ldflags:
-      - -s -w -X github.com/neprel/git-a2a/internal/cli.Version={{.Version}} -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=rpm
+      - -s -w -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=rpm
   - <<: *binary-build
     id: apk
     goos: [linux]
     ldflags:
-      - -s -w -X github.com/neprel/git-a2a/internal/cli.Version={{.Version}} -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=apk
+      - -s -w -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=apk
   - <<: *binary-build
     id: docker
     goos: [linux]
     ldflags:
-      - -s -w -X github.com/neprel/git-a2a/internal/cli.Version={{.Version}} -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=docker
+      - -s -w -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}} -X github.com/neprel/git-a2a/internal/cli.Channel=docker
 archives:
   - id: binary
     formats: [tar.gz]

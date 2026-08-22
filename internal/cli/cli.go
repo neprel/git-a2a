@@ -24,9 +24,10 @@ import (
 	"github.com/neprel/git-a2a/internal/gitx"
 	lockfile "github.com/neprel/git-a2a/internal/lock"
 	"github.com/neprel/git-a2a/internal/manifest"
+	versioninfo "github.com/neprel/git-a2a/internal/version"
 )
 
-var Version = "dev"
+var Version = versioninfo.Current()
 var Commit = "unknown"
 var Target = runtime.GOOS + "/" + runtime.GOARCH
 var Channel = "go"

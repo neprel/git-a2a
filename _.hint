@@ -103,7 +103,9 @@ https://caddyserver.com/docs/install when wiring the packaging.
 
 The project is public and open source. Tag-triggered GitHub Actions runners build and publish
 release artifacts and distribution wrappers; no paid or self-hosted release service is part of
-the design. Third-party actions are pinned to full commit SHAs.
+the design. Third-party actions are pinned to full commit SHAs. `internal/version/VERSION` is
+the single release-version source embedded by the CLI; the release workflow must reject a tag
+other than `v` plus that exact value and must pass build and tests before any publishing job.
 
 # dep Reference CLI runtime dependencies
 
