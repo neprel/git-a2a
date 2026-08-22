@@ -710,12 +710,16 @@ func TestPolyglotConsumerFullDependencyLifecycle(t *testing.T) {
 	defer goProxy.Close()
 	t.Setenv("GOPROXY", goProxy.URL)
 	t.Setenv("GONOSUMDB", "example.test/acme/lib")
+	t.Setenv("GOFLAGS", "-mod=mod")
 	source := filepath.Join(tmp, "source")
 	original := filepath.Join(tmp, "original.git")
 	fork := filepath.Join(tmp, "fork.git")
+	auxiliarySource := filepath.Join(tmp, "auxiliary-source")
+	auxiliary := filepath.Join(tmp, "auxiliary.git")
 	consumer := filepath.Join(tmp, "consumer")
 	publicOriginal := "https://example.test/acme/lib.git"
 	publicFork := "https://mirror.example.test/acme/lib.git"
+	publicAuxiliary := "https://example.test/acme/auxiliary.git"
 	mustMkdir(t, source)
 	git(t, source, "init", "-b", "main")
 	git(t, source, "config", "user.email", "test@example.com")
@@ -726,6 +730,14 @@ func TestPolyglotConsumerFullDependencyLifecycle(t *testing.T) {
 	git(t, source, "commit", "-m", "one")
 	git(t, tmp, "clone", "--bare", source, original)
 	git(t, tmp, "clone", "--bare", source, fork)
+	mustMkdir(t, auxiliarySource)
+	git(t, auxiliarySource, "init", "-b", "main")
+	git(t, auxiliarySource, "config", "user.email", "test@example.com")
+	git(t, auxiliarySource, "config", "user.name", "Test")
+	mustWrite(t, filepath.Join(auxiliarySource, "a2amodule.yml"), []byte("schema: 1\nmodule:\n  id: acme-auxiliary\n  release: {channel: main}\n"))
+	git(t, auxiliarySource, "add", "a2amodule.yml")
+	git(t, auxiliarySource, "commit", "-m", "fixture")
+	git(t, tmp, "clone", "--bare", auxiliarySource, auxiliary)
 	mustMkdir(t, consumer)
 	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte("# keep this comment\nschema: 1\nmodule:\n  id: consumer\n  description: >-\n    folded consumer description\n  languages: [typescript, python, go]\nx-local: \"keep quoted\"\n"))
 	mustWrite(t, filepath.Join(consumer, "package.json"), []byte("{\"name\":\"consumer\",\"dependencies\":{\"left-pad\":\"^1.0.0\"}}\n"))
@@ -745,8 +757,9 @@ func TestPolyglotConsumerFullDependencyLifecycle(t *testing.T) {
 	app := cli.New(&out, &errOut)
 	app.Root = consumer
 	app.Runner = mappedLocalRunner{delegate: gitx.ExecRunner{}, remotes: map[string]string{
-		publicOriginal: "file://" + original,
-		publicFork:     "file://" + fork,
+		publicOriginal:  "file://" + original,
+		publicFork:      "file://" + fork,
+		publicAuxiliary: "file://" + auxiliary,
 	}}
 	var transcript strings.Builder
 	run := func(args ...string) string {
@@ -762,9 +775,27 @@ func TestPolyglotConsumerFullDependencyLifecycle(t *testing.T) {
 		return out.String() + errOut.String()
 	}
 
-	run("add", publicOriginal)
+	run("add", publicOriginal, "--no-refresh")
+	if _, err := os.Stat(filepath.Join(consumer, "AGENTS.md")); !os.IsNotExist(err) {
+		t.Fatalf("add created AGENTS.md before sync: %v", err)
+	}
 	assertPolyglotPins(t, consumer)
 	run("sync")
+	assertRosterCurrent := func(after string) {
+		t.Helper()
+		out.Reset()
+		errOut.Reset()
+		if code := app.Run([]string{"sync", "--check"}); code != 0 {
+			t.Fatalf("managed block stale after %s: exit %d stdout=%s stderr=%s", after, code, out.String(), errOut.String())
+		}
+	}
+	assertRosterCurrent("sync")
+	run("add", publicAuxiliary, "--no-refresh")
+	assertRosterCurrent("add")
+	run("remove", "acme-auxiliary")
+	assertRosterCurrent("remove added dependency")
+	run("wire", "acme-lib", "--no-refresh")
+	assertRosterCurrent("wire")
 	if text := run("status", "acme-lib", "--offline"); !strings.Contains(text, "npm clean, pypi clean, golang clean, cargo clean, swift clean, pub clean, gem clean, composer clean, hex clean, hackage clean, zig clean, clojure clean, nix clean") {
 		t.Fatalf("polyglot status is not clean:\n%s", text)
 	}
@@ -773,13 +804,18 @@ func TestPolyglotConsumerFullDependencyLifecycle(t *testing.T) {
 	git(t, source, "add", "a2amodule.yml")
 	git(t, source, "commit", "-m", "two")
 	git(t, source, "push", original, "main")
-	run("update", "--review")
+	run("update", "--review", "--no-refresh")
+	assertRosterCurrent("update")
 	assertPolyglotPins(t, consumer)
-	run("set", "acme-lib", "--git", publicFork)
+	run("set", "acme-lib", "--git", publicFork, "--no-refresh")
+	assertRosterCurrent("set")
 	assertPolyglotPins(t, consumer)
-	run("pin", "acme-lib")
-	run("unpin", "acme-lib", "--ref", "main")
+	run("pin", "acme-lib", "--no-refresh")
+	assertRosterCurrent("pin")
+	run("unpin", "acme-lib", "--ref", "main", "--no-refresh")
+	assertRosterCurrent("unpin")
 	run("remove", "acme-lib")
+	assertRosterCurrent("remove")
 
 	own, err := manifest.Load(filepath.Join(consumer, "a2amodule.yml"))
 	if err != nil || len(own.Dependencies) != 0 {

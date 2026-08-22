@@ -215,6 +215,16 @@ text edit) never requires the tool, so `add` succeeds and says what is missing f
 Missing tools are a warning on `add`/`wire` and a failure only for an explicitly requested
 `Refresh`/`--sync`.
 
+# decision A managed block, once created, is kept current by every mutation {#block_refresh}
+
+`sync` creates the AGENTS.md managed block; after that, `add`, `update`, `set`, `pin`, `unpin`,
+`wire` and `remove` re-render an existing block as their last step (idempotent, deterministic,
+same renderer as `sync`), so a consumer never sees a roster that disagrees with the lock. A
+repository that never ran `sync` has no block; `status` then reports `SYNC none` and does not
+count it as unhealthy — `stale` is reserved for a block that exists and differs. Mutating
+commands also accept `--no-refresh`: write the manifest entries and the lock, skip the package
+managers (CI wiring, offline work, transcripts); `status` still reports wiring from the files.
+
 # invariant Generated blocks are owned by git-a2a and nothing else {#managed_blocks}
 
 Everything git-a2a writes into a file it does not own (AGENTS.md, package.json, pyproject.toml,

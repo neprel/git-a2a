@@ -23,6 +23,17 @@ state belongs in the manifest, lock, or `.git-a2a/`; command delivery history is
 `--dry-run`, `--check`, offline inspection, help, and validation paths do not change tracked files,
 the lock, or `.git-a2a/`.
 
+# decision Dependency status and roster refresh are distinct
+
+The status table contains dependencies only; the consumer module is reported once in a footer,
+with detailed diagnostics reserved for `-v`. An absent managed `AGENTS.md` block is `SYNC none`
+and healthy, while an existing block that differs from the renderer is `stale`. After `sync` has
+created a block, every dependency mutation re-renders that existing block as its final step and
+never creates one implicitly. `--no-refresh` on add, update, set, pin, unpin, and wire skips the
+package-manager Refresh phase without skipping deterministic manifest, lock, wiring, or roster
+updates. Human status output expands its table with spaces through Go's tabwriter so every column
+starts at the same position even when a source, ref, or wiring summary is longer than the header.
+
 # decision Prerequisite reporting is shared with adapters
 
 `doctor` always checks Git >= 2.25, warns below 2.27, and unions tools from detected ecosystem

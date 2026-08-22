@@ -26,6 +26,7 @@ import (
 	"github.com/neprel/git-a2a/internal/gitx"
 	lockfile "github.com/neprel/git-a2a/internal/lock"
 	"github.com/neprel/git-a2a/internal/manifest"
+	"github.com/neprel/git-a2a/internal/render"
 	versioninfo "github.com/neprel/git-a2a/internal/version"
 )
 
@@ -131,10 +132,10 @@ func (a *App) usage() {
 func (a *App) commandUsage(command string) {
 	usage := map[string]string{
 		"init":     "git-a2a init [--id ID] [--description TEXT] [--surface DIR] [--export ECOSYSTEM=NAME]",
-		"validate": "git-a2a validate [FILE ...]", "add": "git-a2a add URL [--id ID] [--path DIR] [--track locked|floating] [--wire LIST|--no-wire]",
-		"set": "git-a2a set ID [--git URL] [--ref REF] [--path DIR] [--track locked|floating] [--id NEW-ID] [--dry-run]",
-		"pin": "git-a2a pin ID [COMMIT]", "unpin": "git-a2a unpin ID --ref REF [--track locked|floating]",
-		"wire": "git-a2a wire [ID] [--ecosystem NAME]", "update": "git-a2a update [ID ...] [--check] [--review|--no-review] [--follow-moves]",
+		"validate": "git-a2a validate [FILE ...]", "add": "git-a2a add URL [--id ID] [--path DIR] [--track locked|floating] [--wire LIST|--no-wire] [--no-refresh]",
+		"set": "git-a2a set ID [--git URL] [--ref REF] [--path DIR] [--track locked|floating] [--id NEW-ID] [--dry-run] [--no-refresh]",
+		"pin": "git-a2a pin ID [COMMIT] [--no-refresh]", "unpin": "git-a2a unpin ID --ref REF [--track locked|floating] [--no-refresh]",
+		"wire": "git-a2a wire [ID] [--ecosystem NAME] [--no-refresh]", "update": "git-a2a update [ID ...] [--check] [--review|--no-review] [--follow-moves] [--no-refresh]",
 		"remove": "git-a2a remove ID [--keep-wiring]", "show": "git-a2a show [ID] [--json] [--surface]",
 		"sync": "git-a2a sync [--check] [--brief] [--target FILE]", "who": "git-a2a who [ID] [--intent INTENT] [--path FILE] [--json]",
 		"contact": "git-a2a contact ID --intent INTENT --message FILE|- [--wait]", "ask": "git-a2a contact ID --intent INTENT --message FILE|- [--wait]",
@@ -388,6 +389,7 @@ func (a *App) validate(paths []string) int {
 type addOptions struct {
 	url, ref, path, id, track string
 	wire                      *[]string
+	noRefresh                 bool
 }
 
 func parseAdd(args []string) (addOptions, error) {
@@ -431,6 +433,8 @@ func parseAdd(args []string) (addOptions, error) {
 		case "--no-wire":
 			wires = []string{}
 			o.wire = &wires
+		case "--no-refresh":
+			o.noRefresh = true
 		default:
 			if strings.HasPrefix(arg, "-") {
 				return o, fmt.Errorf("unknown option %s", arg)
@@ -545,7 +549,7 @@ func (a *App) add(args []string) int {
 		return 1
 	}
 	snapshots := snapshotAdapterFiles(root)
-	outcomes, err := wireAll(a.context(), root, dep, depManifest, locked, true)
+	outcomes, err := wireAll(a.context(), root, dep, depManifest, locked, !o.noRefresh)
 	if err != nil {
 		restoreAdapterFiles(root, snapshots)
 		fmt.Fprintf(a.Err, "add: wiring failed and was rolled back: %v\n", err)
@@ -576,6 +580,10 @@ func (a *App) add(args []string) int {
 		rollbackMetadata()
 		restoreAdapterFiles(root, snapshots)
 		fmt.Fprintf(a.Err, "add: cache replacement failed and was rolled back: %v\n", err)
+		return 1
+	}
+	if err = refreshExistingManagedBlock(root); err != nil {
+		fmt.Fprintf(a.Err, "add: refresh managed block: %v\n", err)
 		return 1
 	}
 	fmt.Fprintf(a.Err, "added %s at %s\n", o.id, res.Commit)
@@ -621,6 +629,28 @@ func writeManifest(root string, m *manifest.Manifest) error {
 	}
 	return lockfile.Atomic(path, b, 0o644)
 }
+
+func refreshExistingManagedBlock(root string) error {
+	path := filepath.Join(root, "AGENTS.md")
+	if !render.HasManagedBlock(path) {
+		return nil
+	}
+	own, err := manifest.Load(filepath.Join(root, "a2amodule.yml"))
+	if err != nil {
+		return err
+	}
+	locked, err := lockfile.Load(root)
+	if err != nil {
+		return err
+	}
+	block, err := render.Build(root, own, locked, false)
+	if err != nil {
+		return err
+	}
+	_, err = render.Apply(path, block, false)
+	return err
+}
+
 func short(s string) string {
 	if len(s) > 12 {
 		return s[:12]
@@ -634,6 +664,7 @@ func short(s string) string {
 func (a *App) update(args []string) int {
 	check := false
 	followMoves := false
+	noRefresh := false
 	review := writerIsTerminal(a.Out)
 	var ids []string
 	for _, arg := range args {
@@ -645,6 +676,8 @@ func (a *App) update(args []string) int {
 			review = true
 		} else if arg == "--no-review" {
 			review = false
+		} else if arg == "--no-refresh" {
+			noRefresh = true
 		} else if strings.HasPrefix(arg, "-") {
 			fmt.Fprintf(a.Err, "update: unknown option %s\n", arg)
 			return 2
@@ -796,7 +829,7 @@ func (a *App) update(args []string) int {
 			return 1
 		}
 		snapshots := snapshotAdapterFiles(root)
-		outcomes, wireErr := wireAll(a.context(), root, d, depManifest, entry, true)
+		outcomes, wireErr := wireAll(a.context(), root, d, depManifest, entry, !noRefresh)
 		if wireErr != nil {
 			restoreAdapterFiles(root, snapshots)
 			_ = os.RemoveAll(work)
@@ -842,6 +875,12 @@ func (a *App) update(args []string) int {
 	if changed == 0 {
 		fmt.Fprintln(a.Err, "dependencies are up to date")
 	} else {
+		if !check {
+			if err := refreshExistingManagedBlock(root); err != nil {
+				fmt.Fprintf(a.Err, "update: refresh managed block: %v\n", err)
+				return 1
+			}
+		}
 		fmt.Fprintf(a.Err, "updated %d dependency(s)\n", changed)
 	}
 	for _, advisory := range advisories {
@@ -986,6 +1025,10 @@ func (a *App) remove(args []string) int {
 	}
 	if err := os.RemoveAll(cache.Dir(root, id)); err != nil {
 		fmt.Fprintf(a.Err, "remove: %v\n", err)
+		return 1
+	}
+	if err := refreshExistingManagedBlock(root); err != nil {
+		fmt.Fprintf(a.Err, "remove: refresh managed block: %v\n", err)
 		return 1
 	}
 	fmt.Fprintf(a.Err, "removed %s (cache deleted; it can be recreated by add)\n", id)

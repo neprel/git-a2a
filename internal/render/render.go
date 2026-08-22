@@ -203,6 +203,16 @@ func Current(path, block string) bool {
 	next, err := replace(string(b), block)
 	return err == nil && next == string(b)
 }
+
+// HasManagedBlock reports whether a file has any git-a2a delimiter. A partial
+// block counts as present so status can report it as stale instead of absent.
+func HasManagedBlock(path string) bool {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(b), Begin) || strings.Contains(string(b), End)
+}
 func replace(existing, block string) (string, error) {
 	if strings.Count(existing, End) > 1 {
 		return "", fmt.Errorf("managed block has more than one end delimiter")

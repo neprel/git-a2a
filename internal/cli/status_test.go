@@ -65,7 +65,78 @@ func TestStatusReportsEachPolyglotWiringStateWithoutPanic(t *testing.T) {
 	if !strings.Contains(out.String(), "npm clean, pypi unwired, golang unwired, composer clean") {
 		t.Fatalf("wiring state missing:\n%s", out.String())
 	}
+	lines := strings.Split(out.String(), "\n")
+	if len(lines) < 2 || strings.Index(lines[0], "SOURCE") != strings.Index(lines[1], "canonical") ||
+		strings.Index(lines[0], "WIRING") != strings.Index(lines[1], "npm clean") ||
+		strings.Index(lines[0], "SYNC") != strings.LastIndex(lines[1], "none") {
+		t.Fatalf("status columns are not aligned:\n%s", out.String())
+	}
 	if !strings.Contains(out.String(), "composer: form-verified (real toolchain integration pending)") {
 		t.Fatalf("verification detail missing:\n%s", out.String())
+	}
+}
+
+func TestStatusTreatsMissingManagedBlockAsHealthyNoneAndUsesModuleFooter(t *testing.T) {
+	root := t.TempDir()
+	own := &manifest.Manifest{Schema: 1, Module: manifest.Module{ID: "consumer-app"}}
+	raw, err := manifest.Marshal(own)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(root, "a2amodule.yml"), raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err = lockfile.Write(root, &manifest.Lock{Schema: 1, Dependencies: map[string]manifest.LockedDependency{}}); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte("# Human instructions\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var out, errOut bytes.Buffer
+	app := New(&out, &errOut)
+	app.Root = root
+	if code := app.Run([]string{"status", "--offline"}); code != 0 {
+		t.Fatalf("exit %d out=%s err=%s", code, out.String(), errOut.String())
+	}
+	if !strings.Contains(out.String(), "consumer-app: manifest valid · agents none · roster none") {
+		t.Fatalf("module footer missing:\n%s", out.String())
+	}
+	if strings.Contains(out.String(), "consumer-app\tself") {
+		t.Fatalf("own module leaked into dependency table:\n%s", out.String())
+	}
+	if got := strings.TrimSpace(errOut.String()); got != "0 dependencies: clean" {
+		t.Fatalf("summary = %q", got)
+	}
+}
+
+func TestStatusCallsOnlyExistingDifferentManagedBlockStale(t *testing.T) {
+	root := t.TempDir()
+	own := &manifest.Manifest{Schema: 1, Module: manifest.Module{ID: "consumer-app"}}
+	raw, _ := manifest.Marshal(own)
+	if err := os.WriteFile(filepath.Join(root, "a2amodule.yml"), raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := lockfile.Write(root, &manifest.Lock{Schema: 1, Dependencies: map[string]manifest.LockedDependency{}}); err != nil {
+		t.Fatal(err)
+	}
+	var out, errOut bytes.Buffer
+	app := New(&out, &errOut)
+	app.Root = root
+	if code := app.Run([]string{"sync"}); code != 0 {
+		t.Fatalf("sync exit %d: %s", code, errOut.String())
+	}
+	path := filepath.Join(root, "AGENTS.md")
+	b, _ := os.ReadFile(path)
+	if err := os.WriteFile(path, []byte(strings.Replace(string(b), "consumer-app", "wrong-app", 1)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	errOut.Reset()
+	if code := app.Run([]string{"status", "--offline"}); code != 1 {
+		t.Fatalf("exit %d out=%s err=%s", code, out.String(), errOut.String())
+	}
+	if !strings.Contains(out.String(), "roster stale") {
+		t.Fatalf("stale footer missing:\n%s", out.String())
 	}
 }

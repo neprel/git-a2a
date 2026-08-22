@@ -12,6 +12,7 @@ import (
 
 func (a *App) wire(args []string) int {
 	id, ecosystem := "", ""
+	noRefresh := false
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--ecosystem":
@@ -21,6 +22,8 @@ func (a *App) wire(args []string) int {
 			}
 			i++
 			ecosystem = args[i]
+		case "--no-refresh":
+			noRefresh = true
 		default:
 			if strings.HasPrefix(args[i], "-") {
 				fmt.Fprintf(a.Err, "wire: unknown option %s\n", args[i])
@@ -68,7 +71,7 @@ func (a *App) wire(args []string) int {
 			dep.Wire = &selection
 		}
 		snapshots := snapshotAdapterFiles(root)
-		outcomes, wireErr := wireAll(a.context(), root, dep, module, entry, true)
+		outcomes, wireErr := wireAll(a.context(), root, dep, module, entry, !noRefresh)
 		if wireErr != nil {
 			restoreAdapterFiles(root, snapshots)
 			fmt.Fprintf(a.Err, "wire: %s failed and was rolled back: %v\n", original.ID, wireErr)
@@ -97,6 +100,10 @@ func (a *App) wire(args []string) int {
 	}
 	for _, line := range output {
 		fmt.Fprintln(a.Out, line)
+	}
+	if err := refreshExistingManagedBlock(root); err != nil {
+		fmt.Fprintf(a.Err, "wire: refresh managed block: %v\n", err)
+		return 1
 	}
 	return 0
 }

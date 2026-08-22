@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"text/tabwriter"
 	"time"
 
 	"github.com/neprel/git-a2a/adapters"
@@ -67,10 +68,14 @@ func (a *App) status(args []string) int {
 		fmt.Fprintf(a.Err, "status: %v\n", err)
 		return 1
 	}
-	block, blockErr := render.Build(root, own, l, false)
-	syncState := "current"
-	if blockErr != nil || !render.Current(filepath.Join(root, "AGENTS.md"), block) {
-		syncState = "stale"
+	syncState := "none"
+	blockPath := filepath.Join(root, "AGENTS.md")
+	if render.HasManagedBlock(blockPath) {
+		syncState = "current"
+		block, blockErr := render.Build(root, own, l, false)
+		if blockErr != nil || !render.Current(blockPath, block) {
+			syncState = "stale"
+		}
 	}
 	var rows []statusRow
 	matched := 0
@@ -203,7 +208,7 @@ func (a *App) status(args []string) int {
 				}
 			}
 			agentState, failed, details := checkAgents(depManifest, entry.Cards, filepath.Join(cache.Dir(root, dep.ID), "cards"), root, offline)
-			row.Agents = agentState
+			row.Agents = dependencyAgentSummary(agentState)
 			row.failed = row.failed || failed
 			row.Details = append(row.Details, details...)
 		}
@@ -216,14 +221,17 @@ func (a *App) status(args []string) int {
 		fmt.Fprintln(a.Err, "status: no dependencies matched")
 		return 2
 	}
+	ownState := "none"
+	ownFailed := false
+	var ownDetails []string
 	if len(wanted) == 0 {
-		state, failed, details := checkAgents(own, nil, root, root, offline)
+		ownState, ownFailed, ownDetails = checkAgents(own, nil, root, root, offline)
 		if verbose {
 			for _, implementation := range adapters.All() {
 				ok, variant, detectErr := implementation.Detect(root)
 				if detectErr != nil {
-					details = append(details, implementation.Ecosystem()+": prerequisite detection failed: "+detectErr.Error())
-					failed = true
+					ownDetails = append(ownDetails, implementation.Ecosystem()+": prerequisite detection failed: "+detectErr.Error())
+					ownFailed = true
 					continue
 				}
 				if !ok {
@@ -231,17 +239,17 @@ func (a *App) status(args []string) int {
 				}
 				tool := adapter.InspectTool(a.context(), adapter.ToolFor(implementation.Ecosystem(), variant))
 				if tool.Ready {
-					details = append(details, implementation.Ecosystem()+": tool "+tool.Command+" found ("+tool.Version+")")
+					ownDetails = append(ownDetails, implementation.Ecosystem()+": tool "+tool.Command+" found ("+tool.Version+")")
 				} else if !tool.Found {
-					details = append(details, implementation.Ecosystem()+": tool missing ("+tool.Command+") — install: "+tool.Install)
-					failed = true
+					ownDetails = append(ownDetails, implementation.Ecosystem()+": tool missing ("+tool.Command+") — install: "+tool.Install)
+					ownFailed = true
 				} else {
-					details = append(details, implementation.Ecosystem()+": tool incompatible ("+tool.Version+") — install: "+tool.Install)
-					failed = true
+					ownDetails = append(ownDetails, implementation.Ecosystem()+": tool incompatible ("+tool.Version+") — install: "+tool.Install)
+					ownFailed = true
 				}
 			}
 		}
-		rows = append(rows, statusRow{ID: own.Module.ID, Source: "self", Ref: "self", Upstream: "self", Manifest: "valid", Wiring: "none", Agents: state, Sync: syncState, Details: details, failed: failed || syncState == "stale"})
+		ownFailed = ownFailed || syncState == "stale"
 	}
 	failures := 0
 	for _, row := range rows {
@@ -249,10 +257,17 @@ func (a *App) status(args []string) int {
 			failures++
 		}
 	}
+	if ownFailed {
+		failures++
+	}
+	noun := "dependencies"
+	if len(rows) == 1 {
+		noun = "dependency"
+	}
 	if failures > 0 {
-		fmt.Fprintf(a.Err, "%d module(s): %d unhealthy or drifted\n", len(rows), failures)
+		fmt.Fprintf(a.Err, "%d %s: %d unhealthy or drifted\n", len(rows), noun, failures)
 	} else {
-		fmt.Fprintf(a.Err, "%d module(s): clean\n", len(rows))
+		fmt.Fprintf(a.Err, "%d %s: clean\n", len(rows), noun)
 	}
 	if jsonOut {
 		public := make([]statusRow, len(rows))
@@ -260,20 +275,53 @@ func (a *App) status(args []string) int {
 		b, _ := json.MarshalIndent(public, "", "  ")
 		fmt.Fprintln(a.Out, string(b))
 	} else {
-		fmt.Fprintln(a.Out, "MODULE\tSOURCE\tREF\tUPSTREAM\tMANIFEST\tWIRING\tAGENTS\tSYNC")
+		table := tabwriter.NewWriter(a.Out, 0, 4, 2, ' ', 0)
+		fmt.Fprintln(table, "MODULE\tSOURCE\tREF\tUPSTREAM\tMANIFEST\tWIRING\tAGENTS\tSYNC")
 		for _, row := range rows {
-			fmt.Fprintf(a.Out, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.ID, row.Source, row.Ref, row.Upstream, row.Manifest, row.Wiring, row.Agents, row.Sync)
+			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.ID, row.Source, row.Ref, row.Upstream, row.Manifest, row.Wiring, row.Agents, row.Sync)
 			if verbose {
 				for _, detail := range row.Details {
-					fmt.Fprintf(a.Out, "  - %s\n", detail)
+					fmt.Fprintf(table, "  - %s\n", detail)
 				}
 			}
 		}
+		if len(wanted) == 0 {
+			fmt.Fprintf(table, "%s: manifest valid · %s · roster %s\n", own.Module.ID, ownAgentSummary(ownState), syncState)
+			if verbose {
+				for _, detail := range ownDetails {
+					fmt.Fprintf(table, "  - %s\n", detail)
+				}
+			}
+		}
+		_ = table.Flush()
 	}
 	if failures > 0 {
 		return 1
 	}
 	return 0
+}
+
+func ownAgentSummary(state string) string {
+	if state == "none" {
+		return "agents none"
+	}
+	count, condition, ok := strings.Cut(state, " ")
+	if !ok {
+		return "agents " + state
+	}
+	noun := "agents"
+	if count == "1" {
+		noun = "agent"
+	}
+	return count + " " + noun + " " + condition
+}
+
+func dependencyAgentSummary(state string) string {
+	_, condition, ok := strings.Cut(state, " ")
+	if ok {
+		return condition
+	}
+	return state
 }
 
 func refLabel(ref, kind string) string {

@@ -21,7 +21,7 @@ import (
 type setOptions struct {
 	id                           string
 	git, ref, path, track, newID *string
-	dry                          bool
+	dry, noRefresh               bool
 }
 
 func parseSet(args []string) (setOptions, error) {
@@ -56,6 +56,8 @@ func parseSet(args []string) (setOptions, error) {
 			o.newID = v
 		case "--dry-run":
 			o.dry = true
+		case "--no-refresh":
+			o.noRefresh = true
 		default:
 			if strings.HasPrefix(arg, "-") {
 				return o, fmt.Errorf("unknown option %s", arg)
@@ -90,13 +92,25 @@ func (a *App) set(args []string) int {
 	return a.applySet(o)
 }
 func (a *App) pin(args []string) int {
-	if len(args) < 1 || len(args) > 2 {
-		fmt.Fprintln(a.Err, "pin: expected ID [COMMIT]")
+	noRefresh := false
+	var positional []string
+	for _, arg := range args {
+		if arg == "--no-refresh" {
+			noRefresh = true
+		} else if strings.HasPrefix(arg, "-") {
+			fmt.Fprintf(a.Err, "pin: unknown option %s\n", arg)
+			return 2
+		} else {
+			positional = append(positional, arg)
+		}
+	}
+	if len(positional) < 1 || len(positional) > 2 {
+		fmt.Fprintln(a.Err, "pin: expected ID [COMMIT] [--no-refresh]")
 		return 2
 	}
 	commit := ""
-	if len(args) == 2 {
-		commit = args[1]
+	if len(positional) == 2 {
+		commit = positional[1]
 		if len(commit) < 40 && isHex(commit) {
 			fmt.Fprintln(a.Err, "pin: COMMIT must be a full 40-character SHA; short SHAs are ambiguous")
 			return 2
@@ -107,34 +121,54 @@ func (a *App) pin(args []string) int {
 			fmt.Fprintf(a.Err, "pin: %v\n", err)
 			return 1
 		}
-		entry, ok := l.Dependencies[args[0]]
+		entry, ok := l.Dependencies[positional[0]]
 		if !ok {
-			fmt.Fprintf(a.Err, "pin: unknown dependency %s\n", args[0])
+			fmt.Fprintf(a.Err, "pin: unknown dependency %s\n", positional[0])
 			return 2
 		}
 		commit = entry.Commit
 	}
 	track := "locked"
-	return a.applySet(setOptions{id: args[0], ref: &commit, track: &track})
+	return a.applySet(setOptions{id: positional[0], ref: &commit, track: &track, noRefresh: noRefresh})
 }
 func (a *App) unpin(args []string) int {
-	if len(args) < 3 || args[1] != "--ref" {
-		fmt.Fprintln(a.Err, "unpin: expected ID --ref BRANCH [--track locked|floating]")
+	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
+		fmt.Fprintln(a.Err, "unpin: expected ID --ref BRANCH [--track locked|floating] [--no-refresh]")
 		return 2
 	}
-	ref := args[2]
-	o := setOptions{id: args[0], ref: &ref}
-	if len(args) > 3 {
-		if len(args) != 5 || args[3] != "--track" {
-			fmt.Fprintln(a.Err, "unpin: expected ID --ref BRANCH [--track locked|floating]")
+	o := setOptions{id: args[0]}
+	for i := 1; i < len(args); i++ {
+		switch args[i] {
+		case "--ref":
+			if i+1 >= len(args) {
+				fmt.Fprintln(a.Err, "unpin: --ref needs a value")
+				return 2
+			}
+			i++
+			ref := args[i]
+			o.ref = &ref
+		case "--track":
+			if i+1 >= len(args) {
+				fmt.Fprintln(a.Err, "unpin: --track needs a value")
+				return 2
+			}
+			i++
+			track := args[i]
+			if track != "locked" && track != "floating" {
+				fmt.Fprintln(a.Err, "unpin: --track must be locked or floating")
+				return 2
+			}
+			o.track = &track
+		case "--no-refresh":
+			o.noRefresh = true
+		default:
+			fmt.Fprintf(a.Err, "unpin: unknown option %s\n", args[i])
 			return 2
 		}
-		track := args[4]
-		if track != "locked" && track != "floating" {
-			fmt.Fprintln(a.Err, "unpin: --track must be locked or floating")
-			return 2
-		}
-		o.track = &track
+	}
+	if o.ref == nil {
+		fmt.Fprintln(a.Err, "unpin: expected ID --ref BRANCH [--track locked|floating] [--no-refresh]")
+		return 2
 	}
 	return a.applySet(o)
 }
@@ -250,7 +284,7 @@ func (a *App) applySet(o setOptions) int {
 		return 0
 	}
 	snapshots := snapshotAdapterFiles(root)
-	outcomes, err := rewireSet(a.context(), root, oldDep, next, oldManifest, nextManifest, locked, true)
+	outcomes, err := rewireSet(a.context(), root, oldDep, next, oldManifest, nextManifest, locked, !o.noRefresh)
 	if err != nil {
 		restoreAdapterFiles(root, snapshots)
 		fmt.Fprintf(a.Err, "set: wiring failed and was rolled back: %v\n", err)
@@ -296,6 +330,10 @@ func (a *App) applySet(o setOptions) int {
 	}
 	if next.ID != o.id {
 		_ = os.RemoveAll(cache.Dir(root, o.id))
+	}
+	if err = refreshExistingManagedBlock(root); err != nil {
+		fmt.Fprintf(a.Err, "set: refresh managed block: %v\n", err)
+		return 1
 	}
 	fmt.Fprintf(a.Err, "set %s to %s at %s\n", next.ID, next.Git, res.Commit)
 	if resolution.Ambiguous {
