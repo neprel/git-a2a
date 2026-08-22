@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"unicode"
@@ -17,6 +16,12 @@ import (
 
 const Begin = "<!-- git-a2a:begin -->"
 const End = "<!-- git-a2a:end -->"
+
+const (
+	descriptionLimit = 600
+	noteLimit        = 300
+	fieldLimit       = 300
+)
 
 func Build(root string, own *manifest.Manifest, l *manifest.Lock, brief bool) (string, error) {
 	var b strings.Builder
@@ -46,7 +51,7 @@ func Build(root string, own *manifest.Manifest, l *manifest.Lock, brief bool) (s
 		fmt.Fprintf(&b, "\n### Dependency: `%s`\n\n", id)
 		origin := fmt.Sprintf("from %s @%s", id, short(entry.Commit))
 		if dep.Module.Description != "" {
-			fmt.Fprintf(&b, "> Description (%s): %s\n>\n", origin, sanitize(dep.Module.Description, 600))
+			fmt.Fprintf(&b, "> Description (%s): %s\n>\n", origin, safe(dep.Module.Description, descriptionLimit))
 		}
 		if dep.Module.Surface != "" {
 			fmt.Fprintf(&b, "> Published surface (%s): `.git-a2a/cache/%s/surface/` (available after `git-a2a show %s --surface`).\n>\n", origin, id, id)
@@ -56,7 +61,7 @@ func Build(root string, own *manifest.Manifest, l *manifest.Lock, brief bool) (s
 		for _, intent := range intents(dep) {
 			matches, _ := routing.Resolve(dep, intent, "")
 			if len(matches) == 0 {
-				fmt.Fprintf(&b, "| %s | — | none declared |\n", escape(intent))
+				fmt.Fprintf(&b, "| %s | — | none declared |\n", safe(intent, fieldLimit))
 				continue
 			}
 			contacts := matches[0].Contacts
@@ -66,9 +71,9 @@ func Build(root string, own *manifest.Manifest, l *manifest.Lock, brief bool) (s
 			for _, contact := range contacts {
 				text := routing.ContactText(contact)
 				if contact.Note != "" {
-					text += "; note: " + sanitize(contact.Note, 300)
+					text += "; note: " + sanitize(contact.Note, noteLimit)
 				}
-				fmt.Fprintf(&b, "| %s | %s (%s) | %s |\n", escape(intent), escape(matches[0].Agent.Name), escape(matches[0].Agent.Role), escape(text))
+				fmt.Fprintf(&b, "| %s | %s (%s) | %s |\n", safe(intent, fieldLimit), safe(matches[0].Agent.Name, fieldLimit), safe(matches[0].Agent.Role, fieldLimit), safe(text, fieldLimit))
 			}
 		}
 	}
@@ -96,10 +101,16 @@ func writeConsumers(b *strings.Builder, p *manifest.Policy, quoted bool, origin,
 		prefix = "> "
 		fmt.Fprintf(b, "> Consumer policy (%s):\n", origin)
 	}
-	fmt.Fprintf(b, "%s- may: `%s`\n%s- may-not: `%s`\n", prefix, strings.Join(may, "`, `"), prefix, strings.Join(mayNot, "`, `"))
+	mayText := strings.Join(may, "`, `")
+	mayNotText := strings.Join(mayNot, "`, `")
+	if quoted {
+		mayText = safe(mayText, fieldLimit)
+		mayNotText = safe(mayNotText, fieldLimit)
+	}
+	fmt.Fprintf(b, "%s- may: `%s`\n%s- may-not: `%s`\n", prefix, mayText, prefix, mayNotText)
 	if notes != "" {
 		if quoted {
-			fmt.Fprintf(b, "> - notes: %s\n", sanitize(notes, 300))
+			fmt.Fprintf(b, "> - notes: %s\n", safe(notes, noteLimit))
 		} else {
 			fmt.Fprintf(b, "- notes: %s\n", notes)
 		}
@@ -136,24 +147,30 @@ func intents(m *manifest.Manifest) []string {
 	return append(core, extra...)
 }
 
-var comments = regexp.MustCompile(`(?s)<!--.*?-->`)
-
 func sanitize(s string, limit int) string {
-	s = comments.ReplaceAllString(s, "")
+	// Remove delimiter tokens themselves. Removing complete comments in one pass is
+	// insufficient: nested-looking input can reveal a managed-block delimiter.
+	s = strings.ReplaceAll(s, "<!--", "")
+	s = strings.ReplaceAll(s, "-->", "")
 	s = strings.Map(func(r rune) rune {
-		if unicode.IsControl(r) && r != '\n' && r != '\t' {
-			return -1
+		if unicode.IsControl(r) {
+			return ' '
 		}
 		return r
 	}, s)
 	s = strings.Join(strings.Fields(s), " ")
 	r := []rune(s)
 	if len(r) > limit {
-		return string(r[:limit]) + "…[truncated]"
+		marker := []rune("…[truncated]")
+		if limit <= len(marker) {
+			return string(marker[:limit])
+		}
+		return string(r[:limit-len(marker)]) + string(marker)
 	}
 	return s
 }
-func escape(s string) string { return strings.ReplaceAll(s, "|", "\\|") }
+func safe(s string, limit int) string { return escape(sanitize(s, limit)) }
+func escape(s string) string          { return strings.ReplaceAll(s, "|", "\\|") }
 func short(s string) string {
 	if len(s) > 12 {
 		return s[:12]
@@ -187,6 +204,9 @@ func Current(path, block string) bool {
 	return err == nil && next == string(b)
 }
 func replace(existing, block string) (string, error) {
+	if strings.Count(existing, End) > 1 {
+		return "", fmt.Errorf("managed block has more than one end delimiter")
+	}
 	start := strings.Index(existing, Begin)
 	end := strings.Index(existing, End)
 	if (start < 0) != (end < 0) {
