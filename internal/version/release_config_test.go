@@ -32,7 +32,7 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 		t.Error("GitHub Actions does not allow the secrets context directly in an if expression")
 	}
 	for name, body := range map[string]string{"release": workflow, "CI": ciWorkflow} {
-		if !strings.Contains(body, "npm install --global --ignore-scripts @openhint/cli@1.5.1") || !strings.Contains(body, "go test -count=1 ./...") {
+		if !strings.Contains(body, "@openhint/cli@1.5.1 @openhint/hintbook-software-engineer@1.3.1") || !strings.Contains(body, "go test -count=1 ./...") {
 			t.Errorf("%s workflow must install the pinned HINT compiler and bypass stale test results", name)
 		}
 	}

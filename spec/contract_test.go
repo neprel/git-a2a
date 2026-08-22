@@ -26,9 +26,9 @@ func TestHintEntityFieldsMatchSchemaAndGoTypes(t *testing.T) {
 	}
 	command := exec.Command("hint", "spec")
 	command.Dir = root
-	compiled, err := command.Output()
+	compiled, err := command.CombinedOutput()
 	if err != nil {
-		t.Fatalf("compile hint spec: %v", err)
+		t.Fatalf("compile hint spec: %v: %s", err, compiled)
 	}
 	specFields := fieldsFromCompiledHint(t, compiled)
 
