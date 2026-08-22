@@ -2,9 +2,14 @@ package cli
 
 import (
 	"bytes"
+	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -52,9 +57,80 @@ func TestCheckAgentsUsesRelativeCardSnapshot(t *testing.T) {
 	}
 	sum := sha256.Sum256(raw)
 	m := &manifest.Manifest{Agents: []manifest.Agent{{Name: "acme-lib-utils", Card: "cards/agent.json"}}}
-	state, failed, details := checkAgents(m, map[string]string{"acme-lib-utils": "sha256:" + hex.EncodeToString(sum[:])}, root, false)
+	state, failed, details := checkAgents(m, map[string]string{"acme-lib-utils": "sha256:" + hex.EncodeToString(sum[:])}, root, root, false)
 	if failed || state != "1 up" || len(details) != 0 {
 		t.Fatalf("state=%q failed=%v details=%v", state, failed, details)
+	}
+}
+
+func TestRequiredCardSignatureFailsStatusAndWarnsUpdate(t *testing.T) {
+	root := t.TempDir()
+	raw, err := os.ReadFile(filepath.Join("..", "..", "testdata", "cards", "v1.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	agent := manifest.Agent{Name: "acme-lib-utils", Card: "cards.json", Trust: &manifest.Trust{Signatures: true}}
+	m := &manifest.Manifest{Agents: []manifest.Agent{agent}}
+	if err = os.WriteFile(filepath.Join(root, "cards.json"), raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	state, failed, details := checkAgents(m, nil, root, root, false)
+	if !failed || state != "1 untrusted" || !strings.Contains(strings.Join(details, "\n"), "card is unsigned") {
+		t.Fatalf("state=%q failed=%v details=%v", state, failed, details)
+	}
+	cardsDir := filepath.Join(root, "snapshots")
+	if err = os.MkdirAll(cardsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(cardsDir, a2a.FileName(agent.Name)), raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	warnings := trustedCardWarnings(m, cardsDir, root)
+	if len(warnings) != 1 || !strings.Contains(warnings[0].Error(), "card is unsigned") {
+		t.Fatalf("warnings=%v", warnings)
+	}
+}
+
+func TestCardVerifyUsesGeneratedKeyAndJWKS(t *testing.T) {
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cardRaw []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		if request.URL.Path == "/jwks" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"keys": []any{map[string]any{
+				"kty": "OKP", "crv": "Ed25519", "kid": "generated", "use": "sig", "alg": "EdDSA",
+				"x": base64.RawURLEncoding.EncodeToString(publicKey),
+			}}})
+			return
+		}
+		_, _ = w.Write(cardRaw)
+	}))
+	defer server.Close()
+	card := map[string]any{
+		"name": "verified-agent", "description": "Generated test agent.", "version": "1.0.0",
+		"supportedInterfaces": []any{map[string]any{"url": server.URL, "protocolBinding": "JSONRPC", "protocolVersion": "1.0"}},
+		"capabilities":        map[string]any{}, "defaultInputModes": []any{"text/plain"}, "defaultOutputModes": []any{"text/plain"}, "skills": []any{},
+	}
+	header, _ := json.Marshal(map[string]any{"alg": "EdDSA", "typ": "JOSE", "kid": "generated", "jku": server.URL + "/jwks"})
+	protected := base64.RawURLEncoding.EncodeToString(header)
+	payload, err := a2a.CanonicalPayload(card)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := []byte(protected + "." + base64.RawURLEncoding.EncodeToString(payload))
+	card["signatures"] = []any{map[string]any{"protected": protected, "signature": base64.RawURLEncoding.EncodeToString(ed25519.Sign(privateKey, input))}}
+	cardRaw, _ = json.Marshal(card)
+
+	var out, errOut bytes.Buffer
+	app := New(&out, &errOut)
+	app.Root = t.TempDir()
+	if code := app.Run([]string{"card", "verify", server.URL + "/card"}); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	if !strings.Contains(out.String(), "verified EdDSA signature with key generated") {
+		t.Fatalf("output = %q", out.String())
 	}
 }
 

@@ -16,7 +16,7 @@ import (
 
 func (a *App) card(args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(a.Err, "card: expected export, validate, or show")
+		fmt.Fprintln(a.Err, "card: expected export, validate, verify, or show")
 		return 2
 	}
 	switch args[0] {
@@ -24,12 +24,34 @@ func (a *App) card(args []string) int {
 		return a.cardExport(args[1:])
 	case "validate":
 		return a.cardValidate(args[1:])
+	case "verify":
+		return a.cardVerify(args[1:])
 	case "show":
 		return a.cardShow(args[1:])
 	default:
 		fmt.Fprintf(a.Err, "card: unknown command %s\n", args[0])
 		return 2
 	}
+}
+
+func (a *App) cardVerify(args []string) int {
+	if len(args) != 1 {
+		fmt.Fprintln(a.Err, "card verify: expected one file or URL")
+		return 2
+	}
+	_, raw, err := a2a.Read(args[0], a.root())
+	if err != nil {
+		fmt.Fprintf(a.Err, "card signature invalid: %v\n", err)
+		return 1
+	}
+	verified, err := a2a.VerifySignatures(raw, a2a.VerifyOptions{CacheRoot: a.root()})
+	if err != nil {
+		fmt.Fprintf(a.Err, "card signature invalid: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(a.Out, "%s: verified %s signature with key %s\n", args[0], verified.Algorithm, verified.KeyID)
+	fmt.Fprintln(a.Err, "card signature verified")
+	return 0
 }
 
 func (a *App) cardValidate(args []string) int {

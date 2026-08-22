@@ -1,0 +1,25 @@
+# invariant Card signatures cover canonical card data
+
+Verification removes the top-level `signatures` member, canonicalizes the remaining parsed JSON
+with RFC 8785 JCS, base64url-encodes that payload, and verifies the detached JWS signing input
+`protected + "." + payload`. Verification succeeds when at least one declared signature succeeds;
+an absent signature never counts as verified.
+
+# decision Signing keys come from a protected JWKS reference
+
+The protected JWS header supplies `alg`, `kid`, and `jku`; an unprotected key location is not a
+trust anchor. The reference CLI supports ES256, RS256, and EdDSA with Go's standard crypto
+library. JWKS retrieval has a three-second default timeout and a two-megabyte response limit.
+Remote key URLs use HTTPS, except loopback HTTP used for local agents and tests.
+
+# decision JWKS cache is local fallback state
+
+Successful JWKS responses are atomically cached by URL hash under `.git-a2a/jwks/`. Online
+verification refreshes the key set and falls back to the cache when retrieval fails; offline
+verification reads only the cache. Cache files contain no timestamps and are never committed.
+
+# test Trust verification
+
+- RFC 8785 number encoding and UTF-16 property ordering match the published canonical form.
+- A generated key verifies through a local JWKS server and then from cache without the server.
+- Tampering and unsigned cards fail verification.

@@ -174,7 +174,7 @@ func (a *App) status(args []string) int {
 					}
 				}
 			}
-			agentState, failed, details := checkAgents(depManifest, entry.Cards, filepath.Join(cache.Dir(root, dep.ID), "cards"), offline)
+			agentState, failed, details := checkAgents(depManifest, entry.Cards, filepath.Join(cache.Dir(root, dep.ID), "cards"), root, offline)
 			row.Agents = agentState
 			row.failed = row.failed || failed
 			row.Details = append(row.Details, details...)
@@ -189,7 +189,7 @@ func (a *App) status(args []string) int {
 		return 2
 	}
 	if len(wanted) == 0 {
-		state, failed, details := checkAgents(own, nil, root, offline)
+		state, failed, details := checkAgents(own, nil, root, root, offline)
 		rows = append(rows, statusRow{ID: own.Module.ID, Source: "self", Ref: "self", Upstream: "self", Manifest: "valid", Wiring: "none", Agents: state, Sync: syncState, Details: details, failed: failed || syncState == "stale"})
 	}
 	failures := 0
@@ -297,9 +297,10 @@ func driftAll(ctx context.Context, root string, dep manifest.Dependency, m manif
 
 type stringFinding struct{ File, Entry, Want, Got string }
 
-func checkAgents(m *manifest.Manifest, expected map[string]string, base string, offline bool) (string, bool, []string) {
+func checkAgents(m *manifest.Manifest, expected map[string]string, base, trustRoot string, offline bool) (string, bool, []string) {
 	count := 0
 	down := 0
+	untrusted := 0
 	changed := 0
 	var details []string
 	for _, agent := range m.Agents {
@@ -307,19 +308,25 @@ func checkAgents(m *manifest.Manifest, expected map[string]string, base string, 
 			continue
 		}
 		count++
-		if offline {
+		requiresSignature := agent.Trust != nil && agent.Trust.Signatures
+		if offline && !requiresSignature {
 			continue
 		}
 		location := agent.Card
 		readBase := base
-		if expected != nil && !strings.HasPrefix(location, "http://") && !strings.HasPrefix(location, "https://") {
+		if expected != nil && (offline || (!strings.HasPrefix(location, "http://") && !strings.HasPrefix(location, "https://"))) {
 			location = a2a.FileName(agent.Name)
 			readBase = base
 		}
 		b, err := readCard(location, readBase)
 		if err != nil {
-			down++
-			details = append(details, fmt.Sprintf("agent %s down: %v", agent.Name, err))
+			if requiresSignature {
+				untrusted++
+				details = append(details, fmt.Sprintf("agent %s signature unavailable: %v", agent.Name, err))
+			} else {
+				down++
+				details = append(details, fmt.Sprintf("agent %s down: %v", agent.Name, err))
+			}
 			continue
 		}
 		card, parseErr := a2a.Parse(b)
@@ -328,6 +335,13 @@ func checkAgents(m *manifest.Manifest, expected map[string]string, base string, 
 			down++
 			details = append(details, fmt.Sprintf("agent %s returned an invalid or mismatched card", agent.Name))
 			continue
+		}
+		if requiresSignature {
+			if _, verifyErr := a2a.VerifySignatures(b, a2a.VerifyOptions{CacheRoot: trustRoot, Offline: offline}); verifyErr != nil {
+				untrusted++
+				details = append(details, fmt.Sprintf("agent %s signature invalid: %v", agent.Name, verifyErr))
+				continue
+			}
 		}
 		if want := expected[agent.Name]; want != "" {
 			sum := sha256.Sum256(b)
@@ -340,8 +354,11 @@ func checkAgents(m *manifest.Manifest, expected map[string]string, base string, 
 	if count == 0 {
 		return "none", false, nil
 	}
+	if untrusted > 0 {
+		return fmt.Sprintf("%d untrusted", untrusted), true, details
+	}
 	if offline {
-		return "unknown", false, nil
+		return "unknown", false, details
 	}
 	if down > 0 {
 		return fmt.Sprintf("%d down", down), true, details

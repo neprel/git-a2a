@@ -45,20 +45,21 @@ func TestCheckAgentsUpChangedDownOffline(t *testing.T) {
 	m := &manifest.Manifest{Agents: []manifest.Agent{{Name: "owner", Role: "owner", Card: server.URL}}}
 	sum := sha256.Sum256(card)
 	expected := map[string]string{"owner": "sha256:" + hex.EncodeToString(sum[:])}
-	state, failed, _ := checkAgents(m, expected, "", false)
+	trustRoot := t.TempDir()
+	state, failed, _ := checkAgents(m, expected, "", trustRoot, false)
 	if failed || state != "1 up" {
 		t.Fatalf("up: %s %v", state, failed)
 	}
-	state, failed, _ = checkAgents(m, map[string]string{"owner": "sha256:" + strings.Repeat("0", 64)}, "", false)
+	state, failed, _ = checkAgents(m, map[string]string{"owner": "sha256:" + strings.Repeat("0", 64)}, "", trustRoot, false)
 	if !failed || state != "1 changed" {
 		t.Fatalf("changed: %s %v", state, failed)
 	}
-	state, failed, _ = checkAgents(m, expected, "", true)
+	state, failed, _ = checkAgents(m, expected, "", trustRoot, true)
 	if failed || state != "unknown" {
 		t.Fatalf("offline: %s %v", state, failed)
 	}
 	server.Close()
-	state, failed, _ = checkAgents(m, expected, "", false)
+	state, failed, _ = checkAgents(m, expected, "", trustRoot, false)
 	if !failed || state != "1 down" {
 		t.Fatalf("down: %s %v", state, failed)
 	}

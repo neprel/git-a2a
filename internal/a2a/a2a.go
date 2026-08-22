@@ -105,15 +105,26 @@ func Read(location, base string) (map[string]any, []byte, error) {
 	return card, b, err
 }
 func Parse(b []byte) (map[string]any, error) {
+	card, err := decodeCard(b)
+	if err != nil {
+		return nil, err
+	}
+	normalizeLegacy(card)
+	if err := Validate(card); err != nil {
+		return nil, err
+	}
+	return card, nil
+}
+
+func decodeCard(b []byte) (map[string]any, error) {
 	dec := json.NewDecoder(bytes.NewReader(b))
 	dec.UseNumber()
 	var card map[string]any
 	if err := dec.Decode(&card); err != nil {
 		return nil, err
 	}
-	normalizeLegacy(card)
-	if err := Validate(card); err != nil {
-		return nil, err
+	if dec.Decode(&struct{}{}) != io.EOF {
+		return nil, fmt.Errorf("card contains trailing JSON")
 	}
 	return card, nil
 }

@@ -134,7 +134,7 @@ func (a *App) commandUsage(command string) {
 		"remove": "git-a2a remove ID [--keep-wiring]", "show": "git-a2a show [ID] [--json] [--surface]",
 		"sync": "git-a2a sync [--check] [--brief] [--target FILE]", "who": "git-a2a who [ID] [--intent INTENT] [--path FILE] [--json]",
 		"contact": "git-a2a contact ID --intent INTENT --message FILE|- [--wait]", "ask": "git-a2a contact ID --intent INTENT --message FILE|- [--wait]",
-		"status": "git-a2a status [ID ...] [--offline] [--json] [-v]", "card": "git-a2a card <export|validate|show> [options]",
+		"status": "git-a2a status [ID ...] [--offline] [--json] [-v]", "card": "git-a2a card <export|validate|verify|show> [options]",
 		"fmt": "git-a2a fmt [--check] [PATH...]", "version": "git-a2a version [--check]", "upgrade": "git-a2a upgrade [--to VERSION]",
 	}
 	if line := usage[command]; line != "" {
@@ -678,6 +678,11 @@ func (a *App) update(args []string) int {
 			advisories = append(advisories, fmt.Sprintf("%s: ref %s is ambiguous; selected %s", d.ID, d.Ref, resolution.FullRef))
 		}
 		if entry.Commit == commit && !cacheRepair {
+			if cachedManifest, loadErr := manifest.Load(filepath.Join(cache.Dir(root, d.ID), "a2amodule.yml")); loadErr == nil {
+				for _, warning := range trustedCardWarnings(cachedManifest, filepath.Join(cache.Dir(root, d.ID), "cards"), root) {
+					advisories = append(advisories, fmt.Sprintf("warning: %s card trust: %v", d.ID, warning))
+				}
+			}
 			continue
 		}
 		changed++
@@ -749,6 +754,9 @@ func (a *App) update(args []string) int {
 		cards, warnings := a.snapshotCardsTo(filepath.Join(cache.Dir(stagedRoot, d.ID), "cards"), d.Git, d.Path, res.Commit, depManifest, f)
 		for _, warning := range warnings {
 			advisories = append(advisories, fmt.Sprintf("warning: %s card snapshot: %v", d.ID, warning))
+		}
+		for _, warning := range trustedCardWarnings(depManifest, filepath.Join(cache.Dir(stagedRoot, d.ID), "cards"), root) {
+			advisories = append(advisories, fmt.Sprintf("warning: %s card trust: %v", d.ID, warning))
 		}
 		surfaceTree := ""
 		oldSurface := filepath.Join(cache.Dir(root, d.ID), "surface")
@@ -848,6 +856,23 @@ func (a *App) snapshotCardsTo(dir, url, modulePath, commit string, m *manifest.M
 		return f.File(a.context(), url, commit, path.Join(defaultPath(modulePath), cardPath))
 	}
 	return a2a.Snapshot(m, dir, reader)
+}
+
+func trustedCardWarnings(m *manifest.Manifest, cardsDir, root string) []error {
+	var warnings []error
+	for _, agent := range m.Agents {
+		if agent.Card == "" || agent.Trust == nil || !agent.Trust.Signatures {
+			continue
+		}
+		raw, err := os.ReadFile(filepath.Join(cardsDir, a2a.FileName(agent.Name)))
+		if err == nil {
+			_, err = a2a.VerifySignatures(raw, a2a.VerifyOptions{CacheRoot: root})
+		}
+		if err != nil {
+			warnings = append(warnings, fmt.Errorf("%s: %w", agent.Name, err))
+		}
+	}
+	return warnings
 }
 
 func (a *App) remove(args []string) int {
