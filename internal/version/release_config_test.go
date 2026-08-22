@@ -34,6 +34,10 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	if regexp.MustCompile(`(?m)^\s*if:\s*\$\{\{\s*secrets\.`).MatchString(workflow) {
 		t.Error("GitHub Actions does not allow the secrets context directly in an if expression")
 	}
+	goReleaserEnv := regexp.MustCompile(`(?s)uses: goreleaser/goreleaser-action@[0-9a-f]{40}.*?env:\s+GORELEASER_CURRENT_TAG: \$\{\{ env\.RELEASE_TAG \}\}`)
+	if !goReleaserEnv.MatchString(workflow) {
+		t.Error("GoReleaser action must receive the explicitly selected immutable tag")
+	}
 	for name, body := range map[string]string{"release": workflow, "CI": ciWorkflow} {
 		if !strings.Contains(body, "@openhint/cli@1.5.1 @openhint/hintbook-software-engineer@1.3.1") || !strings.Contains(body, "go test -count=1 ./...") {
 			t.Errorf("%s workflow must install the pinned HINT compiler and bypass stale test results", name)
