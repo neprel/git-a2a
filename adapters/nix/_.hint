@@ -1,0 +1,12 @@
+# decision Nix flake inputs carry ref, rev, and dir in a native Git URL
+
+The Nix adapter owns one delimited `inputs.<name>.url` assignment in `flake.nix`. Locked wiring
+uses a `git+` URL with both the declared `ref` and the full lock `rev`; floating wiring omits
+`rev`. An export subdirectory becomes the native `dir` query parameter. Query encoding is
+deterministic, and `flake.lock` remains downstream rather than being rewritten during wiring.
+
+# test Nix adapter
+
+- Fixture/golden wiring is idempotent and preserves unrelated Nix expressions and comments.
+- Drift checks the normalized Git URL and locked `rev`.
+- Unwire removes only the delimited input assignment.

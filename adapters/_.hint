@@ -12,7 +12,7 @@ The registry offers every adapter and lets each one detect its own native projec
 `Cargo.toml` for Cargo, `Package.swift` for SwiftPM, `pubspec.yaml` for Pub, and `Gemfile` for
 Bundler, `composer.json` for Composer, `mix.exs` for Hex/Mix, and `stack.yaml` or
 `cabal.project` for Hackage, `build.zig.zon` for Zig, and `deps.edn` for Clojure tools.deps.
-Polyglot consumers may activate any combination; a
+`flake.nix` for Nix flakes. Polyglot consumers may activate any combination; a
 dependency transaction applies every detected,
 applicable adapter rather than selecting a single ecosystem.
 
