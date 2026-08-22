@@ -26,14 +26,6 @@ The directory the owner publishes for consumers: API summaries, usage, limits, e
 the only content of the dependency a consumer may read besides the manifest itself. Its location
 is declared (`module.surface`); there is no hard-coded path.
 
-# term vendored dependency
-
-A dependency whose source tree is checked out inside the consumer's repository — as a git
-submodule (a gitlink pinned to the locked commit) or as a plain copy — instead of, or in
-addition to, a package-manager reference. It is how git-a2a serves toolchains that have no
-git-dependency form at all (Maven, NuGet, C/C++ builds, …) and how any consumer can choose
-source-level integration. The consumer decides; the dependency only declares what is there.
-
 # term intent
 
 What a request is for. Core tokens: `question`, `change`, `bug`, `review`, `incident`. The set is
@@ -47,8 +39,8 @@ product code), `reviewer`, `support`. The set is open.
 
 # entity a2amodule.yml {#manifest}
 
-Top-level keys, in canonical order: `schema`, `module`, `agents`, `policy`, `settings`,
-`dependencies`. `schema`, `module` and `module.id` are required; everything else is optional. Unknown keys are errors except `x-*`.
+Top-level keys, in canonical order. `schema`, `module` and `module.id` are required; everything
+else is optional. Unknown keys are errors except `x-*`.
 
 ## field schema
 
@@ -71,13 +63,6 @@ object, see [#policy](#policy). Routing defaults and consumer permissions.
 ## field dependencies
 
 list, see [#dependency](#dependency). Modules this module depends on.
-
-## field settings
-
-object, optional; how *this* repository consumes dependencies (it is never read by consumers
-of this module): `vendor-dir` (string, default `deps`; the parent directory for vendored
-dependencies — `vendor/` is deliberately not the default because Go and PHP give that name a
-meaning), `sync-targets` (list of files `sync` maintains besides `AGENTS.md`), `x-*`.
 
 # entity module {#module}
 
@@ -277,21 +262,6 @@ string. Subdirectory containing the dependency's `a2amodule.yml` (monorepo). Def
 
 `locked` (default) or `floating`. See root decision `one_commit`.
 
-## field vendor
-
-object, optional. Asks the tool to place the dependency's source tree inside this repository:
-`mode` (`submodule` — a git submodule pinned to the locked commit, the default when `vendor` is
-given; `copy` — a plain, git-metadata-free copy of the tree at the locked commit), `path`
-(string; where, relative to this manifest; default `<settings.vendor-dir>/<id>`, i.e. `deps/<id>`),
-`recursive` (boolean; initialise the dependency's own submodules; default false). With `vendor`
-present, the lock records `vendor: { mode, path }` and the tool keeps the checkout at exactly
-`commit`; `status` reports a gitlink or tree that differs from the lock as drift, and an
-uninitialised submodule as `vendor: missing`. Native package-manager wiring still happens for
-every wirable export; for exports whose ecosystem has no git form, integration adapters (plan 15)
-wire the vendored path instead. A consumer never vendors implicitly — `add --vendor` or an
-explicit `vendor:` entry is required, because a submodule changes the shape of the repository
-for everyone who clones it.
-
 ## field wire
 
 list of ecosystems to wire, or absent for "every export that matches a manifest detected in this
@@ -312,8 +282,7 @@ extension keys, preserved.
 YAML, written only by the CLI. `schema: 1`; `dependencies:` map keyed by dependency id with
 `git`, `ref`, `path`, `commit` (40-hex, the resolved ref), `manifest` (`sha256:<hex>` of the
 fetched `a2amodule.yml` bytes), `cards` (map agent name → `sha256:<hex>` of the snapshotted
-card, present only for agents with a `card`), `vendor` (object `{ mode, path }` when the dependency is vendored; the checked-out commit is always `commit`),
-`surface` (`tree:<40-hex>`, the git tree object id of the surface directory at `commit`,
+card, present only for agents with a `card`), `surface` (`tree:<40-hex>`, the git tree object id of the surface directory at `commit`,
 recorded whenever the surface is fetched). Checkout strategies obtain it with
 `git rev-parse <commit>:<surface>`; the archive strategy derives the same Git tree object id from
 the archived entries. Keys sorted; no timestamps, no absolute
