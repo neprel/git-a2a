@@ -27,7 +27,7 @@ func TestValidatePrintsVerdictFirst(t *testing.T) {
 }
 
 func TestEveryCommandHasCommandSpecificHelp(t *testing.T) {
-	commands := []string{"init", "validate", "add", "set", "pin", "unpin", "wire", "update", "remove", "show", "sync", "who", "status", "card", "fmt", "version", "upgrade"}
+	commands := []string{"init", "validate", "add", "set", "pin", "unpin", "wire", "update", "remove", "show", "sync", "who", "contact", "status", "card", "fmt", "version", "upgrade"}
 	for _, command := range commands {
 		t.Run(command, func(t *testing.T) {
 			var out, errOut bytes.Buffer

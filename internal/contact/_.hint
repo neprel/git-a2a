@@ -1,0 +1,17 @@
+# decision Contact delivery is stateless and ordered
+
+`contact` resolves intent through the same router as `who`, then selects the first declared
+contact whose kind has a driver. A delivery emits exactly one stdout record containing the
+agent, kind, remote identifier, and state; git-a2a writes no conversation or delivery state.
+
+# decision A2A uses the native version 1.0 JSON-RPC binding
+
+The A2A driver sends JSON-RPC 2.0 method `SendMessage` with the `A2A-Version: 1.0` header and a
+version 1.0 user `Message`. `--wait` uses `SendStreamingMessage` and consumes its SSE events.
+Both paths report the returned task id/state, or the returned message id when no task exists.
+
+# test Contact drivers
+
+- An httptest A2A endpoint observes the exact method, protocol header, user role, and text part.
+- Streaming consumes every SSE event and reports the final task state once.
+- Delivery leaves the consumer repository byte-for-byte unchanged.
