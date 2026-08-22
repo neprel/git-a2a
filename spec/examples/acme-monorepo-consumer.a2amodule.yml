@@ -1,0 +1,18 @@
+# A module in a monorepo subdirectory, consuming another subdirectory module.
+schema: 1
+module:
+  id: acme-monorepo-consumer
+  description: A polyglot consumer located under apps/consumer in an Acme monorepo.
+  exports:
+    - ecosystem: npm
+      name: "@acme/monorepo-consumer"
+      path: js/
+    - ecosystem: golang
+      name: acme.dev/monorepo/consumer
+      path: go/
+dependencies:
+  - id: acme-lib-utils
+    git: https://github.com/acme/monorepo.git
+    ref: main
+    path: libs/utils
+    track: locked

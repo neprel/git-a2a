@@ -1,0 +1,9 @@
+schema: 1
+module:
+  id: missing-intents
+agents:
+  - name: owner
+    role: owner
+    contacts:
+      - kind: email
+        address: owner@example.com

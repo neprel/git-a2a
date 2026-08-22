@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://git-a2a.com/schema/a2amodule.lock.schema.json",
+  "title": "a2amodule.lock",
+  "type": "object",
+  "required": ["schema", "dependencies"],
+  "properties": {
+    "schema": { "const": 1 },
+    "dependencies": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$" },
+      "additionalProperties": { "$ref": "#/$defs/lockedDependency" }
+    }
+  },
+  "patternProperties": { "^x-": {} },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "not": { "pattern": "^(?:/|[A-Za-z]:[\\\\/])|(?:^|/)\\.\\.(?:/|$)" }
+    },
+    "lockedDependency": {
+      "type": "object",
+      "required": ["git", "ref", "path", "commit", "manifest"],
+      "properties": {
+        "git": { "type": "string", "minLength": 1 },
+        "ref": { "type": "string", "minLength": 1 },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "manifest": { "$ref": "#/$defs/sha256" },
+        "cards": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/sha256" }
+        },
+        "surface": { "type": "string", "pattern": "^tree:[0-9a-f]{40}$" }
+      },
+      "patternProperties": { "^x-": {} },
+      "additionalProperties": false
+    }
+  }
+}

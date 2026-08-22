@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://git-a2a.com/schema/a2amodule.schema.json",
+  "title": "a2amodule.yml",
+  "type": "object",
+  "required": ["schema", "module"],
+  "properties": {
+    "schema": { "const": 1 },
+    "module": { "$ref": "#/$defs/module" },
+    "agents": { "type": "array", "items": { "$ref": "#/$defs/agent" } },
+    "policy": { "$ref": "#/$defs/policy" },
+    "dependencies": { "type": "array", "items": { "$ref": "#/$defs/dependency" } }
+  },
+  "patternProperties": { "^x-": {} },
+  "additionalProperties": false,
+  "$defs": {
+    "extensionObject": {
+      "type": "object",
+      "patternProperties": { "^x-": {} }
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "not": { "pattern": "^(?:/|[A-Za-z]:[\\\\/])|(?:^|/)\\.\\.(?:/|$)" }
+    },
+    "moduleId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "module": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/moduleId" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "languages": { "type": "array", "items": { "type": "string" } },
+        "surface": { "$ref": "#/$defs/relativePath" },
+        "docs": { "type": "string", "format": "uri" },
+        "release": { "$ref": "#/$defs/release" },
+        "exports": { "type": "array", "items": { "$ref": "#/$defs/export" } }
+      },
+      "patternProperties": { "^x-": {} },
+      "additionalProperties": false
+    },
+    "release": {
+      "type": "object",
+      "properties": {
+        "channel": { "type": "string" },
+        "tags": { "type": "boolean" },
+        "notes": { "type": "string" }
+      },
+      "patternProperties": { "^x-": {} },
+      "additionalProperties": false
+    },
+    "export": {
+      "type": "object",
+      "required": ["ecosystem", "name"],
+      "properties": {
+        "ecosystem": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "notes": { "type": "string" }
+      },
+      "patternProperties": { "^x-": {} },
+      "additionalProperties": false
+    },
+    "agent": {
+      "type": "object",
+      "required": ["name", "role"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "role": { "type": "string", "minLength": 1 },
+        "scope": { "type": "array", "items": { "$ref": "#/$defs/relativePath" } },
+        "card": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "contacts": { "type": "array", "items": { "$ref": "#/$defs/contact" } },
+        "trust": { "$ref": "#/$defs/trust" }
+      },
+      "patternProperties": { "^x-": {} },
+      "additionalProperties": false
+    },
+    "contact": {
+      "type": "object",
+      "required": ["intents", "kind"],
+      "properties": {
+        "intents": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "kind": { "type": "string", "minLength": 1 },
+        "note": { "type": "string" },
+        "url": { "type": "string" },
+        "skill": { "type": "string" },
+        "address": { "type": "string" },
+        "subject-prefix": { "type": "string" },
+        "repo": { "type": "string" },
+        "labels": { "type": "array", "items": { "type": "string" } },
+        "template": { "type": "string" },
+        "project": { "type": "string" },
+        "issue-type": { "type": "string" },
+        "channel": { "type": "string" },
+        "handle": { "type": "string" },
+        "server": { "type": "string" }
+      },
+      "patternProperties": { "^x-": {} },
+      "additionalProperties": false
+    },
+    "trust": {
+      "type": "object",
+      "properties": {
+        "signatures": { "type": "boolean" },
+        "accepts-external": { "type": "boolean" }
+      },
+      "patternProperties": { "^x-": {} },
+      "additionalProperties": false
+    },
+    "policy": {
+      "type": "object",
+      "properties": {
+        "intents": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        },
+        "consumers": { "$ref": "#/$defs/consumers" },
+        "notes": { "type": "string" }
+      },
+      "patternProperties": { "^x-": {} },
+      "additionalProperties": false
+    },
+    "consumers": {
+      "type": "object",
+      "properties": {
+        "may": { "type": "array", "items": { "type": "string" } },
+        "may-not": { "type": "array", "items": { "type": "string" } }
+      },
+      "patternProperties": { "^x-": {} },
+      "additionalProperties": false
+    },
+    "dependency": {
+      "type": "object",
+      "required": ["git"],
+      "properties": {
+        "id": { "$ref": "#/$defs/moduleId" },
+        "git": { "type": "string", "minLength": 1 },
+        "ref": { "type": "string", "minLength": 1 },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "track": { "enum": ["locked", "floating"] },
+        "wire": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      },
+      "patternProperties": { "^x-": {} },
+      "additionalProperties": false
+    }
+  }
+}

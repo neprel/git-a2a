@@ -281,6 +281,14 @@ manifest diff, and consumers decide.
 `git-a2a validate` checks structure, vocabularies, path shapes and cross-references inside the
 manifest and lock. Reachability of cards, remotes and channels is `status`'s job.
 
+# decision Validation is implemented by typed Go decoding plus explicit structural checks
+
+The reference CLI uses `gopkg.in/yaml.v3` with `KnownFields(true)` and explicit validation
+for patterns, relative paths, extension keys and cross-references. It does not load a JSON
+Schema engine at runtime. The published JSON Schema remains the portable contract and tests
+exercise the same valid and invalid examples through the CLI. This keeps the binary and its
+dependency graph small while retaining path-specific diagnostics.
+
 # example Minimal manifest
 
     schema: 1

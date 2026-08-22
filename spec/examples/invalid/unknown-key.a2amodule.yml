@@ -1,0 +1,4 @@
+schema: 1
+module:
+  id: valid-id
+  surprise: false
