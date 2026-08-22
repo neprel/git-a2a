@@ -1,0 +1,20 @@
+# working plans for the implementing agent — local, not published
+plans/
+
+# git-a2a local state (cache of dependency manifests, card snapshots)
+.git-a2a/
+
+# toolchains
+node_modules/
+dist/
+bin/
+*.test
+coverage/
+.venv/
+__pycache__/
+
+# editors / os
+.DS_Store
+.idea/
+.vscode/
+*.swp

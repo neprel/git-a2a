@@ -1,0 +1,7 @@
+name: git-a2a
+description: Standard and CLI that make a git repository a self-describing module owned by agents — a2amodule.yml, dependency wiring across package managers, and routing to the owning agents
+books:
+  - npm://@openhint/hintbook-software-engineer
+ignore:
+  - plans/**
+  - .git-a2a/**

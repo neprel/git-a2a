@@ -1,0 +1,304 @@
+# app The a2amodule standard
+
+This folder is the normative description of `a2amodule.yml`, `a2amodule.lock`, the local state
+directory `.git-a2a/`, and the A2A card projection. It is written for two readers: an agent or
+human authoring a manifest for their repository, and the implementer of any tool that consumes
+one (the reference CLI lives in `cmd/`, but nothing here depends on it). `spec/examples/` holds
+complete manifests for the two pilot repositories and must always validate.
+
+Formats: YAML 1.2 for the manifest and lock (JSON is valid YAML, so a JSON manifest is
+accepted). Keys are lower-case kebab-case. Relative paths are POSIX, relative to the directory
+that contains the manifest. A JSON Schema (`spec/schema/a2amodule.schema.json`) is emitted from
+this spec and is what `git-a2a validate` enforces.
+
+# term module
+
+The unit of ownership and import: a git repository, or a subdirectory of one, that carries an
+`a2amodule.yml`. Repository is the default unit, following git's own boundary; a subdirectory
+module exists for monorepos and is addressed by consumers with `path:`.
+
+# term surface
+
+The directory the owner publishes for consumers: API summaries, usage, limits, examples. It is
+the only content of the dependency a consumer may read besides the manifest itself. Its location
+is declared (`module.surface`); there is no hard-coded path.
+
+# term intent
+
+What a request is for. Core tokens: `question`, `change`, `bug`, `review`, `incident`. The set is
+open; `"*"` in a contact means "any intent not matched more specifically".
+
+# term role
+
+What an agent does for this module. Core tokens: `owner` (commits, merges, releases),
+`maintainer` (commits under review), `spec` (owns specifications, tasks, sequencing; writes no
+product code), `reviewer`, `support`. The set is open.
+
+# entity a2amodule.yml {#manifest}
+
+Top-level keys, in canonical order. `schema`, `module` and `module.id` are required; everything
+else is optional. Unknown keys are errors except `x-*`.
+
+## field schema
+
+integer; the format version of this file. Value `1` for this specification. A consumer that
+sees a larger value than it knows must refuse the file (exit 2), not guess.
+
+## field module
+
+object; the module description. See [#module](#module).
+
+## field agents
+
+list of agent bindings, see [#agent](#agent). Empty or absent means "no agent owns this; treat
+as a plain library" — still importable, nobody to ask.
+
+## field policy
+
+object, see [#policy](#policy). Routing defaults and consumer permissions.
+
+## field dependencies
+
+list, see [#dependency](#dependency). Modules this module depends on.
+
+# entity module {#module}
+
+## field id
+
+string, required. Stable identifier, `^[a-z0-9][a-z0-9._-]{0,63}$`. Consumers refer to the
+dependency by this id and the lock keys on it; `add` verifies that the fetched manifest's `id`
+equals the id the consumer expected (when given) and otherwise adopts it. Renaming an id is a
+breaking change for every consumer.
+
+## field name
+
+string. Display name. Defaults to `id`.
+
+## field description
+
+string, recommended. One paragraph answering "what is this and what is it for" — it is what a
+consumer's agent reads in its roster, so it should also say what kind of questions the owner
+expects. Whitespace is normalised when rendered.
+
+## field languages
+
+list of strings, informative (`typescript`, `python`, `go`, …). Not used for wiring; `exports`
+is.
+
+## field surface
+
+string; relative directory path. Published content for consumers. Absent means nothing is
+published beyond the manifest.
+
+## field docs
+
+string; URL of human documentation.
+
+## field release
+
+object: `channel` (string, the ref consumers should follow by default, e.g. `main`), `tags`
+(boolean, whether semver tags are published), `notes` (string, free text, e.g. "main is the only
+release channel"). `release.channel` is the default `ref` a consumer gets when it adds this
+module without naming one.
+
+## field exports
+
+list of export entries; how to import this module per ecosystem. Each entry: `ecosystem`
+(string, required; use package-url type names: `npm`, `pypi`, `golang`, `cargo`, `maven`,
+`nuget`, `swift`, `cocoapods`, `pub`, `gem`, `composer`, `hex`, `hackage`, …), `name` (string,
+required; the name the ecosystem imports: npm package name, PEP 503 distribution name, Go module
+path, crate name, Maven `group:artifact`), `path` (string, optional; subdirectory containing the
+ecosystem's own manifest, default the module directory), `notes` (string, optional; anything a
+wiring tool or agent must know, e.g. "vanity import path, needs replace", "prepare script builds
+dist"). Ecosystem-specific keys are allowed under `x-<ecosystem>-*`.
+
+# entity agent binding {#agent}
+
+One entry in `agents`. Binds an existing agent to this module; does not define the agent.
+
+## field name
+
+string, required. The agent's own name — must equal `name` in its A2A card when a card is given.
+An agent may appear in many modules (one agent, many repositories) and a module may list many
+agents (one repository, many agents), so `name` must be stable across repositories. Identity
+for de-duplication across modules is the `card` URL when present, else `name`; two bindings in
+different modules with the same card URL are the same agent, and tools may merge what they know
+about it. Names are scoped to whoever controls the card URL, so a public ecosystem never relies
+on a bare name being globally unique.
+
+## field role
+
+string, required. See term `role`.
+
+## field scope
+
+list of glob patterns relative to the module directory. What this agent answers for and may
+change. Default `["**"]`. Two agents may overlap; resolution prefers the more specific match,
+then declared order.
+
+## field card
+
+string. URL of the agent's A2A Agent Card (`https://…/.well-known/agent-card.json`) or a
+repository-relative path to a card file (A2A "direct configuration"). When present the card is
+the authority for `description`, `skills`, interfaces and security; git-a2a snapshots it.
+
+## field description
+
+string. Only when no card is available or to add module-specific wording ("for this repository,
+ask it about …"). Never a copy of the card's description.
+
+## field contacts
+
+ordered list. Each contact: `intents` (list of strings, required; `"*"` allowed), `kind`
+(string, required; open vocabulary, see [#contact_kinds](#contact_kinds)), `note` (string,
+optional; free-text instructions shown verbatim to the asker, e.g. "state the version you are
+on"), plus kind-specific keys. Order expresses preference within an intent.
+
+## field trust
+
+object, optional: `signatures` (boolean, whether the card is JWS-signed and must verify),
+`accepts-external` (boolean, whether requests from agents outside the owner's organisation are
+welcome), `x-*`. Defaults: no verification required, external not stated.
+
+# data Contact kinds known to the reference CLI {#contact_kinds}
+
+The kind vocabulary is open; these kinds have defined keys and, in later phases, drivers:
+
+* `a2a` — `url` (the A2A service URL from the card's `supportedInterfaces`), optional
+  `skill` (skill id to invoke). The only kind git-a2a can derive automatically from a card.
+* `email` — `address`, optional `subject-prefix`.
+* `github-issue` / `gitlab-issue` — `repo` (`owner/name`), optional `labels` (list),
+  `template` (issue form name).
+* `jira` — `url` (site), `project` (key), optional `issue-type`.
+* `mattermost` / `slack` / `discord` / `telegram` / `teams` — `channel` (human-readable
+  channel name or id), `handle` (how to address the agent, e.g. `@name`), optional `server`
+  (URL or workspace).
+* `url` — `url`, free `note`; the escape hatch for anything else.
+
+A kind the CLI does not know is rendered as `kind: <value>` with all its keys listed, and is
+never a validation error.
+
+# entity policy {#policy}
+
+## field intents
+
+map intent → role. Which role answers which intent by default. Absent intents default to
+`owner`. Example: `change: spec` sends change requests to the specification agent rather than
+the coder — the pattern where engineers have full autonomy inside their repository and none
+outside it, and the manager owns the WHAT.
+
+## field consumers
+
+object: `may` and `may-not`, lists of tokens from an open vocabulary (`read-surface`, `ask`,
+`open-issue`, `propose-change`, `commit`, `edit-spec`, `release`, …). Rendered verbatim into the
+consumer's roster block so an agent sees the boundary before it acts. Defaults when absent:
+`may: [read-surface, ask]`, `may-not: [commit]`.
+
+## field notes
+
+string. Anything else consumers must know, verbatim.
+
+# entity dependency {#dependency}
+
+One entry in `dependencies`.
+
+## field id
+
+string. The dependency's `module.id`. Required after `add` (the CLI fills it from the fetched
+manifest); the lock is keyed on it.
+
+## field git
+
+string, required. The git URL (`ssh://`, `https://`, `git@host:path` scp form, `file://`).
+Stored exactly as given; credentials are never stored.
+
+## field ref
+
+string. Branch, tag or commit to follow. Default: the dependency's `release.channel`, else the
+remote HEAD.
+
+## field path
+
+string. Subdirectory containing the dependency's `a2amodule.yml` (monorepo). Default `.`.
+
+## field track
+
+`locked` (default) or `floating`. See root decision `one_commit`.
+
+## field wire
+
+list of ecosystems to wire, or absent for "every export that matches a manifest detected in this
+repository". An empty list means "record the dependency, wire nothing".
+
+## field x-*
+
+extension keys, preserved.
+
+# entity a2amodule.lock {#lock}
+
+YAML, written only by the CLI. `schema: 1`; `dependencies:` map keyed by dependency id with
+`git`, `ref`, `path`, `commit` (40-hex, the resolved ref), `manifest` (`sha256:<hex>` of the
+fetched `a2amodule.yml` bytes), `cards` (map agent name → `sha256:<hex>` of the snapshotted
+card, present only for agents with a `card`), `surface` (`tree:<40-hex>`, the git tree object id of the surface directory at `commit` —
+`git rev-parse <commit>:<surface>` — recorded whenever the fetch method had the trees, which
+sparse/partial and shallow clones do and `git archive` does not). Keys sorted; no timestamps, no absolute
+paths, no hostnames beyond what the manifest already contains. A lock entry without a
+matching manifest dependency is stale and `status` reports it.
+
+# entity .git-a2a/ local state {#cache}
+
+Never committed (`init` appends `.git-a2a/` to `.gitignore`). Layout:
+`.git-a2a/cache/<dependency-id>/a2amodule.yml` (the fetched manifest at the locked commit),
+`…/cards/<agent-name>.json` (snapshots), `…/surface/` (sparse checkout of the published
+surface, fetched on demand), `…/meta.yml` (commit, fetch method). An implementation may keep its working clone under
+`…/.src/`. Deleting the directory loses nothing that `git-a2a update` cannot recreate from the
+manifest and lock.
+
+# entity A2A projection {#a2a_projection}
+
+`git-a2a card export <agent>` produces an A2A Agent Card v1.0 JSON document: if the binding has
+a `card`, the snapshot is taken as the base; otherwise a minimal card is synthesised from
+`name`, `description` (binding, then module) and the `a2a` contact(s) as `supportedInterfaces`
+(`protocolBinding: JSONRPC`, `protocolVersion: "1.0"` unless stated). In both cases the
+extension `{ uri: "https://git-a2a.com/ext/module/v1", required: false, params: { module,
+repository, role, scope, ref } }` is added to `capabilities.extensions` (replacing an existing
+entry with the same uri), and `skills` is left untouched. An agent with neither a card nor an
+`a2a` contact cannot be exported (exit 2, with the reason) — A2A requires an interface. `card
+validate` checks a card file or URL against the v1.0 schema. `catalog export` (later) emits an
+ARD `ai-catalog.json` listing the module's agents.
+
+# openquestion Compatibility and breaking changes between module revisions
+
+The standard identifies a dependency revision by commit and tracks a ref; it says nothing yet
+about how an owner declares a breaking change or a compatibility range (semver tags exist only
+when `release.tags` is true). Candidates: a `module.version` (semver, bumped by the owner),
+`release.compat` notes, or leaving it to the ecosystems' own versioning. Decide during the
+pilots from observed need; until then `update` always reports the old→new commit and the
+manifest diff, and consumers decide.
+
+# invariant Validation never depends on the network
+
+`git-a2a validate` checks structure, vocabularies, path shapes and cross-references inside the
+manifest and lock. Reachability of cards, remotes and channels is `status`'s job.
+
+# example Minimal manifest
+
+    schema: 1
+    module:
+      id: my-lib
+      description: Date helpers for the billing domain. Ask about formats and time zones.
+      exports:
+        - { ecosystem: npm, name: "@acme/my-lib" }
+    agents:
+      - name: my-lib-owner
+        role: owner
+        card: https://agents.acme.example/my-lib/.well-known/agent-card.json
+        contacts:
+          - { intents: [question], kind: a2a, url: https://agents.acme.example/my-lib/ }
+          - { intents: [change, bug], kind: github-issue, repo: acme/my-lib }
+
+# read Examples to keep valid
+
+`spec/examples/acme-lib-utils.a2amodule.yml` (a library with three exports and two
+agents) and `spec/examples/acme-app-cli.a2amodule.yml` (a consumer with one dependency).
+Change the spec, change them, and keep `git-a2a validate spec/examples/*` green.

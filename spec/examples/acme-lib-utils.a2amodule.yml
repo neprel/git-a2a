@@ -1,0 +1,73 @@
+# a2amodule.yml — acme-lib-utils (library, three ecosystems, two agents)
+schema: 1
+
+module:
+  id: acme-lib-utils
+  name: Acme core utils
+  description: >-
+    Shared string and formatting utilities for the Acme product, implemented three times
+    with one API in TypeScript, Python and Go. Ask the owner about the API, behaviour
+    differences between the three implementations, and when a change lands in each; ask the
+    spec agent for anything that changes the contract.
+  languages: [typescript, python, go]
+  surface: surface/
+  release:
+    channel: main
+    tags: false
+    notes: main is the only release channel; consumers pin a commit.
+  exports:
+    - ecosystem: npm
+      name: "@acme/lib-utils"
+      notes: built from source; package.json at the repository root.
+    - ecosystem: pypi
+      name: acme_lib_utils
+      notes: PEP 517 build from the repository root (setuptools).
+    - ecosystem: golang
+      name: acme.dev/lib-utils
+      notes: vanity import path; consumers need a replace onto the git source.
+
+agents:
+  - name: acme-lib-utils
+    role: owner
+    scope: ["**"]
+    card: http://127.0.0.1:10073/.well-known/agent-card.json
+    contacts:
+      - intents: [question, review]
+        kind: mattermost
+        channel: acme
+        handle: "@acme-lib-utils"
+        note: Mention the agent in a thread; answers arrive in the same thread.
+      - intents: [question]
+        kind: a2a
+        url: http://127.0.0.1:10073/
+      - intents: [bug]
+        kind: github-issue
+        repo: acme/lib-utils
+        labels: [bug, from-agent]
+  - name: acme-pm
+    role: spec
+    scope: ["specs/**", "openspec/**", ".specify/**"]
+    card: http://127.0.0.1:10093/.well-known/agent-card.json
+    contacts:
+      - intents: [change]
+        kind: github-issue
+        repo: acme/lib-utils
+        labels: [change-request, from-agent]
+        note: Describe the consumer, the need and the languages affected; the PM sequences it.
+      - intents: [change, question]
+        kind: mattermost
+        channel: acme
+        handle: "@acme-pm"
+
+policy:
+  intents:
+    question: owner
+    bug: owner
+    review: owner
+    change: spec
+  consumers:
+    may: [read-surface, ask, open-issue, propose-change]
+    may-not: [commit, edit-spec, release]
+  notes: >-
+    Only the owner commits here. A consumer that needs new functionality opens a change request;
+    it never edits this repository, not even a version bump.

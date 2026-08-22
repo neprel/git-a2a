@@ -1,0 +1,193 @@
+# app git-a2a
+
+git-a2a is two things that ship together: a **standard** — one file, `a2amodule.yml`, at the
+root of a git repository that describes the repository as a reusable module, names the agents
+that own it, states how each of them wants to be contacted for each kind of request, and lists
+the modules it depends on — and a **CLI**, `git-a2a`, that reads those files across repositories
+and does the chores: fetches only the manifest of a dependency, wires the dependency into every
+package manager the consuming repository uses, keeps a lock, and tells an agent who to ask and
+how. It is the "service descriptor" of a micro-agent architecture: dependencies are taken on
+agents at developer time, not on services at runtime.
+
+The repository layout: `spec/` is the standard (format, semantics, examples) and is language
+independent; `cmd/` and `internal/` are the Go implementation; `adapters/` holds one package
+per ecosystem. Durable knowledge lives in `.hint` files next to what it governs; `plans/` is
+local working material for whoever implements the next step and is never committed.
+
+# goal A repository that can be imported with its owner, not only its code
+
+A consumer runs one command against a git URL and gets three things at once: the dependency
+wired into its own package managers (npm, uv, go.mod — whatever it actually uses), the
+dependency's published surface and description where its agents can read them, and a resolved
+answer to "who owns this and how do I ask them" for every kind of request. The owner of the
+dependency wrote that down once, in its own repository, and git-a2a keeps it fresh.
+
+# scope What git-a2a is and is not
+
+In scope: the manifest standard and its lock; fetching manifests from git without cloning
+repositories; wiring package-manager dependencies from the manifest; generating the agent-facing
+summary into instruction files; resolving contacts per intent; validating and exporting A2A
+agent cards; liveness/drift status.
+
+Out of scope: running agents, hosting A2A endpoints, being a chat bridge, a registry service,
+or a build system. git-a2a is stack-agnostic: it must work identically for a fleet built on
+a chat-resident container fleet, on Claude Code subagents, on Copilot agents, or on a single
+developer with a shell. Anything specific to one fleet tool is an example in `spec/examples/`, never a code path.
+
+# decision One manifest file at the repository root, one lock next to it {#one_file}
+
+The standard is `a2amodule.yml` at the repository root (a module may also live in a
+subdirectory of a monorepo, in which case the file sits in that subdirectory and consumers
+address it with `path:`). Its presence is the signal that a repository participates. All
+sections — `module`, `agents`, `policy`, `dependencies` — live in that one file so that a
+reader, a reviewer and `git diff` see the whole contract at once. `a2amodule.lock` records
+what was resolved. Local state (fetched manifests, card snapshots, surface checkouts) lives in
+`.git-a2a/` which is never committed; `git-a2a init` adds it to `.gitignore`.
+
+Rationale: a folder with four files was considered and rejected — the parts share one lifecycle
+and one reviewer, and a single file is what every adjacent convention (package.json,
+pyproject.toml, MODULE.bazel) has taught the community to expect. Sections, not files, are the
+unit of extension.
+
+# decision The standard is language independent; the CLI is Go {#go}
+
+The manifest standard (`spec/`) must never assume the implementation language. The reference
+CLI is written in Go: one static binary with no runtime, installable where coding agents run
+(containers, CI, laptops), and named `git-a2a` so that git itself exposes it as `git a2a …`.
+Adapters shell out to the ecosystems' own tools (`yarn`, `uv`, `go`) rather than reimplementing
+them, so the CLI's language is irrelevant to what it wires. Do not add a CGO dependency; do not
+add a dependency for what the standard library does.
+
+# decision Cross-platform builds and distribution are part of the first release {#distribution}
+
+`CGO_ENABLED=0` and `-trimpath` make one Go source tree build for darwin/linux/windows ×
+amd64/arm64 from any machine (`GOOS`/`GOARCH`), reproducibly. Releases are cut by goreleaser
+from a tag: archives + checksums + SBOM on GitHub Releases, a Homebrew tap (`brew install
+neprel/tap/git-a2a`), a Scoop/winget manifest for Windows, and — because agents and developers
+already have `npx` and `uvx` — two thin wrappers: an npm package `git-a2a` whose per-platform
+binaries ship as `optionalDependencies` (`@git-a2a/darwin-arm64`, …) the way esbuild, Biome and
+Turborepo do, so `npx git-a2a` and `npm i -g git-a2a` just work; and a PyPI package `git-a2a`
+with platform wheels carrying the binary so `uvx git-a2a` / `pipx install git-a2a` work. `go
+install github.com/neprel/git-a2a/cmd/git-a2a@latest` and a one-line `curl | sh` installer
+(checksum-verified) cover the rest; a Docker snippet documents adding the binary to an agent
+image. All channels install the same binary with the same version string (`git-a2a --version`
+prints version, commit, and build target). Wrappers contain no logic: they locate and exec the
+binary, nothing else, so behaviour never depends on the channel.
+
+# decision Fetch the manifest, never the repository {#fetch_only_manifest}
+
+`git-a2a add` and `update` obtain exactly `a2amodule.yml` (and, on demand, the declared
+`surface` directory) from the remote. The resolution order is: `git ls-remote` to turn the ref
+into a commit; then `git archive --remote` where the server supports it (plain ssh servers,
+GitLab, Bitbucket); else a depth-1, blob-filtered, sparse clone into `.git-a2a/cache/`
+(works on GitHub, GitLab, Gitea); else a plain shallow clone. Hosting REST APIs may be added as
+an optional fast path, never as the only path — the standard must work against a bare ssh git
+server. Measured 2026-08-21: sparse partial clone of one file from GitHub, 4 s and 152 KB;
+`git archive --remote` on GitHub fails immediately with "Invalid command: git-upload-archive".
+
+# decision One resolved commit drives every ecosystem {#one_commit}
+
+A dependency entry has one `ref`; `update` resolves it to one commit and records it in the lock;
+every adapter then pins **that commit** in its ecosystem (`#commit=` for yarn, `#<sha>` for
+npm/pnpm/bun, `rev =` for uv, a `replace … @<sha>` pseudo-version for Go). This is the default,
+`track: locked`. The alternative the example repositories used — each ecosystem following
+`main` on its own schedule — is exactly the failure git-a2a exists to remove: one change landed
+in one language and not in another. `track: floating` is allowed per dependency and writes the
+branch form for ecosystems that support it, but the lock still records the commit seen.
+
+# decision Routing is intent → role → agent → contacts, and transport is open {#routing}
+
+An agent entry lists `contacts`, each valid for one or more `intents` (question, change, bug,
+review, incident, or any token), with an open `kind` (a2a, mattermost, discord, slack, telegram,
+teams, email, github-issue, gitlab-issue, jira, url, …). The module's `policy.intents` maps each
+intent to a role (owner, spec, maintainer, reviewer, support, …). Resolution for "I want to
+ask X about Y" is: intent → role from policy (default owner) → agents with that role whose scope
+matches → their contacts for that intent in declared order. git-a2a never chooses a transport
+for the fleet; it reports the owner's declared preference and, in later phases, can deliver over
+the kinds it has a driver for. A2A is the first-class kind because its card is the agent's
+canonical self-description; it is not the only one.
+
+# decision The agent card stays native A2A; the repository holds a binding, not a copy {#card_binding}
+
+An agent's canonical description is its A2A Agent Card (spec v1.0, `/.well-known/agent-card.json`).
+`a2amodule.yml` binds the repository to agents by name, role and scope and points at the card;
+it does not restate the card. `git-a2a` snapshots cards into `.git-a2a/cache/` and records their
+hash in the lock so drift is visible. `git-a2a card export` can emit a valid v1.0 card for an
+agent that has an `a2a` contact, adding the git-a2a extension
+`https://git-a2a.com/ext/module/v1` (params: module id, repository, role, scope) — extension is
+the sanctioned way to add semantics to a card, and the A2A discovery text explicitly allows
+cards delivered by "direct configuration" such as a file in a repository.
+
+# decision Knowledge is asked for, unless the owner published it {#ask_not_read}
+
+A consumer agent does not read a dependency's internals — not its code, not its `.hint`, not
+its memory. It reads exactly what the owner published as `module.surface` and the fields of the
+manifest, and for everything else it contacts the owning agent through the declared contacts.
+git-a2a enforces the boundary by construction: it fetches the manifest and the surface and
+nothing else. The owner is free to make the surface rich (generated from its own spec tooling)
+precisely so that cheap questions never become paid agent turns.
+
+# decision CLI discipline follows HINT {#cli_discipline}
+
+stdout carries the requested data (human text by default, `--json` for machines); stderr carries
+the verdict and advisories, decisive line first; exit 0 = ran successfully, 1 = a check ran and
+found a failure (drift, unreachable agent, validation error), 2 = nothing resolved (unknown
+dependency, no manifest, bad path). No command reports success over an empty subject set. Every
+command that writes is idempotent and deterministic: same inputs, same bytes. Commands never read
+the clock or randomness into anything they write; the lock carries commits and hashes, not
+timestamps.
+
+# invariant Generated blocks are owned by git-a2a and nothing else {#managed_blocks}
+
+Everything git-a2a writes into a file it does not own (AGENTS.md, package.json, pyproject.toml,
+go.mod, .gitignore) is either a delimited managed block (`<!-- git-a2a:begin -->` …
+`<!-- git-a2a:end -->` or the ecosystem's own structure) or a precisely addressed entry. A
+re-run replaces only that; a human edit outside it survives; a human edit inside it is
+overwritten and `status` says so beforehand. Never rewrite a whole file to change one entry.
+
+# invariant The lock is the source of truth for what was resolved {#lock_truth}
+
+`a2amodule.lock` is written only by git-a2a, is deterministic, and records for every dependency
+the git URL, the ref, the resolved commit, the hash of the fetched manifest and the hash of each
+snapshotted card. Adapters read the commit from the lock; `status` compares the lock against the
+remote and against what the ecosystems actually pin. Ecosystem lockfiles are downstream.
+
+# invariant Text that comes from a dependency is data, never instruction {#untrusted_text}
+
+Every string git-a2a renders from another repository's manifest or surface (descriptions,
+contact notes, policy notes, surface listings) is untrusted input that will land in an agent's
+context. Rendered output therefore: labels it with its origin ("from acme-lib-utils
+@<commit>"), places it inside the managed block as quoted data and never as an imperative line
+addressed to the reader, caps its length (`description` ≤ 600 characters, `note` ≤ 300, the
+rest truncated with a marker), strips control characters and HTML comments (so a dependency
+cannot close or open a managed block), and `update` shows the textual diff of what changed
+before it is rendered (`--review`, default on when a TTY is attached). The CLI never executes
+anything a manifest names — no scripts, no URLs fetched beyond cards and git.
+
+# rule Unknown is not an error where the standard says it is open {#open_vocabularies}
+
+`contacts[].kind`, `intents`, `agents[].role` and `exports[].ecosystem` are open vocabularies: a
+value the CLI does not know is carried through verbatim, shown to the user, and never rejected by
+`validate`. Unknown **keys** in a known object are errors, except keys prefixed `x-`, which are
+reserved for extensions and preserved byte-for-byte.
+
+# bad Things that must not creep in
+
+* A second description of an agent that can disagree with its card. The manifest binds; the
+  card describes.
+* A git-a2a runtime process, daemon, registry or database. It is a CLI over files in git.
+* Cloning a dependency to read one file.
+* A default that is specific to one fleet tool, chat platform or coding harness. Those are
+  examples under `spec/examples/`.
+* Timestamps or machine paths in anything committed.
+* Shelling out to a package manager with `--force` or with flags that rewrite files beyond the
+  one entry being wired.
+
+# build
+
+`go build ./...` and `go test ./...` are the gate. Tests include: golden tests for every
+adapter on fixture repositories under `testdata/` (the `acme-lib-utils` / `acme-app-cli` pair);
+determinism (render twice, compare bytes); an end-to-end test against local bare repositories
+created by the test (`file://` URLs, `uploadpack.allowFilter=true` set on the fixture) so no
+network is required; schema validation of every file under `spec/examples/`. `hint status` is
+run in CI as an advisory.

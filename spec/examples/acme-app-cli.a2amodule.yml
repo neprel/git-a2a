@@ -1,0 +1,57 @@
+# a2amodule.yml — acme-app-cli (application, consumer of acme-lib-utils)
+schema: 1
+
+module:
+  id: acme-app-cli
+  name: Acme app CLI
+  description: >-
+    The Acme command-line application, built three times over in Python, TypeScript and
+    Go, and the sole consumer of acme-lib-utils in all three. Ask the owner about the
+    CLI's behaviour, its releases, and whether a library change has been taken up here.
+  languages: [typescript, python, go]
+  release:
+    channel: main
+    tags: false
+  exports:
+    - ecosystem: npm
+      name: "@acme/app-cli"
+    - ecosystem: pypi
+      name: acme-app-cli
+    - ecosystem: golang
+      name: acme.dev/app-cli
+
+agents:
+  - name: acme-app-cli
+    role: owner
+    card: http://127.0.0.1:10083/.well-known/agent-card.json
+    contacts:
+      - intents: [question, review, bug]
+        kind: mattermost
+        channel: acme
+        handle: "@acme-app-cli"
+      - intents: [question]
+        kind: a2a
+        url: http://127.0.0.1:10083/
+  - name: acme-pm
+    role: spec
+    scope: ["specs/**", "openspec/**", ".specify/**"]
+    card: http://127.0.0.1:10093/.well-known/agent-card.json
+    contacts:
+      - intents: [change]
+        kind: github-issue
+        repo: acme/app-cli
+        labels: [change-request, from-agent]
+
+policy:
+  intents:
+    change: spec
+  consumers:
+    may: [ask, open-issue]
+    may-not: [commit]
+
+dependencies:
+  - id: acme-lib-utils
+    git: ssh://git@github.com/acme/lib-utils.git
+    ref: main
+    track: locked
+    # wire: absent → every export with a matching local manifest: package.json, pyproject.toml, go.mod
