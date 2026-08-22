@@ -64,6 +64,8 @@ jobs:
     needs: goreleaser
     runs-on: ubuntu-latest
     continue-on-error: true
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     permissions:
       contents: read
       id-token: write
@@ -78,14 +80,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: python3 dist/npm/build_packages.py --artifacts release-artifacts --version "${GITHUB_REF_NAME#v}" --out npm-packages
       - name: Publish platform packages and launcher
-        if: ${{ secrets.NPM_TOKEN != '' }}
+        if: ${{ env.NPM_TOKEN != '' }}
         run: |
           for package in npm-packages/darwin-* npm-packages/linux-* npm-packages/windows-*; do npm publish "$package" --access public --provenance; done
           npm publish npm-packages/git-a2a --access public --provenance
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
       - name: Skip npm publishing when credentials are absent
-        if: ${{ secrets.NPM_TOKEN == '' }}
+        if: ${{ env.NPM_TOKEN == '' }}
         run: echo 'NPM_TOKEN is not configured; npm publishing skipped'
   pypi:
     needs: goreleaser

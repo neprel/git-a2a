@@ -27,6 +27,9 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 			t.Errorf("release workflow missing %q", required)
 		}
 	}
+	if regexp.MustCompile(`(?m)^\s*if:\s*\$\{\{\s*secrets\.`).MatchString(workflow) {
+		t.Error("GitHub Actions does not allow the secrets context directly in an if expression")
+	}
 	allWorkflows := workflow + "\n" + read(".github/workflows/ci.yml")
 	action := regexp.MustCompile(`(?m)^\s*- uses: [^@]+@[0-9a-f]{40}(?:\s+# v[^\s]+)$`)
 	uses := regexp.MustCompile(`(?m)^\s*- uses:`).FindAllStringIndex(allWorkflows, -1)
