@@ -228,7 +228,8 @@ npm       11.5.2  found
 ## version
 
 `git-a2a version [--check]` prints version, commit, target, and install channel. `--check` alone
-uses the network and exits `1` when an update is available.
+uses the network and exits `1` when an update is available. If only prereleases exist, it reports
+that no stable release is published and exits `0`; prereleases never become `latest`.
 
 ```text
 $ git-a2a version

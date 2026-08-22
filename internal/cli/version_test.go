@@ -44,6 +44,19 @@ func TestVersionCheckReportsChannelUpdateCommand(t *testing.T) {
 	}
 }
 
+func TestVersionCheckDoesNotTreatPrereleaseAsLatest(t *testing.T) {
+	server := httptest.NewServer(http.NotFoundHandler())
+	defer server.Close()
+	oldVersion, oldAPI := Version, releaseAPI
+	defer func() { Version, releaseAPI = oldVersion, oldAPI }()
+	Version, releaseAPI = "1.0.0", server.URL
+	var out, errOut bytes.Buffer
+	code := New(&out, &errOut).Run([]string{"version", "--check"})
+	if code != 0 || !strings.Contains(errOut.String(), "prereleases are not treated as latest") {
+		t.Fatalf("exit %d out=%q err=%q", code, out.String(), errOut.String())
+	}
+}
+
 func TestUpgradeArchiveChecksumAndExtraction(t *testing.T) {
 	var archive bytes.Buffer
 	gz := gzip.NewWriter(&archive)

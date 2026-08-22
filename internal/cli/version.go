@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,6 +22,7 @@ import (
 
 var releaseAPI = "https://api.github.com/repos/neprel/git-a2a/releases"
 var releaseDownloads = "https://github.com/neprel/git-a2a/releases/download"
+var errNoStableRelease = errors.New("no stable release is published")
 
 type githubRelease struct {
 	TagName string `json:"tag_name"`
@@ -43,6 +45,10 @@ func (a *App) version(args []string) int {
 	}
 	release, err := getRelease("latest")
 	if err != nil {
+		if errors.Is(err, errNoStableRelease) {
+			fmt.Fprintln(a.Err, "no stable release is published; prereleases are not treated as latest")
+			return 0
+		}
 		fmt.Fprintf(a.Err, "version check failed: %v\n", err)
 		return 1
 	}
@@ -178,6 +184,9 @@ func getRelease(which string) (githubRelease, error) {
 		return githubRelease{}, err
 	}
 	defer resp.Body.Close()
+	if which == "latest" && resp.StatusCode == http.StatusNotFound {
+		return githubRelease{}, errNoStableRelease
+	}
 	if resp.StatusCode != http.StatusOK {
 		return githubRelease{}, fmt.Errorf("GitHub returned HTTP %d", resp.StatusCode)
 	}
