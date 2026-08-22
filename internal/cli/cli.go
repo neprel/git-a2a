@@ -290,6 +290,11 @@ func detectExports(root string) []manifest.Export {
 			out = append(out, manifest.Export{Ecosystem: "swift", Name: match[1]})
 		}
 	}
+	if b, err := os.ReadFile(filepath.Join(root, "pubspec.yaml")); err == nil {
+		if match := regexp.MustCompile(`(?m)^name:[ \t]*["']?([A-Za-z_][A-Za-z0-9_]*)`).FindStringSubmatch(string(b)); len(match) == 2 {
+			out = append(out, manifest.Export{Ecosystem: "pub", Name: match[1]})
+		}
+	}
 	return out
 }
 

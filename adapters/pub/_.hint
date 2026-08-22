@@ -1,0 +1,17 @@
+# decision Pub uses the native nested Git descriptor
+
+The Pub adapter owns one two-space-indented entry under top-level `dependencies`. It writes
+`git.url`, `git.ref`, and optional `git.path`; locked refs are the full lock commit and floating
+refs are the declared branch. It splices only that YAML entry, preserving every unrelated byte.
+Inline dependency maps are rejected as not wirable instead of being reformatted.
+
+# decision pubspec.lock stays downstream
+
+Wiring does not run `dart pub get`: resolution may update unrelated packages. Consumers refresh
+`pubspec.lock` in their normal Dart or Flutter workflow.
+
+# test Pub adapter
+
+- Fixture/golden wiring is idempotent and preserves comments and unrelated dependencies.
+- A subdirectory export writes `git.path`; drift checks URL and locked ref.
+- Unwire restores the original fixture bytes.

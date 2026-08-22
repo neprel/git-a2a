@@ -1,0 +1,12 @@
+name: consumer
+environment:
+  sdk: ^3.8.0
+dependencies:
+  http: ^1.0.0 # keep
+  acme_lib_utils:
+    git:
+      url: "https://github.com/acme/lib-utils.git"
+      ref: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      path: "dart/package"
+dev_dependencies:
+  test: ^1.0.0
