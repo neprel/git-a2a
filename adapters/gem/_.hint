@@ -1,0 +1,12 @@
+# decision Bundler git dependencies are explicit Gemfile entries
+
+The Gem adapter owns one top-level `gem` declaration in `Gemfile`. Locked wiring uses the full
+commit as `ref`; floating wiring uses the declared ref as `branch`. An export subdirectory adds
+Bundler's native `glob: "<path>/*.gemspec"`. The adapter leaves `Gemfile.lock` downstream so it
+does not resolve or rewrite unrelated gems.
+
+# test Gem adapter
+
+- Fixture/golden wiring is idempotent and preserves unrelated Ruby text and comments.
+- Drift checks both the normalized Git URL and locked revision.
+- Unwire removes only the named gem declaration.

@@ -1,0 +1,5 @@
+source "https://rubygems.org"
+
+# keep this dependency
+gem "rake", "~> 13.0"
+gem "acme-lib-utils", git: "https://github.com/acme/lib-utils.git", ref: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", glob: "ruby/lib/*.gemspec"

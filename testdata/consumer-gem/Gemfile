@@ -1,0 +1,4 @@
+source "https://rubygems.org"
+
+# keep this dependency
+gem "rake", "~> 13.0"

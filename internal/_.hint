@@ -25,3 +25,11 @@ invocation. Package-manager channels never use self-upgrade.
 - YAML dependency edits retain comments, folded scalars, flow collections, and `x-` fields.
 - A failed `add`, `update`, or `set` leaves manifest, lock, cache, and adapter files unchanged.
 - Windows replacement restores the old executable after a failed install.
+
+# test Polyglot lifecycle stays atomic across every registered adapter
+
+The local-bare-repository end-to-end scenario runs `add → sync → status → update → set → pin →
+unpin → remove` with every supported native Git ecosystem detected at once. It verifies one
+lock commit in every project file, clean offline status, preservation of human manifest text,
+and complete unwiring at the end. Adding an adapter includes it in this scenario in the same
+commit.

@@ -720,7 +720,7 @@ func TestPolyglotConsumerFullDependencyLifecycle(t *testing.T) {
 	git(t, source, "init", "-b", "main")
 	git(t, source, "config", "user.email", "test@example.com")
 	git(t, source, "config", "user.name", "Test")
-	manifestOne := []byte("schema: 1\nmodule:\n  id: acme-lib\n  repository: " + publicOriginal + "\n  release:\n    channel: main\n  exports:\n    - ecosystem: npm\n      name: '@acme/lib'\n    - ecosystem: pypi\n      name: acme-lib\n    - ecosystem: golang\n      name: example.test/acme/lib\n    - ecosystem: cargo\n      name: acme-lib\n    - ecosystem: swift\n      name: AcmeLib\n    - ecosystem: pub\n      name: acme_lib\nagents:\n  - name: owner\n    role: owner\n    contacts:\n      - intents: ['*']\n        kind: url\n        url: https://owner.example.test/\n")
+	manifestOne := []byte("schema: 1\nmodule:\n  id: acme-lib\n  repository: " + publicOriginal + "\n  release:\n    channel: main\n  exports:\n    - ecosystem: npm\n      name: '@acme/lib'\n    - ecosystem: pypi\n      name: acme-lib\n    - ecosystem: golang\n      name: example.test/acme/lib\n    - ecosystem: cargo\n      name: acme-lib\n    - ecosystem: swift\n      name: AcmeLib\n    - ecosystem: pub\n      name: acme_lib\n    - ecosystem: gem\n      name: acme-lib\nagents:\n  - name: owner\n    role: owner\n    contacts:\n      - intents: ['*']\n        kind: url\n        url: https://owner.example.test/\n")
 	mustWrite(t, filepath.Join(source, "a2amodule.yml"), manifestOne)
 	git(t, source, "add", "a2amodule.yml")
 	git(t, source, "commit", "-m", "one")
@@ -734,6 +734,7 @@ func TestPolyglotConsumerFullDependencyLifecycle(t *testing.T) {
 	mustWrite(t, filepath.Join(consumer, "Cargo.toml"), []byte("[package]\nname = \"consumer\"\nversion = \"1.0.0\"\n\n[dependencies]\nserde = \"1\"\n"))
 	mustWrite(t, filepath.Join(consumer, "Package.swift"), []byte("// swift-tools-version: 6.0\nimport PackageDescription\n\nlet package = Package(\n    name: \"Consumer\",\n    dependencies: [],\n    targets: [.target(name: \"Consumer\")]\n)\n"))
 	mustWrite(t, filepath.Join(consumer, "pubspec.yaml"), []byte("name: consumer\nenvironment:\n  sdk: ^3.8.0\ndependencies:\n  http: ^1.0.0\n"))
+	mustWrite(t, filepath.Join(consumer, "Gemfile"), []byte("source \"https://rubygems.org\"\n\ngem \"rake\", \"~> 13.0\"\n"))
 	var out, errOut bytes.Buffer
 	app := cli.New(&out, &errOut)
 	app.Root = consumer
@@ -758,7 +759,7 @@ func TestPolyglotConsumerFullDependencyLifecycle(t *testing.T) {
 	run("add", publicOriginal)
 	assertPolyglotPins(t, consumer)
 	run("sync")
-	if text := run("status", "acme-lib", "--offline"); !strings.Contains(text, "npm clean, pypi clean, golang clean, cargo clean, swift clean, pub clean") {
+	if text := run("status", "acme-lib", "--offline"); !strings.Contains(text, "npm clean, pypi clean, golang clean, cargo clean, swift clean, pub clean, gem clean") {
 		t.Fatalf("polyglot status is not clean:\n%s", text)
 	}
 
@@ -807,6 +808,10 @@ func TestPolyglotConsumerFullDependencyLifecycle(t *testing.T) {
 	pubspec, _ := os.ReadFile(filepath.Join(consumer, "pubspec.yaml"))
 	if strings.Contains(string(pubspec), "acme_lib") {
 		t.Fatalf("Pub wiring remains:\n%s", pubspec)
+	}
+	gemfile, _ := os.ReadFile(filepath.Join(consumer, "Gemfile"))
+	if strings.Contains(string(gemfile), "acme-lib") {
+		t.Fatalf("Gem wiring remains:\n%s", gemfile)
 	}
 	t.Logf("scenario output:\n%s", transcript.String())
 }
@@ -861,6 +866,7 @@ func assertPolyglotPins(t *testing.T, root string) {
 		{"Cargo.toml", commit},
 		{"Package.swift", commit},
 		{"pubspec.yaml", commit},
+		{"Gemfile", commit},
 	} {
 		body, readErr := os.ReadFile(filepath.Join(root, test.file))
 		if readErr != nil || !strings.Contains(string(body), test.pin) {
