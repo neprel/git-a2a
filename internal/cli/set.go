@@ -182,12 +182,17 @@ func (a *App) applySet(o setOptions) int {
 	}
 	defer os.RemoveAll(work)
 	f := fetch.Fetcher{Runner: a.runner()}
+	l, err := lockfile.Load(root)
+	if err != nil {
+		fmt.Fprintf(a.Err, "set: lock: %v\n", err)
+		return 1
+	}
 	resolution, resolveErr := gitx.ResolveDetailed(context.Background(), a.runner(), next.Git, next.Ref)
 	if resolveErr != nil {
 		fmt.Fprintf(a.Err, "set: %v\n", resolveErr)
 		return 1
 	}
-	res, err := f.Fetch(context.Background(), next.Git, next.Ref, defaultPath(next.Path), work)
+	res, err := f.Fetch(context.Background(), next.Git, next.Ref, defaultPath(next.Path), filepath.Join(work, "new"))
 	if err != nil {
 		fmt.Fprintf(a.Err, "set: %v\n", err)
 		return 1
@@ -203,8 +208,21 @@ func (a *App) applySet(o setOptions) int {
 	}
 	oldManifest, err := manifest.Load(filepath.Join(cache.Dir(root, o.id), "a2amodule.yml"))
 	if err != nil {
-		fmt.Fprintf(a.Err, "set: old cached manifest: %v\n", err)
-		return 1
+		oldEntry, ok := l.Dependencies[o.id]
+		if !ok {
+			fmt.Fprintf(a.Err, "set: old manifest unavailable and dependency %s is not locked\n", o.id)
+			return 1
+		}
+		oldRes, fetchErr := f.Fetch(context.Background(), oldEntry.Git, oldEntry.Commit, defaultPath(oldEntry.Path), filepath.Join(work, "old"))
+		if fetchErr != nil {
+			fmt.Fprintf(a.Err, "set: restore old manifest from lock: %v\n", fetchErr)
+			return 1
+		}
+		oldManifest, err = manifest.Parse(oldRes.Manifest)
+		if err != nil {
+			fmt.Fprintf(a.Err, "set: old locked manifest: %v\n", err)
+			return 1
+		}
 	}
 	sum := sha256.Sum256(res.Manifest)
 	locked := manifest.LockedDependency{Git: next.Git, Ref: next.Ref, Path: defaultPath(next.Path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:])}
@@ -228,7 +246,7 @@ func (a *App) applySet(o setOptions) int {
 		return 0
 	}
 	snapshots := snapshotAdapterFiles(root)
-	ecosystems, err := rewireSet(context.Background(), root, oldDep, next, oldManifest, nextManifest, locked, true)
+	outcomes, err := rewireSet(context.Background(), root, oldDep, next, oldManifest, nextManifest, locked, true)
 	if err != nil {
 		restoreAdapterFiles(root, snapshots)
 		fmt.Fprintf(a.Err, "set: wiring failed and was rolled back: %v\n", err)
@@ -245,12 +263,6 @@ func (a *App) applySet(o setOptions) int {
 	oldManifestBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.yml"))
 	oldLockBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.lock"))
 	own.Dependencies[idx] = next
-	l, err := lockfile.Load(root)
-	if err != nil {
-		restoreAdapterFiles(root, snapshots)
-		fmt.Fprintf(a.Err, "set: %v\n", err)
-		return 1
-	}
 	delete(l.Dependencies, o.id)
 	l.Dependencies[next.ID] = locked
 	if err = writeManifest(root, own); err == nil {
@@ -285,8 +297,12 @@ func (a *App) applySet(o setOptions) int {
 	if resolution.Ambiguous {
 		fmt.Fprintf(a.Err, "ref %s is ambiguous; selected %s\n", next.Ref, resolution.FullRef)
 	}
-	for _, eco := range ecosystems {
-		fmt.Fprintf(a.Out, "%s: rewired %s\n", eco, next.ID)
+	for _, outcome := range outcomes {
+		if outcome.Changed {
+			fmt.Fprintf(a.Out, "%s: rewired %s\n", outcome.Ecosystem, next.ID)
+		} else if !outcome.Wired {
+			fmt.Fprintf(a.Err, "%s: not wired: %s\n", outcome.Ecosystem, outcome.Reason)
+		}
 	}
 	for _, warning := range cardWarnings {
 		fmt.Fprintf(a.Err, "warning: card snapshot: %v\n", warning)
@@ -318,8 +334,8 @@ func replaceCache(root, id, staged, work string) error {
 	return nil
 }
 
-func rewireSet(ctx context.Context, root string, oldDep, newDep manifest.Dependency, oldM, newM *manifest.Manifest, locked manifest.LockedDependency, refresh bool) ([]string, error) {
-	var changed []string
+func rewireSet(ctx context.Context, root string, oldDep, newDep manifest.Dependency, oldM, newM *manifest.Manifest, locked manifest.LockedDependency, refresh bool) ([]wireOutcome, error) {
+	var outcomes []wireOutcome
 	for _, impl := range adapters.All() {
 		ok, _, err := impl.Detect(root)
 		if err != nil {
@@ -343,10 +359,14 @@ func rewireSet(ctx context.Context, root string, oldDep, newDep manifest.Depende
 		for _, exp := range newExports {
 			change, err := impl.Wire(ctx, root, newDep, exp, locked)
 			if err != nil {
+				if newDep.Wire == nil && adapter.IsNotWirable(err) {
+					outcomes = append(outcomes, wireOutcome{Ecosystem: impl.Ecosystem(), Reason: adapter.NotWirableReason(err)})
+					continue
+				}
 				return nil, err
 			}
+			outcomes = append(outcomes, wireOutcome{Ecosystem: impl.Ecosystem(), Changed: change.Changed, Wired: true})
 			if change.Changed {
-				changed = appendUnique(changed, impl.Ecosystem())
 				if refresh {
 					if err = impl.Refresh(ctx, root, newDep, exp, locked); err != nil {
 						return nil, err
@@ -355,7 +375,7 @@ func rewireSet(ctx context.Context, root string, oldDep, newDep manifest.Depende
 			}
 		}
 	}
-	return changed, nil
+	return outcomes, nil
 }
 func exportsFor(m *manifest.Manifest, eco string) []adapter.Export {
 	var out []adapter.Export

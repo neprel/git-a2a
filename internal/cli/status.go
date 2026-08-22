@@ -157,16 +157,22 @@ func (a *App) status(args []string) int {
 			}
 		}
 		if depManifest != nil {
-			findings, e := driftAll(context.Background(), root, dep, *depManifest, entry)
+			findings, wiringStates, e := driftAll(context.Background(), root, dep, *depManifest, entry)
 			if e != nil {
 				row.Wiring = "error"
 				row.failed = true
 				row.Details = append(row.Details, e.Error())
-			} else if len(findings) > 0 {
-				row.Wiring = fmt.Sprintf("%d drift", len(findings))
-				row.failed = true
-				for _, f := range findings {
-					row.Details = append(row.Details, fmt.Sprintf("%s %s: want %s, got %s", f.File, f.Entry, f.Want, f.Got))
+			} else {
+				if len(wiringStates) == 0 {
+					row.Wiring = "none"
+				} else {
+					row.Wiring = strings.Join(wiringStates, ", ")
+				}
+				if len(findings) > 0 {
+					row.failed = true
+					for _, f := range findings {
+						row.Details = append(row.Details, fmt.Sprintf("%s %s: want %s, got %s", f.File, f.Entry, f.Want, f.Got))
+					}
 				}
 			}
 			agentState, failed, details := checkAgents(depManifest, entry.Cards, filepath.Join(cache.Dir(root, dep.ID), "cards"), offline)
@@ -233,42 +239,61 @@ func refLabel(ref, kind string) string {
 	return "branch " + ref
 }
 
-func driftAll(ctx context.Context, root string, dep manifest.Dependency, m manifest.Manifest, locked manifest.LockedDependency) ([]stringFinding, error) {
+func driftAll(ctx context.Context, root string, dep manifest.Dependency, m manifest.Manifest, locked manifest.LockedDependency) ([]stringFinding, []string, error) {
 	wanted := map[string]bool{}
 	if dep.Wire != nil {
 		for _, eco := range *dep.Wire {
 			wanted[eco] = true
 		}
 		if len(*dep.Wire) == 0 {
-			return nil, nil
+			return nil, nil, nil
 		}
 	}
 	var out []stringFinding
+	var states []string
 	for _, implementation := range adapters.All() {
 		if dep.Wire != nil && !wanted[implementation.Ecosystem()] {
 			continue
 		}
 		ok, _, err := implementation.Detect(root)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if !ok {
 			continue
 		}
+		hasExport := false
+		unwired := false
+		drifted := false
 		for _, exp := range m.Module.Exports {
 			if exp.Ecosystem != implementation.Ecosystem() {
 				continue
 			}
+			hasExport = true
 			findings, err := implementation.Drift(ctx, root, dep, exp, locked)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			for _, f := range findings {
 				out = append(out, stringFinding{f.File, f.Entry, f.Want, f.Got})
+				if strings.TrimSpace(f.Got) == "" {
+					unwired = true
+				} else {
+					drifted = true
+				}
 			}
 		}
+		if hasExport {
+			state := "clean"
+			if drifted {
+				state = "drift"
+			} else if unwired {
+				state = "unwired"
+			}
+			states = append(states, implementation.Ecosystem()+" "+state)
+		}
 	}
-	return out, nil
+	return out, states, nil
 }
 
 type stringFinding struct{ File, Entry, Want, Got string }

@@ -18,6 +18,7 @@ import (
 
 	"github.com/neprel/git-a2a/adapters"
 	"github.com/neprel/git-a2a/internal/a2a"
+	"github.com/neprel/git-a2a/internal/adapter"
 	"github.com/neprel/git-a2a/internal/cache"
 	"github.com/neprel/git-a2a/internal/fetch"
 	"github.com/neprel/git-a2a/internal/gitx"
@@ -70,6 +71,8 @@ func (a *App) Run(args []string) int {
 		return a.pin(args[1:])
 	case "unpin":
 		return a.unpin(args[1:])
+	case "wire":
+		return a.wire(args[1:])
 	case "remove":
 		return a.remove(args[1:])
 	case "show":
@@ -95,7 +98,7 @@ func (a *App) Run(args []string) int {
 }
 
 func (a *App) usage() {
-	fmt.Fprintln(a.Out, "usage: git-a2a <init|validate|add|set|pin|unpin|update|remove|show|sync|who|status|card|fmt|version|upgrade> [options]")
+	fmt.Fprintln(a.Out, "usage: git-a2a <init|validate|add|set|pin|unpin|wire|update|remove|show|sync|who|status|card|fmt|version|upgrade> [options]")
 }
 func (a *App) root() string {
 	if a.Root == "" {
@@ -358,8 +361,11 @@ func (a *App) add(args []string) int {
 		fmt.Fprintf(a.Err, "add: own manifest: %v\n", err)
 		return 2
 	}
-	work := filepath.Join(root, ".git-a2a", "cache", ".fetch")
-	_ = os.RemoveAll(work)
+	work, err := os.MkdirTemp("", "git-a2a-add-")
+	if err != nil {
+		fmt.Fprintf(a.Err, "add: %v\n", err)
+		return 1
+	}
 	defer os.RemoveAll(work)
 	f := fetch.Fetcher{Runner: a.runner()}
 	res, err := f.Fetch(context.Background(), o.url, o.ref, o.path, work)
@@ -406,29 +412,59 @@ func (a *App) add(args []string) int {
 			return 1
 		}
 	}
-	own.Dependencies = append(own.Dependencies, manifest.Dependency{ID: o.id, Git: o.url, Ref: o.ref, Path: defaultPath(o.path), Track: o.track, Wire: o.wire})
-	if err := writeManifest(root, own); err != nil {
-		fmt.Fprintf(a.Err, "add: %v\n", err)
-		return 1
-	}
-	if err := cache.Save(root, o.id, res.Manifest, res.Commit, res.Method); err != nil {
-		fmt.Fprintf(a.Err, "add: cache: %v\n", err)
-		return 1
-	}
-	cards, warnings := a.snapshotCards(root, o.id, o.url, o.path, res.Commit, depManifest, f)
 	l, err := lockfile.Load(root)
 	if err != nil {
 		fmt.Fprintf(a.Err, "add: lock: %v\n", err)
 		return 1
 	}
+	dep := manifest.Dependency{ID: o.id, Git: o.url, Ref: o.ref, Path: defaultPath(o.path), Track: o.track, Wire: o.wire}
 	sum := sha256.Sum256(res.Manifest)
-	l.Dependencies[o.id] = manifest.LockedDependency{Git: o.url, Ref: o.ref, Path: defaultPath(o.path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:]), Cards: cards}
-	if err := lockfile.Write(root, l); err != nil {
-		fmt.Fprintf(a.Err, "add: lock: %v\n", err)
+	locked := manifest.LockedDependency{Git: o.url, Ref: o.ref, Path: defaultPath(o.path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:])}
+	stagedRoot := filepath.Join(work, "staged-cache")
+	if err := cache.Save(stagedRoot, o.id, res.Manifest, res.Commit, res.Method); err != nil {
+		fmt.Fprintf(a.Err, "add: stage cache: %v\n", err)
 		return 1
 	}
-	if err := wireAll(context.Background(), root, own.Dependencies[len(own.Dependencies)-1], depManifest, l.Dependencies[o.id], true); err != nil {
-		fmt.Fprintf(a.Err, "add: wiring: %v\n", err)
+	cards, warnings := a.snapshotCardsTo(filepath.Join(cache.Dir(stagedRoot, o.id), "cards"), o.url, o.path, res.Commit, depManifest, f)
+	locked.Cards = cards
+	preflight := filepath.Join(work, "preflight")
+	copyAdapterFiles(root, preflight)
+	if _, err := wireAll(context.Background(), preflight, dep, depManifest, locked, false); err != nil {
+		fmt.Fprintf(a.Err, "add: wiring preflight: %v; no files changed\n", err)
+		return 1
+	}
+	snapshots := snapshotAdapterFiles(root)
+	outcomes, err := wireAll(context.Background(), root, dep, depManifest, locked, true)
+	if err != nil {
+		restoreAdapterFiles(root, snapshots)
+		fmt.Fprintf(a.Err, "add: wiring failed and was rolled back: %v\n", err)
+		return 1
+	}
+	oldManifestBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.yml"))
+	oldLockBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.lock"))
+	own.Dependencies = append(own.Dependencies, dep)
+	l.Dependencies[o.id] = locked
+	if err = writeManifest(root, own); err == nil {
+		err = lockfile.Write(root, l)
+	}
+	rollbackMetadata := func() {
+		_ = lockfile.Atomic(filepath.Join(root, "a2amodule.yml"), oldManifestBytes, 0o644)
+		if len(oldLockBytes) > 0 {
+			_ = lockfile.Atomic(filepath.Join(root, "a2amodule.lock"), oldLockBytes, 0o644)
+		} else {
+			_ = os.Remove(filepath.Join(root, "a2amodule.lock"))
+		}
+	}
+	if err != nil {
+		rollbackMetadata()
+		restoreAdapterFiles(root, snapshots)
+		fmt.Fprintf(a.Err, "add: metadata write failed and was rolled back: %v\n", err)
+		return 1
+	}
+	if err = replaceCache(root, o.id, cache.Dir(stagedRoot, o.id), work); err != nil {
+		rollbackMetadata()
+		restoreAdapterFiles(root, snapshots)
+		fmt.Fprintf(a.Err, "add: cache replacement failed and was rolled back: %v\n", err)
 		return 1
 	}
 	fmt.Fprintf(a.Err, "added %s at %s\n", o.id, res.Commit)
@@ -437,6 +473,11 @@ func (a *App) add(args []string) int {
 	}
 	for _, warning := range warnings {
 		fmt.Fprintf(a.Err, "warning: card snapshot: %v\n", warning)
+	}
+	for _, outcome := range outcomes {
+		if !outcome.Wired {
+			fmt.Fprintf(a.Err, "%s: not wired: %s\n", outcome.Ecosystem, outcome.Reason)
+		}
 	}
 	return 0
 }
@@ -504,6 +545,7 @@ func (a *App) update(args []string) int {
 		}
 		found++
 		entry := l.Dependencies[d.ID]
+		cacheRepair := cacheNeedsRepair(root, d.ID, entry.Manifest)
 		resolution, e := gitx.ResolveDetailed(context.Background(), a.runner(), d.Git, d.Ref)
 		if e != nil {
 			fmt.Fprintf(a.Err, "update %s: %v\n", d.ID, e)
@@ -513,28 +555,43 @@ func (a *App) update(args []string) int {
 		if resolution.Ambiguous {
 			advisories = append(advisories, fmt.Sprintf("%s: ref %s is ambiguous; selected %s", d.ID, d.Ref, resolution.FullRef))
 		}
-		if entry.Commit == commit {
+		if entry.Commit == commit && !cacheRepair {
 			continue
 		}
 		changed++
-		fmt.Fprintf(a.Out, "%s: %s -> %s\n", d.ID, short(entry.Commit), short(commit))
+		if cacheRepair && entry.Commit == commit {
+			fmt.Fprintf(a.Out, "%s: restore cache at %s\n", d.ID, short(commit))
+		} else {
+			fmt.Fprintf(a.Out, "%s: %s -> %s\n", d.ID, short(entry.Commit), short(commit))
+		}
 		if check {
 			continue
 		}
-		work := cache.Dir(root, d.ID)
-		res, e := f.Fetch(context.Background(), d.Git, d.Ref, defaultPath(d.Path), work)
+		work, tempErr := os.MkdirTemp("", "git-a2a-update-")
+		if tempErr != nil {
+			fmt.Fprintf(a.Err, "update %s: %v\n", d.ID, tempErr)
+			return 1
+		}
+		fetchRef := d.Ref
+		if cacheRepair && entry.Commit == commit {
+			fetchRef = entry.Commit
+		}
+		res, e := f.Fetch(context.Background(), d.Git, fetchRef, defaultPath(d.Path), work)
 		if e != nil {
+			_ = os.RemoveAll(work)
 			fmt.Fprintf(a.Err, "update %s: %v\n", d.ID, e)
 			return 1
 		}
 		depManifest, e := manifest.Parse(res.Manifest)
 		if e != nil {
+			_ = os.RemoveAll(work)
 			fmt.Fprintf(a.Err, "update %s: %v\n", d.ID, e)
 			return 1
 		}
 		if depManifest.Module.MovedTo != nil {
 			move := depManifest.Module.MovedTo
 			if !followMoves {
+				_ = os.RemoveAll(work)
 				fmt.Fprintf(a.Err, "%s moved to %s; run update --follow-moves or git-a2a set %s --git %s\n", d.ID, move.Git, d.ID, move.Git)
 				return 1
 			}
@@ -542,25 +599,67 @@ func (a *App) update(args []string) int {
 			if move.Path != "" {
 				opts.path = &move.Path
 			}
-			return a.applySet(opts)
+			_ = os.RemoveAll(work)
+			if code := a.applySet(opts); code != 0 {
+				return code
+			}
+			l, e = lockfile.Load(root)
+			if e != nil {
+				fmt.Fprintf(a.Err, "update: lock after move: %v\n", e)
+				return 1
+			}
+			continue
 		}
 		if resolution.Kind == "tag" && entry.Commit != "" && entry.Commit != res.Commit {
 			advisories = append(advisories, fmt.Sprintf("tag %s moved from %s to %s", d.Ref, short(entry.Commit), short(res.Commit)))
 		}
 		sum := sha256.Sum256(res.Manifest)
-		cards, warnings := a.snapshotCards(root, d.ID, d.Git, d.Path, res.Commit, depManifest, f)
+		stagedRoot := filepath.Join(work, "staged-cache")
+		if e = cache.Save(stagedRoot, d.ID, res.Manifest, res.Commit, res.Method); e != nil {
+			_ = os.RemoveAll(work)
+			fmt.Fprintf(a.Err, "update %s: stage cache: %v\n", d.ID, e)
+			return 1
+		}
+		cards, warnings := a.snapshotCardsTo(filepath.Join(cache.Dir(stagedRoot, d.ID), "cards"), d.Git, d.Path, res.Commit, depManifest, f)
 		for _, warning := range warnings {
 			advisories = append(advisories, fmt.Sprintf("warning: %s card snapshot: %v", d.ID, warning))
 		}
 		entry = manifest.LockedDependency{Git: d.Git, Ref: d.Ref, Path: defaultPath(d.Path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:]), Cards: cards, Surface: entry.Surface}
-		l.Dependencies[d.ID] = entry
-		if e = cache.Save(root, d.ID, res.Manifest, res.Commit, res.Method); e != nil {
-			fmt.Fprintf(a.Err, "update %s: %v\n", d.ID, e)
+		preflight := filepath.Join(work, "preflight")
+		copyAdapterFiles(root, preflight)
+		if _, e = wireAll(context.Background(), preflight, d, depManifest, entry, false); e != nil {
+			_ = os.RemoveAll(work)
+			fmt.Fprintf(a.Err, "update %s wiring preflight: %v; no files changed\n", d.ID, e)
 			return 1
 		}
-		if e = wireAll(context.Background(), root, d, depManifest, entry, true); e != nil {
-			fmt.Fprintf(a.Err, "update %s wiring: %v\n", d.ID, e)
+		snapshots := snapshotAdapterFiles(root)
+		outcomes, wireErr := wireAll(context.Background(), root, d, depManifest, entry, true)
+		if wireErr != nil {
+			restoreAdapterFiles(root, snapshots)
+			_ = os.RemoveAll(work)
+			fmt.Fprintf(a.Err, "update %s wiring failed and was rolled back: %v\n", d.ID, wireErr)
 			return 1
+		}
+		oldLockBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.lock"))
+		l.Dependencies[d.ID] = entry
+		if e = lockfile.Write(root, l); e != nil {
+			restoreAdapterFiles(root, snapshots)
+			_ = os.RemoveAll(work)
+			fmt.Fprintf(a.Err, "update %s lock write failed and was rolled back: %v\n", d.ID, e)
+			return 1
+		}
+		if e = replaceCache(root, d.ID, cache.Dir(stagedRoot, d.ID), work); e != nil {
+			_ = lockfile.Atomic(filepath.Join(root, "a2amodule.lock"), oldLockBytes, 0o644)
+			restoreAdapterFiles(root, snapshots)
+			_ = os.RemoveAll(work)
+			fmt.Fprintf(a.Err, "update %s cache replacement failed and was rolled back: %v\n", d.ID, e)
+			return 1
+		}
+		_ = os.RemoveAll(work)
+		for _, outcome := range outcomes {
+			if !outcome.Wired {
+				advisories = append(advisories, fmt.Sprintf("%s: %s not wired: %s", d.ID, outcome.Ecosystem, outcome.Reason))
+			}
 		}
 	}
 	if found == 0 {
@@ -571,12 +670,6 @@ func (a *App) update(args []string) int {
 		fmt.Fprintf(a.Err, "%d dependency update(s) available\n", changed)
 		return 1
 	}
-	if !check && changed > 0 {
-		if err := lockfile.Write(root, l); err != nil {
-			fmt.Fprintf(a.Err, "update: %v\n", err)
-			return 1
-		}
-	}
 	if changed == 0 {
 		fmt.Fprintln(a.Err, "dependencies are up to date")
 	} else {
@@ -586,6 +679,15 @@ func (a *App) update(args []string) int {
 		fmt.Fprintln(a.Err, advisory)
 	}
 	return 0
+}
+
+func cacheNeedsRepair(root, id, expectedHash string) bool {
+	b, err := os.ReadFile(filepath.Join(cache.Dir(root, id), "a2amodule.yml"))
+	if err != nil {
+		return true
+	}
+	sum := sha256.Sum256(b)
+	return "sha256:"+hex.EncodeToString(sum[:]) != expectedHash
 }
 
 func (a *App) snapshotCards(root, id, url, modulePath, commit string, m *manifest.Manifest, f fetch.Fetcher) (map[string]string, []error) {
@@ -788,24 +890,32 @@ func (a *App) format(args []string) int {
 	return 0
 }
 
-func wireAll(ctx context.Context, root string, dep manifest.Dependency, module *manifest.Manifest, locked manifest.LockedDependency, refresh bool) error {
+type wireOutcome struct {
+	Ecosystem string
+	Reason    string
+	Changed   bool
+	Wired     bool
+}
+
+func wireAll(ctx context.Context, root string, dep manifest.Dependency, module *manifest.Manifest, locked manifest.LockedDependency, refresh bool) ([]wireOutcome, error) {
 	wanted := map[string]bool{}
 	if dep.Wire != nil {
 		for _, ecosystem := range *dep.Wire {
 			wanted[ecosystem] = true
 		}
 		if len(*dep.Wire) == 0 {
-			return nil
+			return nil, nil
 		}
 	}
 	wired := map[string]bool{}
+	var outcomes []wireOutcome
 	for _, implementation := range adapters.All() {
 		if dep.Wire != nil && !wanted[implementation.Ecosystem()] {
 			continue
 		}
 		ok, _, err := implementation.Detect(root)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if !ok {
 			continue
@@ -816,12 +926,17 @@ func wireAll(ctx context.Context, root string, dep manifest.Dependency, module *
 			}
 			change, err := implementation.Wire(ctx, root, dep, exp, locked)
 			if err != nil {
-				return err
+				if dep.Wire == nil && adapter.IsNotWirable(err) {
+					outcomes = append(outcomes, wireOutcome{Ecosystem: exp.Ecosystem, Reason: adapter.NotWirableReason(err)})
+					continue
+				}
+				return nil, err
 			}
 			wired[exp.Ecosystem] = true
+			outcomes = append(outcomes, wireOutcome{Ecosystem: exp.Ecosystem, Changed: change.Changed, Wired: true})
 			if refresh && change.Changed {
 				if err := implementation.Refresh(ctx, root, dep, exp, locked); err != nil {
-					return err
+					return nil, err
 				}
 			}
 		}
@@ -829,9 +944,9 @@ func wireAll(ctx context.Context, root string, dep manifest.Dependency, module *
 	if dep.Wire != nil {
 		for ecosystem := range wanted {
 			if !wired[ecosystem] {
-				return fmt.Errorf("ecosystem %s was requested but is not wirable in this repository", ecosystem)
+				return nil, fmt.Errorf("ecosystem %s was requested but is not wirable in this repository", ecosystem)
 			}
 		}
 	}
-	return nil
+	return outcomes, nil
 }

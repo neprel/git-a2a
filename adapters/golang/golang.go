@@ -32,7 +32,7 @@ func (Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp 
 	s := string(b)
 	source, err := sourceModule(dep.Git, exp.Path)
 	if err != nil {
-		return adapter.Change{}, err
+		return adapter.Change{}, adapter.NotWirable(err.Error())
 	}
 	version := "v0.0.0-00010101000000-" + locked.Commit[:12]
 	if dep.Track == "floating" {

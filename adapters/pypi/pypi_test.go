@@ -56,3 +56,42 @@ func TestWireGoldenIdempotentUnwire(t *testing.T) {
 		t.Fatalf("unwire differs\ngot:\n%s\nwant:\n%s", got, original)
 	}
 }
+
+func TestDriftMissingEntryIsUnwired(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte("[project]\nname = \"consumer\"\ndependencies = []\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	findings, err := (Adapter{}).Drift(context.Background(), root,
+		adapter.Dependency{Git: "https://github.com/acme/lib.git"},
+		adapter.Export{Ecosystem: "pypi", Name: "acme-lib"},
+		adapter.Locked{Git: "https://github.com/acme/lib.git", Commit: strings.Repeat("a", 40)})
+	if err != nil || len(findings) != 1 {
+		t.Fatalf("findings=%v err=%v", findings, err)
+	}
+}
+
+func TestWireConvertsInlineDependencyArraysOnly(t *testing.T) {
+	for _, initial := range []string{
+		"[project]\nname = \"consumer\"\ndependencies = []\n[tool.other]\nitems = []\n",
+		"[project]\nname = \"consumer\"\ndependencies = [\"click>=8\", \"rich\"]\n[tool.other]\nitems = []\n",
+	} {
+		root := t.TempDir()
+		if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte(initial), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		dep := adapter.Dependency{Git: "https://github.com/acme/lib.git", Ref: "main", Track: "locked"}
+		exp := adapter.Export{Ecosystem: "pypi", Name: "acme-lib"}
+		locked := adapter.Locked{Git: dep.Git, Commit: strings.Repeat("a", 40)}
+		if _, err := (Adapter{}).Wire(context.Background(), root, dep, exp, locked); err != nil {
+			t.Fatal(err)
+		}
+		got, _ := os.ReadFile(filepath.Join(root, "pyproject.toml"))
+		if !strings.Contains(string(got), "dependencies = [\n  \"") || !strings.Contains(string(got), "acme-lib @ git+") {
+			t.Fatalf("inline array not converted:\n%s", got)
+		}
+		if !strings.Contains(string(got), "[tool.other]\nitems = []") {
+			t.Fatalf("unrelated array changed:\n%s", got)
+		}
+	}
+}

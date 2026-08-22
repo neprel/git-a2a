@@ -248,7 +248,13 @@ string. Subdirectory containing the dependency's `a2amodule.yml` (monorepo). Def
 ## field wire
 
 list of ecosystems to wire, or absent for "every export that matches a manifest detected in this
-repository". An empty list means "record the dependency, wire nothing".
+repository". An empty list means "record the dependency, wire nothing". When `wire` is absent
+and an export cannot be expressed in its ecosystem (the ecosystem has no git form for that URL,
+no subdirectory support, a floating ref it cannot store), the tool wires what it can, reports
+the rest as `not wired: <reason>` and `status` shows that ecosystem as `unwired`; it is an error
+only for an ecosystem named explicitly in `wire`. Wiring is repairable at any time
+(`git-a2a wire [ID]` re-applies every adapter from the lock, idempotently) — a half-wired
+dependency is a state the tool can always see and always fix, never one it hides.
 
 ## field x-*
 

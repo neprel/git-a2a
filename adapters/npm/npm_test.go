@@ -60,6 +60,19 @@ func TestDetectVariants(t *testing.T) {
 		}
 	}
 }
+func TestDriftMissingEntryIsUnwired(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "package.json"), []byte("{\"dependencies\":{}}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	findings, err := (Adapter{}).Drift(context.Background(), root,
+		adapter.Dependency{Git: "https://github.com/acme/lib.git"},
+		adapter.Export{Ecosystem: "npm", Name: "@acme/lib"},
+		adapter.Locked{Git: "https://github.com/acme/lib.git", Commit: strings.Repeat("a", 40)})
+	if err != nil || len(findings) != 1 {
+		t.Fatalf("findings=%v err=%v", findings, err)
+	}
+}
 func copyFile(t *testing.T, src, dst string) []byte {
 	t.Helper()
 	b := mustRead(t, src)

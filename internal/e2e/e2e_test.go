@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -223,6 +224,237 @@ func TestSetPinUnpinSourceAndMovedAnnouncement(t *testing.T) {
 	m, _ = manifest.Load(filepath.Join(consumer, "a2amodule.yml"))
 	if m.Dependencies[0].Git != "file://"+fork {
 		t.Fatalf("move not followed: %#v", m.Dependencies[0])
+	}
+}
+
+func TestAddRollbackAndWireRepair(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "source")
+	bare := filepath.Join(tmp, "library.git")
+	consumer := filepath.Join(tmp, "consumer")
+	mustMkdir(t, source)
+	git(t, source, "init", "-b", "main")
+	git(t, source, "config", "user.email", "test@example.com")
+	git(t, source, "config", "user.name", "Test")
+	mustWrite(t, filepath.Join(source, "a2amodule.yml"), []byte("schema: 1\nmodule:\n  id: acme-lib\n  release:\n    channel: main\n  exports:\n    - ecosystem: npm\n      name: '@acme/lib'\n    - ecosystem: pypi\n      name: acme-lib\n"))
+	git(t, source, "add", "a2amodule.yml")
+	git(t, source, "commit", "-m", "library")
+	git(t, tmp, "clone", "--bare", source, bare)
+	mustMkdir(t, consumer)
+	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte("schema: 1\nmodule:\n  id: acme-app\n"))
+	mustWrite(t, filepath.Join(consumer, "package.json"), []byte("{\n  \"name\": \"acme-app\",\n  \"dependencies\": {}\n}\n"))
+	mustWrite(t, filepath.Join(consumer, "pyproject.toml"), []byte("[tool.invalid]\nvalue = true\n"))
+	names := []string{"a2amodule.yml", "package.json", "pyproject.toml"}
+	before := map[string][]byte{}
+	for _, name := range names {
+		before[name], _ = os.ReadFile(filepath.Join(consumer, name))
+	}
+	var out, errOut bytes.Buffer
+	app := cli.New(&out, &errOut)
+	app.Root = consumer
+	if code := app.Run([]string{"add", "file://" + bare, "--wire", "npm,pypi"}); code != 1 {
+		t.Fatalf("failing add exit %d: %s", code, errOut.String())
+	}
+	for _, name := range names {
+		after, _ := os.ReadFile(filepath.Join(consumer, name))
+		if !bytes.Equal(before[name], after) {
+			t.Fatalf("%s changed after failed add\nbefore:\n%s\nafter:\n%s", name, before[name], after)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(consumer, "a2amodule.lock")); !os.IsNotExist(err) {
+		t.Fatalf("lock exists after failed add: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(consumer, ".git-a2a", "cache", "acme-lib")); !os.IsNotExist(err) {
+		t.Fatalf("cache exists after failed add: %v", err)
+	}
+	mustWrite(t, filepath.Join(consumer, "pyproject.toml"), []byte("[project]\nname = \"acme-app\"\ndependencies = []\n"))
+	out.Reset()
+	errOut.Reset()
+	if code := app.Run([]string{"add", "file://" + bare, "--no-wire"}); code != 0 {
+		t.Fatalf("record-only add exit %d: %s", code, errOut.String())
+	}
+	out.Reset()
+	errOut.Reset()
+	if code := app.Run([]string{"wire", "acme-lib", "--ecosystem", "pypi"}); code != 0 {
+		t.Fatalf("wire repair exit %d: %s", code, errOut.String())
+	}
+	pyproject, _ := os.ReadFile(filepath.Join(consumer, "pyproject.toml"))
+	if !strings.Contains(string(pyproject), "acme-lib @ git+") {
+		t.Fatalf("wire did not repair pyproject:\n%s", pyproject)
+	}
+	out.Reset()
+	errOut.Reset()
+	if code := app.Run([]string{"wire", "acme-lib", "--ecosystem", "pypi"}); code != 0 || !strings.Contains(errOut.String(), "wiring is current") {
+		t.Fatalf("idempotent wire exit %d: %s", code, errOut.String())
+	}
+}
+
+func TestUpdateCommitsEarlierDependencyAndLeavesFailingDependencyUntouched(t *testing.T) {
+	tmp := t.TempDir()
+	consumer := filepath.Join(tmp, "consumer")
+	mustMkdir(t, consumer)
+	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte("schema: 1\nmodule:\n  id: acme-app\n"))
+	mustWrite(t, filepath.Join(consumer, "package.json"), []byte("{\n  \"name\": \"acme-app\",\n  \"dependencies\": {}\n}\n"))
+	makeLibrary := func(id, packageName string) (string, string) {
+		source := filepath.Join(tmp, id+"-source")
+		bare := filepath.Join(tmp, id+".git")
+		mustMkdir(t, source)
+		git(t, source, "init", "-b", "main")
+		git(t, source, "config", "user.email", "test@example.com")
+		git(t, source, "config", "user.name", "Test")
+		mustWrite(t, filepath.Join(source, "a2amodule.yml"), []byte("schema: 1\nmodule:\n  id: "+id+"\n  release:\n    channel: main\n  exports:\n    - ecosystem: npm\n      name: '"+packageName+"'\n"))
+		mustWrite(t, filepath.Join(source, "package.json"), []byte("{\"name\":\""+packageName+"\",\"version\":\"0.0.0\"}\n"))
+		git(t, source, "add", ".")
+		git(t, source, "commit", "-m", "initial")
+		git(t, tmp, "clone", "--bare", source, bare)
+		return source, bare
+	}
+	firstSource, firstBare := makeLibrary("acme-first", "@acme/first")
+	_, secondBare := makeLibrary("acme-second", "@acme/second")
+	var out, errOut bytes.Buffer
+	app := cli.New(&out, &errOut)
+	app.Root = consumer
+	for _, bare := range []string{firstBare, secondBare} {
+		out.Reset()
+		errOut.Reset()
+		if code := app.Run([]string{"add", "file://" + bare}); code != 0 {
+			t.Fatalf("add %s exit %d: %s", bare, code, errOut.String())
+		}
+	}
+	before, _ := manifest.LoadLock(filepath.Join(consumer, "a2amodule.lock"))
+	firstOld := before.Dependencies["acme-first"].Commit
+	secondOld := before.Dependencies["acme-second"].Commit
+	manifestPath := filepath.Join(firstSource, "a2amodule.yml")
+	firstManifest, _ := os.ReadFile(manifestPath)
+	mustWrite(t, manifestPath, append(firstManifest, []byte("x-revision: two\n")...))
+	git(t, firstSource, "add", "a2amodule.yml")
+	git(t, firstSource, "commit", "-m", "update")
+	git(t, firstSource, "push", firstBare, "main")
+	own, _ := manifest.Load(filepath.Join(consumer, "a2amodule.yml"))
+	for i := range own.Dependencies {
+		if own.Dependencies[i].ID == "acme-second" {
+			own.Dependencies[i].Git = "file:///definitely-missing/acme-second.git"
+		}
+	}
+	ownRaw, _ := manifest.Marshal(own)
+	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), ownRaw)
+	out.Reset()
+	errOut.Reset()
+	if code := app.Run([]string{"update"}); code != 1 {
+		t.Fatalf("update exit %d: %s", code, errOut.String())
+	}
+	after, _ := manifest.LoadLock(filepath.Join(consumer, "a2amodule.lock"))
+	if after.Dependencies["acme-first"].Commit == firstOld {
+		t.Fatal("first dependency was not committed before second failed")
+	}
+	if after.Dependencies["acme-second"].Commit != secondOld {
+		t.Fatal("failing dependency lock changed")
+	}
+	packageJSON, _ := os.ReadFile(filepath.Join(consumer, "package.json"))
+	if !strings.Contains(string(packageJSON), after.Dependencies["acme-first"].Commit) || !strings.Contains(string(packageJSON), secondOld) {
+		t.Fatalf("package wiring and lock disagree:\n%s", packageJSON)
+	}
+}
+
+func TestUpdateFollowMovesProcessesEveryDependency(t *testing.T) {
+	tmp := t.TempDir()
+	consumer := filepath.Join(tmp, "consumer")
+	mustMkdir(t, consumer)
+	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte("schema: 1\nmodule:\n  id: acme-app\n"))
+	type movedPair struct{ source, original, moved string }
+	makePair := func(id string) movedPair {
+		source := filepath.Join(tmp, id+"-source")
+		original := filepath.Join(tmp, id+"-old.git")
+		moved := filepath.Join(tmp, id+"-new.git")
+		mustMkdir(t, source)
+		git(t, source, "init", "-b", "main")
+		git(t, source, "config", "user.email", "test@example.com")
+		git(t, source, "config", "user.name", "Test")
+		mustWrite(t, filepath.Join(source, "a2amodule.yml"), []byte("schema: 1\nmodule:\n  id: "+id+"\n  release:\n    channel: main\n"))
+		git(t, source, "add", "a2amodule.yml")
+		git(t, source, "commit", "-m", "initial")
+		git(t, tmp, "clone", "--bare", source, original)
+		git(t, tmp, "clone", "--bare", source, moved)
+		return movedPair{source: source, original: original, moved: moved}
+	}
+	pairs := []movedPair{makePair("acme-first"), makePair("acme-second")}
+	var out, errOut bytes.Buffer
+	app := cli.New(&out, &errOut)
+	app.Root = consumer
+	for _, pair := range pairs {
+		if code := app.Run([]string{"add", "file://" + pair.original, "--no-wire"}); code != 0 {
+			t.Fatalf("add exit %d: %s", code, errOut.String())
+		}
+		out.Reset()
+		errOut.Reset()
+	}
+	for i, pair := range pairs {
+		id := fmt.Sprintf("acme-%s", []string{"first", "second"}[i])
+		mustWrite(t, filepath.Join(pair.source, "a2amodule.yml"), []byte("schema: 1\nmodule:\n  id: "+id+"\n  moved-to:\n    git: file://"+pair.moved+"\n  release:\n    channel: main\n"))
+		git(t, pair.source, "add", "a2amodule.yml")
+		git(t, pair.source, "commit", "-m", "announce move")
+		git(t, pair.source, "push", pair.original, "main")
+	}
+	if code := app.Run([]string{"update", "--follow-moves"}); code != 0 {
+		t.Fatalf("follow moves exit %d: %s", code, errOut.String())
+	}
+	own, _ := manifest.Load(filepath.Join(consumer, "a2amodule.yml"))
+	got := map[string]string{}
+	for _, dep := range own.Dependencies {
+		got[dep.ID] = dep.Git
+	}
+	for i, pair := range pairs {
+		id := fmt.Sprintf("acme-%s", []string{"first", "second"}[i])
+		if got[id] != "file://"+pair.moved {
+			t.Fatalf("%s did not follow move: %q", id, got[id])
+		}
+	}
+}
+
+func TestCacheLossIsRecoverableBySetAndUpdate(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "source")
+	bare := filepath.Join(tmp, "library.git")
+	consumer := filepath.Join(tmp, "consumer")
+	mustMkdir(t, source)
+	git(t, source, "init", "-b", "main")
+	git(t, source, "config", "user.email", "test@example.com")
+	git(t, source, "config", "user.name", "Test")
+	mustWrite(t, filepath.Join(source, "a2amodule.yml"), []byte("schema: 1\nmodule:\n  id: acme-lib\n  release:\n    channel: main\nagents:\n  - name: acme-owner\n    role: owner\n    contacts:\n      - intents: [question]\n        kind: url\n        url: https://example.test/acme\n"))
+	git(t, source, "add", "a2amodule.yml")
+	git(t, source, "commit", "-m", "initial")
+	git(t, tmp, "clone", "--bare", source, bare)
+	mustMkdir(t, consumer)
+	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte("schema: 1\nmodule:\n  id: acme-app\n"))
+	var out, errOut bytes.Buffer
+	app := cli.New(&out, &errOut)
+	app.Root = consumer
+	if code := app.Run([]string{"add", "file://" + bare, "--no-wire"}); code != 0 {
+		t.Fatalf("add exit %d: %s", code, errOut.String())
+	}
+	cacheRoot := filepath.Join(consumer, ".git-a2a")
+	if err := os.RemoveAll(cacheRoot); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	errOut.Reset()
+	if code := app.Run([]string{"set", "acme-lib", "--ref", "main"}); code != 0 {
+		t.Fatalf("set without cache exit %d: %s", code, errOut.String())
+	}
+	if err := os.RemoveAll(cacheRoot); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	errOut.Reset()
+	if code := app.Run([]string{"update"}); code != 0 || !strings.Contains(out.String(), "restore cache") {
+		t.Fatalf("cache repair update exit %d out=%s err=%s", code, out.String(), errOut.String())
+	}
+	for _, args := range [][]string{{"sync"}, {"who", "acme-lib", "--intent", "question"}} {
+		out.Reset()
+		errOut.Reset()
+		if code := app.Run(args); code != 0 {
+			t.Fatalf("%v after repair exit %d: %s", args, code, errOut.String())
+		}
 	}
 }
 

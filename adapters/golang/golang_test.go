@@ -53,3 +53,17 @@ func TestWireGoldenIdempotentUnwire(t *testing.T) {
 		t.Fatalf("unwire differs\ngot:\n%s\nwant:\n%s", got, original)
 	}
 }
+
+func TestDriftMissingEntryIsUnwired(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module acme.dev/consumer\n\ngo 1.24\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	findings, err := (Adapter{}).Drift(context.Background(), root,
+		adapter.Dependency{Git: "https://github.com/acme/lib.git"},
+		adapter.Export{Ecosystem: "golang", Name: "acme.dev/lib"},
+		adapter.Locked{Git: "https://github.com/acme/lib.git", Commit: strings.Repeat("a", 40)})
+	if err != nil || len(findings) != 1 {
+		t.Fatalf("findings=%v err=%v", findings, err)
+	}
+}

@@ -47,6 +47,9 @@ func (a Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, ex
 		return adapter.Change{}, err
 	}
 	s := string(b)
+	if exp.Path != "" && exp.Path != "." && v != "uv" {
+		return adapter.Change{}, adapter.NotWirable(fmt.Sprintf("%s cannot express subdirectory %s", v, exp.Path))
+	}
 	requirement := exp.Name
 	if v != "uv" {
 		requirement = fmt.Sprintf("%s @ git+%s@%s", exp.Name, dep.Git, pin(dep, locked))
@@ -115,16 +118,18 @@ func (a Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, e
 	}
 	urlMatch := regexp.MustCompile(`git\s*=\s*["']([^"']+)|git\+([^"'\n]+)@[^"'\n]+`).FindStringSubmatch(target)
 	gotURL := ""
-	for _, v := range urlMatch[1:] {
-		if v != "" {
-			gotURL = v
-			break
+	if len(urlMatch) > 1 {
+		for _, v := range urlMatch[1:] {
+			if v != "" {
+				gotURL = v
+				break
+			}
 		}
 	}
 	badURL := gotURL == "" || gitx.NormalizeURL(gotURL) != gitx.NormalizeURL(locked.Git)
 	badPin := dep.Track != "floating" && !strings.Contains(target, locked.Commit)
 	if target == "" || badURL || badPin {
-		return []adapter.Finding{{File: "pyproject.toml", Entry: exp.Name, Want: locked.Commit, Got: "missing or different revision"}}, nil
+		return []adapter.Finding{{File: "pyproject.toml", Entry: exp.Name, Want: locked.Commit, Got: strings.TrimSpace(target)}}, nil
 	}
 	return nil, nil
 }
@@ -168,15 +173,33 @@ func ensureProjectDependency(s, requirement, name string) (string, bool, error) 
 		return "", false, fmt.Errorf("pyproject.toml: [project] table is required")
 	}
 	body := s[start:end]
-	re := regexp.MustCompile(`(?ms)(^\s*dependencies\s*=\s*\[)(.*?)(^\s*\])`)
-	loc := re.FindStringSubmatchIndex(body)
-	if loc == nil {
-		return "", false, fmt.Errorf("pyproject.toml: [project].dependencies must be a multiline array")
+	prefixStart, open, close, ok := dependencyArrayRange(body)
+	if !ok {
+		return "", false, fmt.Errorf("pyproject.toml: [project].dependencies array is required")
 	}
-	items := body[loc[4]:loc[5]]
-	nameRe := regexp.MustCompile(`(?m)^\s*["']` + regexp.QuoteMeta(name) + `(?:["' @<>=!~\[])`)
+	items := body[open+1 : close]
+	nameRe := regexp.MustCompile(`["']` + regexp.QuoteMeta(name) + `(?:["' @<>=!~\[])`)
 	if nameRe.MatchString(items) {
 		return s, false, nil
+	}
+	if !strings.Contains(items, "\n") {
+		var values []string
+		for _, match := range regexp.MustCompile(`["']([^"']*)["']`).FindAllStringSubmatch(items, -1) {
+			values = append(values, match[1])
+		}
+		values = append(values, requirement)
+		lineStart := strings.LastIndex(body[:prefixStart], "\n") + 1
+		baseIndent := body[lineStart:prefixStart]
+		var block strings.Builder
+		block.WriteString(body[prefixStart : open+1])
+		block.WriteByte('\n')
+		for _, value := range values {
+			fmt.Fprintf(&block, "%s  %q,\n", baseIndent, value)
+		}
+		block.WriteString(baseIndent)
+		block.WriteByte(']')
+		body = body[:prefixStart] + block.String() + body[close+1:]
+		return s[:start] + body + s[end:], true, nil
 	}
 	indent := "  "
 	if m := regexp.MustCompile(`(?m)^([ \t]*)["']`).FindStringSubmatch(items); len(m) > 1 {
@@ -184,8 +207,39 @@ func ensureProjectDependency(s, requirement, name string) (string, bool, error) 
 	}
 	insert := indent + fmt.Sprintf("%q,\n", requirement)
 	items += insert
-	body = body[:loc[4]] + items + body[loc[5]:]
+	body = body[:open+1] + items + body[close:]
 	return s[:start] + body + s[end:], true, nil
+}
+
+func dependencyArrayRange(body string) (prefixStart, open, close int, ok bool) {
+	loc := regexp.MustCompile(`(?m)^\s*dependencies\s*=\s*\[`).FindStringIndex(body)
+	if loc == nil {
+		return 0, 0, 0, false
+	}
+	open = strings.LastIndex(body[loc[0]:loc[1]], "[") + loc[0]
+	quote := byte(0)
+	escaped := false
+	for i := open + 1; i < len(body); i++ {
+		c := body[i]
+		if quote != 0 {
+			if escaped {
+				escaped = false
+			} else if c == '\\' {
+				escaped = true
+			} else if c == quote {
+				quote = 0
+			}
+			continue
+		}
+		if c == '\'' || c == '"' {
+			quote = c
+			continue
+		}
+		if c == ']' {
+			return loc[0], open, i, true
+		}
+	}
+	return 0, 0, 0, false
 }
 
 func upsertUVSource(s, name, value string) (string, bool) {
