@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/neprel/git-a2a/adapters"
 	"github.com/neprel/git-a2a/internal/cache"
 	"github.com/neprel/git-a2a/internal/fetch"
 	"github.com/neprel/git-a2a/internal/gitx"
@@ -402,6 +403,10 @@ func (a *App) add(args []string) int {
 		fmt.Fprintf(a.Err, "add: lock: %v\n", err)
 		return 1
 	}
+	if err := wireAll(context.Background(), root, own.Dependencies[len(own.Dependencies)-1], depManifest, l.Dependencies[o.id], true); err != nil {
+		fmt.Fprintf(a.Err, "add: wiring: %v\n", err)
+		return 1
+	}
 	fmt.Fprintf(a.Err, "added %s at %s\n", o.id, res.Commit)
 	return 0
 }
@@ -495,6 +500,15 @@ func (a *App) update(args []string) int {
 			fmt.Fprintf(a.Err, "update %s: %v\n", d.ID, e)
 			return 1
 		}
+		depManifest, e := manifest.Parse(res.Manifest)
+		if e != nil {
+			fmt.Fprintf(a.Err, "update %s: %v\n", d.ID, e)
+			return 1
+		}
+		if e = wireAll(context.Background(), root, d, depManifest, entry, true); e != nil {
+			fmt.Fprintf(a.Err, "update %s wiring: %v\n", d.ID, e)
+			return 1
+		}
 	}
 	if found == 0 {
 		fmt.Fprintln(a.Err, "update: no dependencies matched")
@@ -531,7 +545,6 @@ func (a *App) remove(args []string) int {
 			id = arg
 		}
 	}
-	_ = keep
 	if id == "" {
 		fmt.Fprintln(a.Err, "remove: dependency id is required")
 		return 2
@@ -552,6 +565,30 @@ func (a *App) remove(args []string) int {
 	if idx < 0 {
 		fmt.Fprintf(a.Err, "remove: unknown dependency %s\n", id)
 		return 2
+	}
+	if !keep {
+		depManifest, loadErr := manifest.Load(filepath.Join(cache.Dir(root, id), "a2amodule.yml"))
+		if loadErr == nil {
+			for _, implementation := range adapters.All() {
+				for _, exp := range depManifest.Module.Exports {
+					if exp.Ecosystem != implementation.Ecosystem() {
+						continue
+					}
+					ok, _, detectErr := implementation.Detect(root)
+					if detectErr != nil {
+						fmt.Fprintf(a.Err, "remove: %v\n", detectErr)
+						return 1
+					}
+					if !ok {
+						continue
+					}
+					if _, unwireErr := implementation.Unwire(context.Background(), root, m.Dependencies[idx], exp); unwireErr != nil {
+						fmt.Fprintf(a.Err, "remove: unwire %s: %v\n", exp.Ecosystem, unwireErr)
+						return 1
+					}
+				}
+			}
+		}
 	}
 	m.Dependencies = append(m.Dependencies[:idx], m.Dependencies[idx+1:]...)
 	if err := writeManifest(root, m); err != nil {
@@ -682,4 +719,52 @@ func (a *App) format(args []string) int {
 	}
 	fmt.Fprintln(a.Err, "manifest formatted")
 	return 0
+}
+
+func wireAll(ctx context.Context, root string, dep manifest.Dependency, module *manifest.Manifest, locked manifest.LockedDependency, refresh bool) error {
+	wanted := map[string]bool{}
+	if dep.Wire != nil {
+		for _, ecosystem := range *dep.Wire {
+			wanted[ecosystem] = true
+		}
+		if len(*dep.Wire) == 0 {
+			return nil
+		}
+	}
+	wired := map[string]bool{}
+	for _, implementation := range adapters.All() {
+		if dep.Wire != nil && !wanted[implementation.Ecosystem()] {
+			continue
+		}
+		ok, _, err := implementation.Detect(root)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			continue
+		}
+		for _, exp := range module.Module.Exports {
+			if exp.Ecosystem != implementation.Ecosystem() {
+				continue
+			}
+			change, err := implementation.Wire(ctx, root, dep, exp, locked)
+			if err != nil {
+				return err
+			}
+			wired[exp.Ecosystem] = true
+			if refresh && change.Changed {
+				if err := implementation.Refresh(ctx, root, dep, exp, locked); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if dep.Wire != nil {
+		for ecosystem := range wanted {
+			if !wired[ecosystem] {
+				return fmt.Errorf("ecosystem %s was requested but is not wirable in this repository", ecosystem)
+			}
+		}
+	}
+	return nil
 }

@@ -1,0 +1,12 @@
+[project]
+name = "consumer-uv"
+version = "0.1.0"
+dependencies = [
+  "click>=8",
+  "acme-lib-utils",
+]
+
+[tool.uv]
+
+[tool.uv.sources]
+"acme-lib-utils" = { git = "https://github.com/acme/lib-utils.git", rev = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }

@@ -1,0 +1,7 @@
+# decision pyproject.toml uses minimal line-oriented edits
+
+The PyPI adapter edits only the matching `[project].dependencies` item and
+`[tool.uv.sources]` key. A general TOML marshal is not used because the available small Go TOML
+libraries do not preserve comments and formatting. The editor refuses an unsupported table
+shape instead of rewriting the document. Fixtures cover multiline PEP 621 arrays, existing and
+new uv source tables, idempotent wiring, and unwiring.
