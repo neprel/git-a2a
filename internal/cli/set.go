@@ -353,7 +353,7 @@ func rewireSet(ctx context.Context, root string, oldDep, newDep manifest.Depende
 		if !selected(newDep, impl.Ecosystem()) {
 			continue
 		}
-		if oldDep.ID != newDep.ID {
+		if oldDep.ID != newDep.ID || oldDep.Git != newDep.Git || oldDep.Path != newDep.Path {
 			for _, exp := range oldExports {
 				if _, err := impl.Unwire(ctx, root, oldDep, exp); err != nil {
 					return nil, err
@@ -413,7 +413,7 @@ func appendUnique(values []string, value string) []string {
 	return append(values, value)
 }
 
-var adapterFiles = []string{"package.json", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "bun.lockb", "pyproject.toml", "uv.lock", "poetry.lock", "pdm.lock", "go.mod", "go.sum", ".yarnrc.yml", "Cargo.toml", "Cargo.lock"}
+var adapterFiles = []string{"package.json", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "bun.lockb", "pyproject.toml", "uv.lock", "poetry.lock", "pdm.lock", "go.mod", "go.sum", ".yarnrc.yml", "Cargo.toml", "Cargo.lock", "Package.swift", "Package.resolved"}
 
 func copyAdapterFiles(from, to string) {
 	_ = os.MkdirAll(to, 0o755)

@@ -1,0 +1,19 @@
+# decision SwiftPM owns one Package dependency expression
+
+The Swift adapter edits one `.package(url:..., revision:...)` expression in the top-level
+`Package(dependencies:)` array. Locked dependencies use `revision`; floating dependencies use
+`branch`. The export name identifies status output; SwiftPM derives package identity from the
+Git URL. `Package.resolved` remains downstream because resolving can rewrite unrelated pins.
+
+# invariant Source moves remove the old Swift identity
+
+When `set --git` changes a dependency source, the transaction unwires adapters using the old
+source before wiring the new source. This prevents two Swift package identities from remaining
+in `Package.swift`, and remains atomic with every other ecosystem.
+
+# test Swift adapter
+
+- Fixture/golden wiring is idempotent and preserves products, targets, comments, and unrelated
+  package dependencies.
+- Drift checks the normalized URL and locked revision.
+- Unwire and source moves remove the old package expression only.

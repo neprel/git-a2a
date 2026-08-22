@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -282,6 +283,11 @@ func detectExports(root string) []manifest.Export {
 	if b, err := os.ReadFile(filepath.Join(root, "Cargo.toml")); err == nil {
 		if name := tomlNamedSectionValue(string(b), "package", "name"); name != "" {
 			out = append(out, manifest.Export{Ecosystem: "cargo", Name: name})
+		}
+	}
+	if b, err := os.ReadFile(filepath.Join(root, "Package.swift")); err == nil {
+		if match := regexp.MustCompile(`(?s)Package\s*\(.*?\bname\s*:\s*"([^"]+)"`).FindStringSubmatch(string(b)); len(match) == 2 {
+			out = append(out, manifest.Export{Ecosystem: "swift", Name: match[1]})
 		}
 	}
 	return out
