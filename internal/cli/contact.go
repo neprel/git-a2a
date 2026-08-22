@@ -9,6 +9,7 @@ import (
 
 	contactcore "github.com/neprel/git-a2a/internal/contact"
 	contacta2a "github.com/neprel/git-a2a/internal/contact/a2a"
+	contactgithub "github.com/neprel/git-a2a/internal/contact/githubissue"
 	"github.com/neprel/git-a2a/internal/manifest"
 	"github.com/neprel/git-a2a/internal/routing"
 )
@@ -65,7 +66,7 @@ func (a *App) contact(args []string) int {
 		return 2
 	}
 	matches, role := routing.Resolve(m, intent, "")
-	drivers := []contactcore.Driver{contacta2a.Driver{}}
+	drivers := []contactcore.Driver{contacta2a.Driver{}, contactgithub.Driver{}}
 	for _, match := range matches {
 		for _, declared := range match.Contacts {
 			for _, driver := range drivers {

@@ -10,8 +10,17 @@ The A2A driver sends JSON-RPC 2.0 method `SendMessage` with the `A2A-Version: 1.
 version 1.0 user `Message`. `--wait` uses `SendStreamingMessage` and consumes its SSE events.
 Both paths report the returned task id/state, or the returned message id when no task exists.
 
+# decision GitHub issues prefer the authenticated CLI
+
+The `github-issue` driver invokes `gh issue create` when `gh` is on PATH. Only when it is absent
+does the driver call the GitHub Issues REST API, using `GH_TOKEN` then `GITHUB_TOKEN` and
+`GITHUB_API_URL` for GitHub Enterprise. A present but failing `gh` is reported, not silently
+replayed through REST, so one request cannot create two issues.
+
 # test Contact drivers
 
 - An httptest A2A endpoint observes the exact method, protocol header, user role, and text part.
 - Streaming consumes every SSE event and reports the final task state once.
 - Delivery leaves the consumer repository byte-for-byte unchanged.
+- A fake `gh` receives the repository, first non-empty message line as title, full message on
+  stdin, and every declared label; REST fallback is exercised by an httptest server.
