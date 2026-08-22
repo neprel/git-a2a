@@ -1,0 +1,27 @@
+# decision Manifest dependency edits preserve human YAML
+
+Changes to `dependencies` in an existing `a2amodule.yml` go through `yaml.Node`, not a
+struct-wide marshal. Existing dependency nodes are updated in place and unrelated comments,
+scalar styles, flow collections, ordering, and extension nodes survive. A full marshal is for
+new manifests and locks; `fmt` canonicalizes through the YAML node tree.
+
+# invariant Dependency mutations are recoverable
+
+`add`, each dependency processed by `update`, and `set` stage fetched manifests, cards, and
+surfaces outside the live cache. They snapshot every package-manager file they can modify,
+write manifest and lock atomically, and only then replace the live cache by rename. Any wiring,
+metadata, or cache replacement failure restores package-manager files and the previous
+manifest/lock/cache; a command must not report success over a partial mutation.
+
+# decision Standalone Windows upgrades replace around the running executable
+
+Windows cannot overwrite a running executable. The binary-channel `upgrade` first renames the
+current executable to the adjacent `.old` path, installs the verified replacement, restores the
+old executable if installation fails, and removes a leftover `.old` best-effort on the next
+invocation. Package-manager channels never use self-upgrade.
+
+# test Internal mutation invariants
+
+- YAML dependency edits retain comments, folded scalars, flow collections, and `x-` fields.
+- A failed `add`, `update`, or `set` leaves manifest, lock, cache, and adapter files unchanged.
+- Windows replacement restores the old executable after a failed install.

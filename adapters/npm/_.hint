@@ -1,0 +1,18 @@
+# decision package.json receives precise dependency edits
+
+The npm adapter changes only the matching `dependencies` entry. Existing inline JSON keeps its
+surrounding bytes and unrelated dependencies; no whole-document pretty-print is allowed.
+Locked wiring uses the canonical Git URL plus the full locked commit, and drift reads
+`package.json` even when no package lock exists.
+
+# decision npm refresh cannot run lifecycle scripts
+
+When `package-lock.json` exists, refresh uses `npm install --package-lock-only --ignore-scripts
+--no-audit --no-fund`. Without a package lock it performs no command. Yarn Berry, pnpm, and Bun
+use their dependency-specific native update command.
+
+# test npm adapter preservation
+
+- Wire and unwire are idempotent and preserve unrelated inline JSON bytes.
+- Tampering with the manifest pin is drift even without `package-lock.json`.
+- npm refresh is lockfile-only and disables scripts, audit, and funding requests.

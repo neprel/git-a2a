@@ -1,0 +1,20 @@
+# module Ecosystem adapters
+
+Every ecosystem package implements the shared adapter interface: detect the consumer, wire and
+unwire one declared export, refresh the ecosystem lock when safe, and report drift against the
+single commit in `a2amodule.lock`. Adapters edit only their precisely addressed dependency and
+must preserve unrelated user content.
+
+# decision Not wired is policy, not an adapter success
+
+An adapter may return the typed not-wirable result with a concrete reason when the ecosystem
+cannot express the requested Git source. With implicit wiring (`dependencies[].wire` absent),
+the CLI reports `<ecosystem>: not wired: <reason>` and continues. With an explicit `wire` list,
+every requested ecosystem is mandatory: missing detection, export, or wiring is an error and
+the enclosing dependency transaction rolls back. An empty explicit list means wire nothing.
+
+# invariant One lock commit drives every adapter
+
+Locked dependencies write the exact resolved commit in every supported ecosystem. Floating
+syntax may name a branch where the ecosystem supports it, but drift still checks the commit
+recorded in `a2amodule.lock`; ecosystem lockfiles are downstream state, never authority.

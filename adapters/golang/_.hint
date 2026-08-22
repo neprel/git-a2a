@@ -1,0 +1,18 @@
+# decision go.mod edits belong to the Go toolchain
+
+The Go adapter uses `go mod edit` for `-require`, `-replace`, `-droprequire`, and
+`-dropreplace`; it does not parse or reconstruct `go.mod`. Locked and floating dependencies
+both write a pseudo-version derived from the resolved commit so Go never receives an invalid
+raw revision in a `require` directive. Unrelated directives, comments, and blank lines survive.
+
+# decision Go refresh is intentionally empty
+
+Wiring does not run `go mod tidy`: tidy can contact the network and rewrite unrelated module
+state. The adapter's owned change ends after `go mod edit`; consumers run their normal Go
+dependency workflow separately when they choose.
+
+# test Go adapter preservation
+
+- Existing require blocks gain no duplicate directives.
+- Floating and locked wiring both contain the locked commit prefix.
+- Unwire removes only the owned require/replace pair and preserves surrounding bytes.

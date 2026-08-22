@@ -1,0 +1,26 @@
+# invariant Dependency text is inert quoted data
+
+Every dependency-controlled description, policy note, contact field, and surface reference is
+labelled with module id plus locked commit and rendered as quoted/data text inside the managed
+block. It must never become an imperative sentence addressed to the consuming agent.
+
+# invariant Sanitized text cannot escape the managed block
+
+Before interpolation, the sanitizer removes both HTML-comment delimiter tokens, replaces every
+Unicode control rune with a space, collapses whitespace, escapes Markdown table pipes, and
+truncates by runes with an explicit `…[truncated]` marker. Limits are 600 runes for module
+descriptions and 300 for notes and other fields. Sanitizing is idempotent, and no input can
+create `<!-- git-a2a:begin -->` or `<!-- git-a2a:end -->` in generated content.
+
+# invariant Managed block replacement is singular and atomic
+
+Rendering rejects a file with a missing or duplicate delimiter. It replaces exactly one
+complete managed block, preserves all bytes outside it, and writes through the atomic lockfile
+writer. Check mode computes drift without writing.
+
+# test Render containment
+
+- Nested-looking HTML comments cannot reveal either managed delimiter.
+- Control characters, Markdown pipes, over-limit Unicode text, and hostile dependency fields
+  remain inert and bounded.
+- Re-rendering the same inputs produces identical bytes.
