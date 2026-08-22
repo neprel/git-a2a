@@ -1,0 +1,14 @@
+{
+  "name": "acme-lib-utils",
+  "description": "Owns the Acme utility library.",
+  "supportedInterfaces": [
+    {"url": "http://127.0.0.1:10073/", "protocolBinding": "JSONRPC", "protocolVersion": "1.0"}
+  ],
+  "version": "1.2.0",
+  "capabilities": {"streaming": false},
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain"],
+  "skills": [
+    {"id": "api-question", "name": "API question", "description": "Answers API questions.", "tags": ["api"]}
+  ]
+}

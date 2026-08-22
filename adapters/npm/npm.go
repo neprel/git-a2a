@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/neprel/git-a2a/internal/adapter"
+	"github.com/neprel/git-a2a/internal/gitx"
 )
 
 type Adapter struct{}
@@ -99,7 +100,7 @@ func (a Adapter) Refresh(ctx context.Context, root string, _ adapter.Dependency,
 	}
 }
 
-func (a Adapter) Drift(_ context.Context, root string, _ adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
+func (a Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
 	b, err := os.ReadFile(filepath.Join(root, "package.json"))
 	if err != nil {
 		return nil, err
@@ -111,7 +112,13 @@ func (a Adapter) Drift(_ context.Context, root string, _ adapter.Dependency, exp
 		return nil, err
 	}
 	got := p.Dependencies[exp.Name]
-	if got == "" || !strings.Contains(got, locked.Commit) {
+	base := got
+	if i := strings.Index(base, "#"); i >= 0 {
+		base = base[:i]
+	}
+	badURL := got == "" || gitx.NormalizeURL(base) != gitx.NormalizeURL(locked.Git)
+	badPin := dep.Track != "floating" && !strings.Contains(got, locked.Commit)
+	if badURL || badPin {
 		return []adapter.Finding{{File: "package.json", Entry: exp.Name, Want: locked.Commit, Got: got}}, nil
 	}
 	return nil, nil

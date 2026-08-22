@@ -40,7 +40,7 @@ func TestWhoRoutesChangeToSpecAgent(t *testing.T) {
 }
 
 func TestCheckAgentsUpChangedDownOffline(t *testing.T) {
-	card := []byte(`{"name":"owner","description":"test","version":"1","supportedInterfaces":[{"url":"http://example.com","protocolBinding":"JSONRPC","protocolVersion":"1.0"}]}`)
+	card := []byte(`{"name":"owner","description":"test","version":"1","supportedInterfaces":[{"url":"http://example.com","protocolBinding":"JSONRPC","protocolVersion":"1.0"}],"capabilities":{},"defaultInputModes":["text/plain"],"defaultOutputModes":["text/plain"],"skills":[]}`)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(card) }))
 	m := &manifest.Manifest{Agents: []manifest.Agent{{Name: "owner", Role: "owner", Card: server.URL}}}
 	sum := sha256.Sum256(card)

@@ -67,6 +67,26 @@ func (f Fetcher) archive(ctx context.Context, url, commit, manifestPath string) 
 	return nil, fmt.Errorf("%s not present in archive", manifestPath)
 }
 
+func (f Fetcher) File(ctx context.Context, url, commit, filePath string) ([]byte, error) {
+	filePath = path.Clean(filePath)
+	if b, err := f.archive(ctx, url, commit, filePath); err == nil {
+		return b, nil
+	}
+	work, err := os.MkdirTemp("", "git-a2a-file-")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(work)
+	if b, err := f.sparse(ctx, url, commit, filePath, work); err == nil {
+		return b, nil
+	}
+	b, err := f.shallow(ctx, url, commit, filePath, work)
+	if err != nil {
+		return nil, fmt.Errorf("fetch file: archive, sparse, and shallow strategies failed: %w", err)
+	}
+	return b, nil
+}
+
 func (f Fetcher) sparse(ctx context.Context, url, commit, manifestPath, work string) ([]byte, error) {
 	src := filepath.Join(work, ".src")
 	if _, err := os.Stat(filepath.Join(src, ".git")); os.IsNotExist(err) {

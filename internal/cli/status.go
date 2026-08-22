@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/neprel/git-a2a/adapters"
+	"github.com/neprel/git-a2a/internal/a2a"
 	"github.com/neprel/git-a2a/internal/cache"
 	"github.com/neprel/git-a2a/internal/fetch"
 	"github.com/neprel/git-a2a/internal/gitx"
@@ -24,6 +25,8 @@ import (
 
 type statusRow struct {
 	ID       string   `json:"id"`
+	Source   string   `json:"source"`
+	Ref      string   `json:"ref"`
 	Upstream string   `json:"upstream"`
 	Manifest string   `json:"manifest"`
 	Wiring   string   `json:"wiring"`
@@ -76,12 +79,16 @@ func (a *App) status(args []string) int {
 		}
 		matched++
 		entry, ok := l.Dependencies[dep.ID]
-		row := statusRow{ID: dep.ID, Upstream: "unknown", Manifest: "unknown", Wiring: "clean", Agents: "unknown", Sync: syncState}
+		row := statusRow{ID: dep.ID, Source: "canonical", Ref: refLabel(dep.Ref, ""), Upstream: "unknown", Manifest: "unknown", Wiring: "clean", Agents: "unknown", Sync: syncState}
 		if !ok {
 			row.Manifest = "unlocked"
 			row.failed = true
 			rows = append(rows, row)
 			continue
+		}
+		if entry.Git != dep.Git || entry.Ref != dep.Ref || entry.Path != defaultPath(dep.Path) {
+			row.failed = true
+			row.Details = append(row.Details, "manifest entry differs from lock — run update")
 		}
 		cached, loadErr := os.ReadFile(filepath.Join(cache.Dir(root, dep.ID), "a2amodule.yml"))
 		if loadErr != nil {
@@ -101,27 +108,46 @@ func (a *App) status(args []string) int {
 		var depManifest *manifest.Manifest
 		if len(cached) > 0 {
 			depManifest, _ = manifest.Parse(cached)
+			if depManifest != nil {
+				if depManifest.Module.MovedTo != nil {
+					row.Source = "moved → " + depManifest.Module.MovedTo.Git
+					row.failed = true
+				} else if depManifest.Module.Repository != "" && gitx.NormalizeURL(dep.Git) != gitx.NormalizeURL(depManifest.Module.Repository) {
+					row.Source = "fork of " + depManifest.Module.Repository
+				}
+			}
 		}
 		if !offline {
-			commit, e := gitx.Resolve(context.Background(), a.runner(), dep.Git, dep.Ref)
+			resolution, e := gitx.ResolveDetailed(context.Background(), a.runner(), dep.Git, dep.Ref)
 			if e != nil {
 				row.Upstream = "unreachable"
 				row.failed = true
 				row.Details = append(row.Details, e.Error())
-			} else if commit != entry.Commit {
-				row.Upstream = "behind " + short(commit)
+			} else if resolution.Commit != entry.Commit {
+				row.Upstream = "behind " + short(resolution.Commit)
 				row.failed = true
 			} else {
 				row.Upstream = "up to date"
 			}
+			if e == nil {
+				row.Ref = refLabel(dep.Ref, resolution.Kind)
+			}
 			tmp, e := os.MkdirTemp("", "git-a2a-status-")
 			if e == nil {
-				remote, e := (fetch.Fetcher{Runner: a.runner()}).Fetch(context.Background(), dep.Git, entry.Commit, defaultPath(dep.Path), tmp)
+				remote, e := (fetch.Fetcher{Runner: a.runner()}).Fetch(context.Background(), dep.Git, resolution.Commit, defaultPath(dep.Path), tmp)
 				_ = os.RemoveAll(tmp)
 				if e != nil {
 					row.Manifest = "remote unreadable"
 					row.failed = true
 				} else {
+					if remoteManifest, parseErr := manifest.Parse(remote.Manifest); parseErr == nil {
+						if remoteManifest.Module.MovedTo != nil {
+							row.Source = "moved → " + remoteManifest.Module.MovedTo.Git
+							row.failed = true
+						} else if remoteManifest.Module.Repository != "" && gitx.NormalizeURL(dep.Git) != gitx.NormalizeURL(remoteManifest.Module.Repository) {
+							row.Source = "fork of " + remoteManifest.Module.Repository
+						}
+					}
 					sum := sha256.Sum256(remote.Manifest)
 					if "sha256:"+hex.EncodeToString(sum[:]) != entry.Manifest {
 						row.Manifest = "remote differs"
@@ -159,7 +185,7 @@ func (a *App) status(args []string) int {
 	}
 	if len(wanted) == 0 {
 		state, failed, details := checkAgents(own, nil, root, offline)
-		rows = append(rows, statusRow{ID: own.Module.ID, Upstream: "self", Manifest: "valid", Wiring: "none", Agents: state, Sync: syncState, Details: details, failed: failed || syncState == "stale"})
+		rows = append(rows, statusRow{ID: own.Module.ID, Source: "self", Ref: "self", Upstream: "self", Manifest: "valid", Wiring: "none", Agents: state, Sync: syncState, Details: details, failed: failed || syncState == "stale"})
 	}
 	failures := 0
 	for _, row := range rows {
@@ -178,9 +204,9 @@ func (a *App) status(args []string) int {
 		b, _ := json.MarshalIndent(public, "", "  ")
 		fmt.Fprintln(a.Out, string(b))
 	} else {
-		fmt.Fprintln(a.Out, "MODULE\tUPSTREAM\tMANIFEST\tWIRING\tAGENTS\tSYNC")
+		fmt.Fprintln(a.Out, "MODULE\tSOURCE\tREF\tUPSTREAM\tMANIFEST\tWIRING\tAGENTS\tSYNC")
 		for _, row := range rows {
-			fmt.Fprintf(a.Out, "%s\t%s\t%s\t%s\t%s\t%s\n", row.ID, row.Upstream, row.Manifest, row.Wiring, row.Agents, row.Sync)
+			fmt.Fprintf(a.Out, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.ID, row.Source, row.Ref, row.Upstream, row.Manifest, row.Wiring, row.Agents, row.Sync)
 			if verbose {
 				for _, detail := range row.Details {
 					fmt.Fprintf(a.Out, "  - %s\n", detail)
@@ -192,6 +218,19 @@ func (a *App) status(args []string) int {
 		return 1
 	}
 	return 0
+}
+
+func refLabel(ref, kind string) string {
+	if len(ref) == 40 && isHex(ref) {
+		return "pinned " + short(ref)
+	}
+	if kind == "tag" || strings.HasPrefix(ref, "refs/tags/") {
+		return "tag " + strings.TrimPrefix(ref, "refs/tags/")
+	}
+	if kind == "branch" || strings.HasPrefix(ref, "refs/heads/") {
+		return "branch " + strings.TrimPrefix(ref, "refs/heads/")
+	}
+	return "branch " + ref
 }
 
 func driftAll(ctx context.Context, root string, dep manifest.Dependency, m manifest.Manifest, locked manifest.LockedDependency) ([]stringFinding, error) {
@@ -247,16 +286,21 @@ func checkAgents(m *manifest.Manifest, expected map[string]string, base string, 
 		if offline {
 			continue
 		}
-		b, err := readCard(agent.Card, base)
+		location := agent.Card
+		readBase := base
+		if expected != nil && !strings.HasPrefix(location, "http://") && !strings.HasPrefix(location, "https://") {
+			location = a2a.FileName(agent.Name)
+			readBase = base
+		}
+		b, err := readCard(location, readBase)
 		if err != nil {
 			down++
 			details = append(details, fmt.Sprintf("agent %s down: %v", agent.Name, err))
 			continue
 		}
-		var card struct {
-			Name string `json:"name"`
-		}
-		if json.Unmarshal(b, &card) != nil || card.Name != agent.Name {
+		card, parseErr := a2a.Parse(b)
+		name, _ := card["name"].(string)
+		if parseErr != nil || name != agent.Name {
 			down++
 			details = append(details, fmt.Sprintf("agent %s returned an invalid or mismatched card", agent.Name))
 			continue

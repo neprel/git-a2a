@@ -1,0 +1,12 @@
+{
+  "name": "legacy-agent",
+  "description": "A legacy A2A agent.",
+  "url": "https://agents.acme.example/legacy",
+  "preferredTransport": "JSONRPC",
+  "protocolVersion": "0.3",
+  "version": "0.9.0",
+  "capabilities": {},
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain"],
+  "skills": []
+}

@@ -69,7 +69,7 @@ func (Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, exp 
 func (Adapter) Refresh(ctx context.Context, root string, _ adapter.Dependency, _ adapter.Export, _ adapter.Locked) error {
 	return adapter.Command(ctx, root, "go", "mod", "tidy")
 }
-func (Adapter) Drift(_ context.Context, root string, _ adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
+func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
 	b, err := os.ReadFile(filepath.Join(root, "go.mod"))
 	if err != nil {
 		return nil, err
@@ -82,7 +82,10 @@ func (Adapter) Drift(_ context.Context, root string, _ adapter.Dependency, exp a
 	if line == "" {
 		line = findLine(string(b), "require", exp.Name)
 	}
-	if !strings.Contains(line, prefix) {
+	source, _ := sourceModule(locked.Git, exp.Path)
+	badURL := source != "" && !strings.Contains(strings.ToLower(line), strings.ToLower(source))
+	badPin := dep.Track != "floating" && !strings.Contains(line, prefix)
+	if badURL || badPin {
 		return []adapter.Finding{{File: "go.mod", Entry: exp.Name, Want: prefix, Got: strings.TrimSpace(line)}}, nil
 	}
 	return nil, nil

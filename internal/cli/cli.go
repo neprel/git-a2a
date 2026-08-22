@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"github.com/neprel/git-a2a/adapters"
+	"github.com/neprel/git-a2a/internal/a2a"
 	"github.com/neprel/git-a2a/internal/cache"
 	"github.com/neprel/git-a2a/internal/fetch"
 	"github.com/neprel/git-a2a/internal/gitx"
@@ -26,6 +28,7 @@ import (
 var Version = "dev"
 var Commit = "unknown"
 var Target = runtime.GOOS + "/" + runtime.GOARCH
+var Channel = "go"
 
 type App struct {
 	Out, Err io.Writer
@@ -43,9 +46,14 @@ func (a *App) Run(args []string) int {
 		a.usage()
 		return 2
 	}
-	if args[0] == "--version" || args[0] == "version" {
-		fmt.Fprintf(a.Out, "git-a2a %s (%s, %s)\n", Version, Commit, Target)
-		return 0
+	if args[0] == "--version" {
+		return a.version(nil)
+	}
+	if args[0] == "version" {
+		return a.version(args[1:])
+	}
+	if args[0] == "upgrade" {
+		return a.upgrade(args[1:])
 	}
 	switch args[0] {
 	case "init":
@@ -56,6 +64,12 @@ func (a *App) Run(args []string) int {
 		return a.add(args[1:])
 	case "update":
 		return a.update(args[1:])
+	case "set":
+		return a.set(args[1:])
+	case "pin":
+		return a.pin(args[1:])
+	case "unpin":
+		return a.unpin(args[1:])
 	case "remove":
 		return a.remove(args[1:])
 	case "show":
@@ -66,6 +80,8 @@ func (a *App) Run(args []string) int {
 		return a.who(args[1:])
 	case "status":
 		return a.status(args[1:])
+	case "card":
+		return a.card(args[1:])
 	case "fmt":
 		return a.format(args[1:])
 	case "help", "-h", "--help":
@@ -79,7 +95,7 @@ func (a *App) Run(args []string) int {
 }
 
 func (a *App) usage() {
-	fmt.Fprintln(a.Out, "usage: git-a2a <init|validate|add|update|remove|show|sync|who|status|fmt> [options]")
+	fmt.Fprintln(a.Out, "usage: git-a2a <init|validate|add|set|pin|unpin|update|remove|show|sync|who|status|card|fmt|version|upgrade> [options]")
 }
 func (a *App) root() string {
 	if a.Root == "" {
@@ -361,6 +377,7 @@ func (a *App) add(args []string) int {
 		return 1
 	}
 	o.id = depManifest.Module.ID
+	declaredChannel := ""
 	if o.ref == "" {
 		o.ref = "HEAD"
 		if depManifest.Module.Release != nil && depManifest.Module.Release.Channel != "" {
@@ -376,7 +393,7 @@ func (a *App) add(args []string) int {
 				fmt.Fprintf(a.Err, "add: fetched a2amodule.yml: %v\n", e)
 				return 1
 			}
-			fmt.Fprintf(a.Err, "using declared release channel %s\n", o.ref)
+			declaredChannel = o.ref
 		}
 	}
 	for _, d := range own.Dependencies {
@@ -385,7 +402,7 @@ func (a *App) add(args []string) int {
 				fmt.Fprintf(a.Err, "dependency %s already present\n", o.id)
 				return 0
 			}
-			fmt.Fprintf(a.Err, "add: dependency %s already uses %s\n", o.id, d.Git)
+			fmt.Fprintf(a.Err, "add: dependency %s already uses %s; use git-a2a set %s --git %s to move it\n", o.id, d.Git, o.id, o.url)
 			return 1
 		}
 	}
@@ -398,13 +415,14 @@ func (a *App) add(args []string) int {
 		fmt.Fprintf(a.Err, "add: cache: %v\n", err)
 		return 1
 	}
+	cards, warnings := a.snapshotCards(root, o.id, o.url, o.path, res.Commit, depManifest, f)
 	l, err := lockfile.Load(root)
 	if err != nil {
 		fmt.Fprintf(a.Err, "add: lock: %v\n", err)
 		return 1
 	}
 	sum := sha256.Sum256(res.Manifest)
-	l.Dependencies[o.id] = manifest.LockedDependency{Git: o.url, Ref: o.ref, Path: defaultPath(o.path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:])}
+	l.Dependencies[o.id] = manifest.LockedDependency{Git: o.url, Ref: o.ref, Path: defaultPath(o.path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:]), Cards: cards}
 	if err := lockfile.Write(root, l); err != nil {
 		fmt.Fprintf(a.Err, "add: lock: %v\n", err)
 		return 1
@@ -414,6 +432,12 @@ func (a *App) add(args []string) int {
 		return 1
 	}
 	fmt.Fprintf(a.Err, "added %s at %s\n", o.id, res.Commit)
+	if declaredChannel != "" {
+		fmt.Fprintf(a.Err, "using declared release channel %s\n", declaredChannel)
+	}
+	for _, warning := range warnings {
+		fmt.Fprintf(a.Err, "warning: card snapshot: %v\n", warning)
+	}
 	return 0
 }
 
@@ -442,10 +466,13 @@ func short(s string) string {
 
 func (a *App) update(args []string) int {
 	check := false
+	followMoves := false
 	var ids []string
 	for _, arg := range args {
 		if arg == "--check" {
 			check = true
+		} else if arg == "--follow-moves" {
+			followMoves = true
 		} else if strings.HasPrefix(arg, "-") {
 			fmt.Fprintf(a.Err, "update: unknown option %s\n", arg)
 			return 2
@@ -469,6 +496,7 @@ func (a *App) update(args []string) int {
 		wanted[id] = true
 	}
 	changed, found := 0, 0
+	var advisories []string
 	f := fetch.Fetcher{Runner: a.runner()}
 	for _, d := range own.Dependencies {
 		if len(wanted) > 0 && !wanted[d.ID] {
@@ -476,10 +504,14 @@ func (a *App) update(args []string) int {
 		}
 		found++
 		entry := l.Dependencies[d.ID]
-		commit, e := gitx.Resolve(context.Background(), a.runner(), d.Git, d.Ref)
+		resolution, e := gitx.ResolveDetailed(context.Background(), a.runner(), d.Git, d.Ref)
 		if e != nil {
 			fmt.Fprintf(a.Err, "update %s: %v\n", d.ID, e)
 			return 1
+		}
+		commit := resolution.Commit
+		if resolution.Ambiguous {
+			advisories = append(advisories, fmt.Sprintf("%s: ref %s is ambiguous; selected %s", d.ID, d.Ref, resolution.FullRef))
 		}
 		if entry.Commit == commit {
 			continue
@@ -495,19 +527,34 @@ func (a *App) update(args []string) int {
 			fmt.Fprintf(a.Err, "update %s: %v\n", d.ID, e)
 			return 1
 		}
-		if _, e = manifest.Parse(res.Manifest); e != nil {
-			fmt.Fprintf(a.Err, "update %s: %v\n", d.ID, e)
-			return 1
-		}
-		sum := sha256.Sum256(res.Manifest)
-		entry = manifest.LockedDependency{Git: d.Git, Ref: d.Ref, Path: defaultPath(d.Path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:]), Cards: entry.Cards, Surface: entry.Surface}
-		l.Dependencies[d.ID] = entry
-		if e = cache.Save(root, d.ID, res.Manifest, res.Commit, res.Method); e != nil {
-			fmt.Fprintf(a.Err, "update %s: %v\n", d.ID, e)
-			return 1
-		}
 		depManifest, e := manifest.Parse(res.Manifest)
 		if e != nil {
+			fmt.Fprintf(a.Err, "update %s: %v\n", d.ID, e)
+			return 1
+		}
+		if depManifest.Module.MovedTo != nil {
+			move := depManifest.Module.MovedTo
+			if !followMoves {
+				fmt.Fprintf(a.Err, "%s moved to %s; run update --follow-moves or git-a2a set %s --git %s\n", d.ID, move.Git, d.ID, move.Git)
+				return 1
+			}
+			opts := setOptions{id: d.ID, git: &move.Git}
+			if move.Path != "" {
+				opts.path = &move.Path
+			}
+			return a.applySet(opts)
+		}
+		if resolution.Kind == "tag" && entry.Commit != "" && entry.Commit != res.Commit {
+			advisories = append(advisories, fmt.Sprintf("tag %s moved from %s to %s", d.Ref, short(entry.Commit), short(res.Commit)))
+		}
+		sum := sha256.Sum256(res.Manifest)
+		cards, warnings := a.snapshotCards(root, d.ID, d.Git, d.Path, res.Commit, depManifest, f)
+		for _, warning := range warnings {
+			advisories = append(advisories, fmt.Sprintf("warning: %s card snapshot: %v", d.ID, warning))
+		}
+		entry = manifest.LockedDependency{Git: d.Git, Ref: d.Ref, Path: defaultPath(d.Path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:]), Cards: cards, Surface: entry.Surface}
+		l.Dependencies[d.ID] = entry
+		if e = cache.Save(root, d.ID, res.Manifest, res.Commit, res.Method); e != nil {
 			fmt.Fprintf(a.Err, "update %s: %v\n", d.ID, e)
 			return 1
 		}
@@ -535,7 +582,21 @@ func (a *App) update(args []string) int {
 	} else {
 		fmt.Fprintf(a.Err, "updated %d dependency(s)\n", changed)
 	}
+	for _, advisory := range advisories {
+		fmt.Fprintln(a.Err, advisory)
+	}
 	return 0
+}
+
+func (a *App) snapshotCards(root, id, url, modulePath, commit string, m *manifest.Manifest, f fetch.Fetcher) (map[string]string, []error) {
+	return a.snapshotCardsTo(filepath.Join(cache.Dir(root, id), "cards"), url, modulePath, commit, m, f)
+}
+
+func (a *App) snapshotCardsTo(dir, url, modulePath, commit string, m *manifest.Manifest, f fetch.Fetcher) (map[string]string, []error) {
+	reader := func(cardPath string) ([]byte, error) {
+		return f.File(context.Background(), url, commit, path.Join(defaultPath(modulePath), cardPath))
+	}
+	return a2a.Snapshot(m, dir, reader)
 }
 
 func (a *App) remove(args []string) int {

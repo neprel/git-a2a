@@ -24,7 +24,7 @@ func TestWireGoldenIdempotentUnwire(t *testing.T) {
 	}
 	dep := adapter.Dependency{Git: "https://github.com/acme/lib-utils.git", Ref: "main", Track: "locked"}
 	exp := adapter.Export{Ecosystem: "pypi", Name: "acme-lib-utils"}
-	locked := adapter.Locked{Commit: strings.Repeat("a", 40)}
+	locked := adapter.Locked{Git: dep.Git, Commit: strings.Repeat("a", 40)}
 	a := Adapter{}
 	change, err := a.Wire(context.Background(), root, dep, exp, locked)
 	if err != nil || !change.Changed {
@@ -38,6 +38,14 @@ func TestWireGoldenIdempotentUnwire(t *testing.T) {
 	change, err = a.Wire(context.Background(), root, dep, exp, locked)
 	if err != nil || change.Changed {
 		t.Fatalf("second wire: %#v %v", change, err)
+	}
+	if findings, err := a.Drift(context.Background(), root, dep, exp, locked); err != nil || len(findings) != 0 {
+		t.Fatalf("clean drift: %v %v", findings, err)
+	}
+	wrong := locked
+	wrong.Git = "https://github.com/acme/fork.git"
+	if findings, err := a.Drift(context.Background(), root, dep, exp, wrong); err != nil || len(findings) != 1 {
+		t.Fatalf("source drift: %v %v", findings, err)
 	}
 	change, err = a.Unwire(context.Background(), root, dep, exp)
 	if err != nil || !change.Changed {

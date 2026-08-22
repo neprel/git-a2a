@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -12,6 +14,27 @@ import (
 type fakeRunner struct {
 	tar   []byte
 	calls []string
+}
+
+type fileFallbackRunner struct{ body []byte }
+
+func (r fileFallbackRunner) Run(_ context.Context, dir string, _ []byte, args ...string) ([]byte, error) {
+	switch args[0] {
+	case "archive":
+		return nil, fmt.Errorf("archive unsupported")
+	case "clone":
+		return nil, os.MkdirAll(filepath.Join(args[len(args)-1], ".git"), 0o755)
+	case "sparse-checkout", "fetch":
+		return nil, nil
+	case "checkout":
+		p := filepath.Join(dir, "cards", "agent.json")
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			return nil, err
+		}
+		return nil, os.WriteFile(p, r.body, 0o644)
+	default:
+		return nil, fmt.Errorf("unexpected command %s", args[0])
+	}
 }
 
 func (f *fakeRunner) Run(_ context.Context, _ string, _ []byte, args ...string) ([]byte, error) {
@@ -42,5 +65,16 @@ func TestArchiveSelectedFirst(t *testing.T) {
 	}
 	if len(r.calls) != 2 {
 		t.Fatalf("calls: %v", r.calls)
+	}
+}
+
+func TestFileFallsBackToSparseFetch(t *testing.T) {
+	body := []byte(`{"name":"agent"}`)
+	got, err := (Fetcher{Runner: fileFallbackRunner{body: body}}).File(context.Background(), "https://example.test/repo.git", strings.Repeat("a", 40), "cards/agent.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, body) {
+		t.Fatalf("got %q", got)
 	}
 }
