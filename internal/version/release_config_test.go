@@ -23,7 +23,7 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	}
 	workflow := read(".github/workflows/release.yml")
 	ciWorkflow := read(".github/workflows/ci.yml")
-	for _, required := range []string{"needs: test", "permissions: {}", "contents: write", "packages: write", "id-token: write", "--skip=homebrew", "--skip=scoop", "NPM_TOKEN == ''", "docker/setup-buildx-action@"} {
+	for _, required := range []string{"needs: test", "permissions: {}", "contents: write", "packages: write", "id-token: write", "--skip=homebrew", "--skip=scoop", "NPM_TOKEN == ''", "docker/setup-buildx-action@", "docker logout ghcr.io"} {
 		if !strings.Contains(workflow, required) {
 			t.Errorf("release workflow missing %q", required)
 		}

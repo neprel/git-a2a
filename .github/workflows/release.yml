@@ -59,10 +59,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
-      - name: Make the linked GHCR package public
-        run: gh api --method PATCH /user/packages/container/git-a2a -f visibility=public
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify the linked GHCR package is public
+        run: |
+          docker logout ghcr.io
+          docker manifest inspect "ghcr.io/neprel/git-a2a:${GITHUB_REF_NAME#v}" >/dev/null
   npm:
     needs: goreleaser
     runs-on: ubuntu-latest
