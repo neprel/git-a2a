@@ -36,6 +36,15 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	if config := read(".goreleaser.yaml"); !strings.Contains(config, "prerelease: auto") || !strings.Contains(config, "go mod verify") {
 		t.Error("GoReleaser prerelease or clean-tree gate is missing")
 	}
+	config := read(".goreleaser.yaml")
+	for _, required := range []string{"title: Features", "title: Bug fixes", "title: Documentation", "release:", "header: |", "footer: |", "org.opencontainers.image.source", "if not .Prerelease"} {
+		if !strings.Contains(config, required) {
+			t.Errorf("GoReleaser release presentation missing %q", required)
+		}
+	}
+	if strings.Contains(config, "exclude: ['^docs:'") {
+		t.Error("documentation changes must appear in categorized release notes")
+	}
 	installer := read("install.sh")
 	for _, required := range []string{"sha256sum", "url_effective", "mingw", "not writable", "version=\"v$version\""} {
 		if !strings.Contains(strings.ToLower(installer), strings.ToLower(required)) {

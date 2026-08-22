@@ -89,10 +89,49 @@ sboms:
   - artifacts: archive
 changelog:
   sort: asc
+  abbrev: -1
+  format: '- {{ .Message }}'
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]-]+\))??!?:.+$'
+      order: 0
+    - title: Bug fixes
+      regexp: '^.*?fix(\([[:word:]-]+\))??!?:.+$'
+      order: 1
+    - title: Performance
+      regexp: '^.*?perf(\([[:word:]-]+\))??!?:.+$'
+      order: 2
+    - title: Refactoring
+      regexp: '^.*?refactor(\([[:word:]-]+\))??!?:.+$'
+      order: 3
+    - title: Documentation
+      regexp: '^.*?docs(\([[:word:]-]+\))??!?:.+$'
+      order: 4
+    - title: Other changes
+      order: 999
   filters:
-    exclude: ['^docs:', '^test:']
+    exclude:
+      - '^chore(\([[:word:]-]+\))??!?:'
+      - '^ci(\([[:word:]-]+\))??!?:'
+      - '^test(\([[:word:]-]+\))??!?:'
 release:
   prerelease: auto
+  name_template: 'git-a2a {{ .Version }}'
+  header: |
+    ## What is new in {{ .Version }}
+
+    This release packages the user-visible features, fixes, performance work,
+    refactoring, and documentation changes listed by type below.
+  footer: |
+    ## Install and verify
+
+    ```sh
+    go install github.com/neprel/git-a2a/cmd/git-a2a@{{ .Tag }}
+    curl -fsSL https://git-a2a.com/install.sh | GIT_A2A_VERSION={{ .Version }} bash
+    ```
+
+    Verify downloaded archives against `checksums.txt`. See the
+    [CLI reference](https://github.com/neprel/git-a2a/blob/main/docs/cli.md) for every command.
 homebrew_casks:
   - repository:
       owner: neprel
@@ -140,5 +179,12 @@ nfpms:
 dockers_v2:
   - images: [ghcr.io/neprel/git-a2a]
     ids: [docker]
-    tags: ["{{ .Version }}", latest]
+    tags:
+      - "{{ .Version }}"
+      - "{{ if not .Prerelease }}latest{{ end }}"
+    labels:
+      org.opencontainers.image.source: https://github.com/neprel/git-a2a
+      org.opencontainers.image.description: Import git modules together with their owning agents
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.version: "{{ .Version }}"
     dockerfile: Dockerfile.goreleaser

@@ -118,6 +118,11 @@ Homebrew and Scoop publication is optional and skipped when its repository token
 npm is likewise optional, while PyPI uses its protected GitHub environment and OIDC. winget is
 not automated in the first release: add it only after a stable package identity and publisher
 account exist. Prerelease tags are GitHub prereleases and never the `latest` release.
+Release notes group user-visible conventional commits as features, fixes, performance,
+refactoring, and documentation while omitting chore, CI, and test-only commits; their header
+and footer explain the release, installation, checksums, and CLI reference. The GHCR image is
+linked with `org.opencontainers.image.source`, becomes public after publication, and receives
+`latest` only for a stable release.
 
 # dep Reference CLI runtime dependencies
 
