@@ -118,7 +118,7 @@ func (a *App) status(args []string) int {
 			}
 		}
 		if !offline {
-			resolution, e := gitx.ResolveDetailed(context.Background(), a.runner(), dep.Git, dep.Ref)
+			resolution, e := gitx.ResolveDetailed(a.context(), a.runner(), dep.Git, dep.Ref)
 			if e != nil {
 				row.Upstream = "unreachable"
 				row.failed = true
@@ -134,7 +134,7 @@ func (a *App) status(args []string) int {
 			}
 			tmp, e := os.MkdirTemp("", "git-a2a-status-")
 			if e == nil {
-				remote, e := (fetch.Fetcher{Runner: a.runner()}).Fetch(context.Background(), dep.Git, resolution.Commit, defaultPath(dep.Path), tmp)
+				remote, e := (fetch.Fetcher{Runner: a.runner()}).Fetch(a.context(), dep.Git, resolution.Commit, defaultPath(dep.Path), tmp)
 				_ = os.RemoveAll(tmp)
 				if e != nil {
 					row.Manifest = "remote unreadable"
@@ -157,7 +157,7 @@ func (a *App) status(args []string) int {
 			}
 		}
 		if depManifest != nil {
-			findings, wiringStates, e := driftAll(context.Background(), root, dep, *depManifest, entry)
+			findings, wiringStates, e := driftAll(a.context(), root, dep, *depManifest, entry)
 			if e != nil {
 				row.Wiring = "error"
 				row.failed = true

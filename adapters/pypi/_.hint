@@ -9,3 +9,5 @@ text remain byte-for-byte unchanged. Fixtures cover inline and multiline PEP 621
 and new uv source tables, idempotent wiring, and unwiring. Drift inspection is scoped to the
 requested export's dependency/source entry and compares both the normalised git URL and the
 locked commit; it must not accidentally match another git dependency elsewhere in the file.
+When the matching PEP 621 requirement already exists, wiring replaces that item in place if its
+git source or locked revision changed; mere presence of the project name does not make it current.

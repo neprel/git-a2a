@@ -3,7 +3,7 @@ project_name: git-a2a
 dist: build/dist
 before:
   hooks:
-    - go mod tidy
+    - go mod verify
 builds:
   - &binary-build
     id: binary
@@ -91,6 +91,8 @@ changelog:
   sort: asc
   filters:
     exclude: ['^docs:', '^test:']
+release:
+  prerelease: auto
 homebrew_casks:
   - repository:
       owner: neprel

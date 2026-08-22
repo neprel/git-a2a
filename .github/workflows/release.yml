@@ -2,18 +2,17 @@ name: Release
 on:
   push:
     tags: ['v*']
-permissions:
-  contents: write
-  id-token: write
-  packages: write
+permissions: {}
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Verify release tag matches source version
         run: .github/scripts/check-version.sh "$GITHUB_REF_NAME"
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: '1.24.x'
           cache: true
@@ -22,24 +21,37 @@ jobs:
   goreleaser:
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: '1.24.x'
           cache: true
-      - uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610
+      - uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
       - name: Log in to GitHub Container Registry
         run: echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a
+      - name: Select configured publishers
+        id: release_args
+        run: |
+          args='release --clean'
+          if [ -z "$HOMEBREW_TAP_TOKEN" ]; then args="$args --skip=homebrew"; fi
+          if [ -z "$SCOOP_BUCKET_TOKEN" ]; then args="$args --skip=scoop"; fi
+          echo "args=$args" >> "$GITHUB_OUTPUT"
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
+      - uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6.4.0
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: release --clean
+          args: ${{ steps.release_args.outputs.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
@@ -48,9 +60,12 @@ jobs:
     needs: goreleaser
     runs-on: ubuntu-latest
     continue-on-error: true
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22'
           registry-url: https://registry.npmjs.org
@@ -59,22 +74,31 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: python3 dist/npm/build_packages.py --artifacts release-artifacts --version "${GITHUB_REF_NAME#v}" --out npm-packages
       - name: Publish platform packages and launcher
+        if: ${{ secrets.NPM_TOKEN != '' }}
         run: |
           for package in npm-packages/darwin-* npm-packages/linux-* npm-packages/windows-*; do npm publish "$package" --access public --provenance; done
           npm publish npm-packages/git-a2a --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Skip npm publishing when credentials are absent
+        if: ${{ secrets.NPM_TOKEN == '' }}
+        run: echo 'NPM_TOKEN is not configured; npm publishing skipped'
   pypi:
     needs: goreleaser
     runs-on: ubuntu-latest
     continue-on-error: true
+    permissions:
+      contents: read
+      id-token: write
     environment:
       name: pypi
       url: https://pypi.org/p/git-a2a
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - run: gh release download "$GITHUB_REF_NAME" --dir release-artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: python3 dist/pypi/build_wheels.py --artifacts release-artifacts --version "${GITHUB_REF_NAME#v}" --out wheelhouse
-      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: wheelhouse/

@@ -20,3 +20,10 @@ func TestResolveMatrix(t *testing.T) {
 		t.Fatalf("fallback: %#v", got)
 	}
 }
+
+func TestContactTextRendersUnknownFieldsDeterministically(t *testing.T) {
+	contact := manifest.Contact{Kind: "pager-duty", Extensions: map[string]any{"service": "checkout", "priority": 2}}
+	if got, want := ContactText(contact), `kind=pager-duty priority=2 service="checkout"`; got != want {
+		t.Fatalf("ContactText() = %q, want %q", got, want)
+	}
+}

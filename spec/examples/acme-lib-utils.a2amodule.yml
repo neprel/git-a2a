@@ -1,14 +1,10 @@
 # a2amodule.yml — acme-lib-utils (library, three ecosystems, two agents)
 schema: 1
-
 module:
   id: acme-lib-utils
   name: Acme core utils
   description: >-
-    Shared string and formatting utilities for the Acme product, implemented three times
-    with one API in TypeScript, Python and Go. Ask the owner about the API, behaviour
-    differences between the three implementations, and when a change lands in each; ask the
-    spec agent for anything that changes the contract.
+    Shared string and formatting utilities for the Acme product, implemented three times with one API in TypeScript, Python and Go. Ask the owner about the API, behaviour differences between the three implementations, and when a change lands in each; ask the spec agent for anything that changes the contract.
   languages: [typescript, python, go]
   repository: ssh://git@github.com/acme/lib-utils.git
   surface: surface/
@@ -26,7 +22,6 @@ module:
     - ecosystem: golang
       name: acme.dev/lib-utils
       notes: vanity import path; consumers need a replace onto the git source.
-
 agents:
   - name: acme-lib-utils
     role: owner
@@ -59,7 +54,6 @@ agents:
         kind: mattermost
         channel: acme
         handle: "@acme-pm"
-
 policy:
   intents:
     question: owner
@@ -70,5 +64,4 @@ policy:
     may: [read-surface, ask, open-issue, propose-change]
     may-not: [commit, edit-spec, release]
   notes: >-
-    Only the owner commits here. A consumer that needs new functionality opens a change request;
-    it never edits this repository, not even a version bump.
+    Only the owner commits here. A consumer that needs new functionality opens a change request; it never edits this repository, not even a version bump.

@@ -178,9 +178,10 @@ func setDependency(b []byte, name, value string) ([]byte, bool, error) {
 	entry := fmt.Sprintf("    %q: %q", name, value)
 	if ok {
 		body := string(b[start+1 : end])
-		pattern := regexp.MustCompile(`(?m)^(\s*)` + regexp.QuoteMeta(fmt.Sprintf("%q", name)) + `\s*:\s*"[^"]*"`)
+		pattern := regexp.MustCompile(`(` + regexp.QuoteMeta(fmt.Sprintf("%q", name)) + `\s*:\s*)"[^"]*"`)
 		if pattern.MatchString(body) {
-			body = pattern.ReplaceAllString(body, "$1"+fmt.Sprintf("%q: %q", name, value))
+			encoded, _ := json.Marshal(value)
+			body = pattern.ReplaceAllString(body, "${1}"+string(encoded))
 			return []byte(string(b[:start+1]) + body + string(b[end:])), true, nil
 		}
 		trim := strings.TrimRight(body, " \t\r\n")
@@ -210,12 +211,26 @@ func removeDependency(b []byte, name string) ([]byte, bool, error) {
 		return b, false, nil
 	}
 	body := string(b[start+1 : end])
-	pattern := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(fmt.Sprintf("%q", name)) + `\s*:\s*"[^"]*"\s*,?\r?\n?`)
-	if !pattern.MatchString(body) {
+	pattern := regexp.MustCompile(regexp.QuoteMeta(fmt.Sprintf("%q", name)) + `\s*:\s*"[^"]*"`)
+	loc := pattern.FindStringIndex(body)
+	if loc == nil {
 		return b, false, nil
 	}
-	body = pattern.ReplaceAllString(body, "")
-	body = regexp.MustCompile(`,\s*$`).ReplaceAllString(body, "")
+	removeStart, removeEnd := loc[0], loc[1]
+	for removeEnd < len(body) && strings.ContainsRune(" \t\r\n", rune(body[removeEnd])) {
+		removeEnd++
+	}
+	if removeEnd < len(body) && body[removeEnd] == ',' {
+		removeEnd++
+	} else {
+		for removeStart > 0 && strings.ContainsRune(" \t\r\n", rune(body[removeStart-1])) {
+			removeStart--
+		}
+		if removeStart > 0 && body[removeStart-1] == ',' {
+			removeStart--
+		}
+	}
+	body = body[:removeStart] + body[removeEnd:]
 	return []byte(string(b[:start+1]) + body + string(b[end:])), true, nil
 }
 

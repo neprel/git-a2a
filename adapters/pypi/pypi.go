@@ -6,7 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/neprel/git-a2a/internal/adapter"
 	"github.com/neprel/git-a2a/internal/gitx"
@@ -178,9 +180,16 @@ func ensureProjectDependency(s, requirement, name string) (string, bool, error) 
 		return "", false, fmt.Errorf("pyproject.toml: [project].dependencies array is required")
 	}
 	items := body[open+1 : close]
-	nameRe := regexp.MustCompile(`["']` + regexp.QuoteMeta(name) + `(?:["' @<>=!~\[])`)
-	if nameRe.MatchString(items) {
-		return s, false, nil
+	for _, item := range quotedItems(items) {
+		if normalizeProjectName(requirementName(item.value)) != normalizeProjectName(name) {
+			continue
+		}
+		if item.value == requirement {
+			return s, false, nil
+		}
+		items = items[:item.start] + strconv.Quote(requirement) + items[item.end:]
+		body = body[:open+1] + items + body[close:]
+		return s[:start] + body + s[end:], true, nil
 	}
 	if !strings.Contains(items, "\n") {
 		var values []string
@@ -209,6 +218,57 @@ func ensureProjectDependency(s, requirement, name string) (string, bool, error) 
 	items += insert
 	body = body[:open+1] + items + body[close:]
 	return s[:start] + body + s[end:], true, nil
+}
+
+type quotedItem struct {
+	start, end int
+	value      string
+}
+
+func quotedItems(value string) []quotedItem {
+	var out []quotedItem
+	for i := 0; i < len(value); i++ {
+		if value[i] != '\'' && value[i] != '"' {
+			continue
+		}
+		quote := value[i]
+		start := i
+		var content strings.Builder
+		for i++; i < len(value); i++ {
+			if value[i] == '\\' && quote == '"' && i+1 < len(value) {
+				content.WriteByte(value[i])
+				i++
+				content.WriteByte(value[i])
+				continue
+			}
+			if value[i] == quote {
+				raw := string(quote) + content.String() + string(quote)
+				decoded := content.String()
+				if quote == '"' {
+					if unquoted, err := strconv.Unquote(raw); err == nil {
+						decoded = unquoted
+					}
+				}
+				out = append(out, quotedItem{start: start, end: i + 1, value: decoded})
+				break
+			}
+			content.WriteByte(value[i])
+		}
+	}
+	return out
+}
+
+func requirementName(requirement string) string {
+	for index, char := range requirement {
+		if unicode.IsSpace(char) || strings.ContainsRune("@[<>=!~", char) {
+			return requirement[:index]
+		}
+	}
+	return requirement
+}
+
+func normalizeProjectName(name string) string {
+	return strings.NewReplacer("_", "-", ".", "-").Replace(strings.ToLower(name))
 }
 
 func dependencyArrayRange(body string) (prefixStart, open, close int, ok bool) {

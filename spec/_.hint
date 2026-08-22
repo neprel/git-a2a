@@ -265,9 +265,10 @@ extension keys, preserved.
 YAML, written only by the CLI. `schema: 1`; `dependencies:` map keyed by dependency id with
 `git`, `ref`, `path`, `commit` (40-hex, the resolved ref), `manifest` (`sha256:<hex>` of the
 fetched `a2amodule.yml` bytes), `cards` (map agent name → `sha256:<hex>` of the snapshotted
-card, present only for agents with a `card`), `surface` (`tree:<40-hex>`, the git tree object id of the surface directory at `commit` —
-`git rev-parse <commit>:<surface>` — recorded whenever the fetch method had the trees, which
-sparse/partial and shallow clones do and `git archive` does not). Keys sorted; no timestamps, no absolute
+card, present only for agents with a `card`), `surface` (`tree:<40-hex>`, the git tree object id of the surface directory at `commit`,
+recorded whenever the surface is fetched). Checkout strategies obtain it with
+`git rev-parse <commit>:<surface>`; the archive strategy derives the same Git tree object id from
+the archived entries. Keys sorted; no timestamps, no absolute
 paths, no hostnames beyond what the manifest already contains. A lock entry without a
 matching manifest dependency is stale and `status` reports it.
 

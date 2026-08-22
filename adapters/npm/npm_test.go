@@ -1,6 +1,7 @@
 package npm
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
@@ -71,6 +72,38 @@ func TestDriftMissingEntryIsUnwired(t *testing.T) {
 		adapter.Locked{Git: "https://github.com/acme/lib.git", Commit: strings.Repeat("a", 40)})
 	if err != nil || len(findings) != 1 {
 		t.Fatalf("findings=%v err=%v", findings, err)
+	}
+}
+
+func TestDriftDetectsTamperedManifestPinWithoutPackageLock(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "package.json"), []byte("{\"dependencies\":{\"@acme/lib\":\"git+https://github.com/acme/lib.git#deadbeef\"}}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	findings, err := (Adapter{}).Drift(context.Background(), root,
+		adapter.Dependency{Git: "https://github.com/acme/lib.git", Track: "locked"},
+		adapter.Export{Ecosystem: "npm", Name: "@acme/lib"},
+		adapter.Locked{Git: "https://github.com/acme/lib.git", Commit: strings.Repeat("a", 40)})
+	if err != nil || len(findings) != 1 || findings[0].Got == "" {
+		t.Fatalf("findings=%v err=%v", findings, err)
+	}
+}
+
+func TestRemoveInlineDependencyRestoresSurroundingBytes(t *testing.T) {
+	original := []byte("{\"name\":\"consumer\",\"dependencies\":{\"left-pad\":\"^1.0.0\",\"@acme/lib\":\"git+file:///lib.git#abc\"},\"private\":true}\n")
+	want := []byte("{\"name\":\"consumer\",\"dependencies\":{\"left-pad\":\"^1.0.0\"},\"private\":true}\n")
+	got, changed, err := removeDependency(original, "@acme/lib")
+	if err != nil || !changed || !bytes.Equal(got, want) {
+		t.Fatalf("changed=%v err=%v\ngot  %s\nwant %s", changed, err, got, want)
+	}
+}
+
+func TestUpdateInlineDependencyPreservesSurroundingBytes(t *testing.T) {
+	original := []byte("{\"dependencies\":{\"@acme/lib\":\"old\",\"left-pad\":\"^1.0.0\"}}\n")
+	want := []byte("{\"dependencies\":{\"@acme/lib\":\"new\",\"left-pad\":\"^1.0.0\"}}\n")
+	got, changed, err := setDependency(original, "@acme/lib", "new")
+	if err != nil || !changed || !bytes.Equal(got, want) {
+		t.Fatalf("changed=%v err=%v\ngot  %s\nwant %s", changed, err, got, want)
 	}
 }
 func copyFile(t *testing.T, src, dst string) []byte {

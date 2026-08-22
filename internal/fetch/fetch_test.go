@@ -6,9 +6,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/neprel/git-a2a/internal/gitx"
 )
 
 type fakeRunner struct {
@@ -77,4 +80,57 @@ func TestFileFallsBackToSparseFetch(t *testing.T) {
 	if !bytes.Equal(got, body) {
 		t.Fatalf("got %q", got)
 	}
+}
+
+func TestSurfaceFallsBackFromBareArchiveAndReturnsTree(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "source")
+	bare := filepath.Join(tmp, "library.git")
+	if err := os.MkdirAll(filepath.Join(source, "docs", "nested"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, source, "init", "-b", "main")
+	runGit(t, source, "config", "user.email", "test@example.com")
+	runGit(t, source, "config", "user.name", "Test")
+	if err := os.WriteFile(filepath.Join(source, "docs", "README.md"), []byte("surface\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, "docs", "nested", "api.txt"), []byte("api\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, source, "add", "docs")
+	runGit(t, source, "commit", "-m", "surface")
+	commit := strings.TrimSpace(runGit(t, source, "rev-parse", "HEAD"))
+	wantTree := strings.TrimSpace(runGit(t, source, "rev-parse", "HEAD:docs"))
+	runGit(t, tmp, "clone", "--bare", source, bare)
+
+	dest := filepath.Join(tmp, "dest")
+	result, err := (Fetcher{Runner: gitx.ExecRunner{}}).Surface(context.Background(), "file://"+bare, commit, ".", "docs", dest, filepath.Join(tmp, "work"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Method == "archive" {
+		t.Fatal("bare upload-archive unexpectedly accepted an object id; fallback was not exercised")
+	}
+	if result.Tree != "tree:"+wantTree {
+		t.Fatalf("tree = %q, want tree:%s", result.Tree, wantTree)
+	}
+	if got, want := strings.Join(result.Files, ","), "README.md,nested/api.txt"; got != want {
+		t.Fatalf("files = %q, want %q", got, want)
+	}
+	if body, readErr := os.ReadFile(filepath.Join(dest, "nested", "api.txt")); readErr != nil || string(body) != "api\n" {
+		t.Fatalf("copied surface = %q, err=%v", body, readErr)
+	}
+}
+
+func runGit(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v: %v: %s", args, err, out)
+	}
+	return string(out)
 }

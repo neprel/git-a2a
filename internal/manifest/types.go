@@ -1,5 +1,7 @@
 package manifest
 
+import "encoding/json"
+
 type Manifest struct {
 	Schema       int            `yaml:"schema" json:"schema"`
 	Module       Module         `yaml:"module" json:"module"`
@@ -75,6 +77,24 @@ type Contact struct {
 	Handle        string         `yaml:"handle,omitempty" json:"handle,omitempty"`
 	Server        string         `yaml:"server,omitempty" json:"server,omitempty"`
 	Extensions    map[string]any `yaml:",inline" json:"-"`
+}
+
+func (c Contact) MarshalJSON() ([]byte, error) {
+	type contact Contact
+	base, err := json.Marshal(contact(c))
+	if err != nil {
+		return nil, err
+	}
+	var values map[string]any
+	if err := json.Unmarshal(base, &values); err != nil {
+		return nil, err
+	}
+	for key, value := range c.Extensions {
+		if _, exists := values[key]; !exists {
+			values[key] = value
+		}
+	}
+	return json.Marshal(values)
 }
 
 type Trust struct {

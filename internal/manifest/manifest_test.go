@@ -1,6 +1,8 @@
 package manifest
 
 import (
+	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -80,5 +82,83 @@ func TestManifestExtension(t *testing.T) {
 	b = append(b, []byte("x-test: yes\n")...)
 	if _, err := Parse(b); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestSpecManifestExamplesAreCanonical(t *testing.T) {
+	paths, err := filepath.Glob(filepath.Join("..", "..", "spec", "examples", "*.a2amodule.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range paths {
+		original, readErr := os.ReadFile(path)
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		formatted, formatErr := Format(original)
+		if formatErr != nil {
+			t.Fatal(formatErr)
+		}
+		if !bytes.Equal(formatted, original) {
+			t.Errorf("%s is not canonical", filepath.Base(path))
+		}
+	}
+}
+
+func TestUpdateDependenciesPreservesCommentsStylesAndExtensions(t *testing.T) {
+	original := []byte(`# manifest comment
+schema: 1
+module:
+  id: consumer
+  description: >-
+    folded text stays folded
+  languages: [go, python]
+x-verbatim: "quoted value"
+dependencies:
+  - id: dep
+    git: https://example.test/old.git
+    ref: main # ref comment
+    track: locked
+    wire: [npm, pypi]
+    x-private: "keep quoted"
+`)
+	wire := []string{"npm", "pypi"}
+	updated, err := UpdateDependencies(original, []Dependency{{ID: "dep", Git: "https://example.test/new.git", Ref: "release", Track: "locked", Wire: &wire}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(updated)
+	for _, preserved := range []string{"# manifest comment", "description: >-", "languages: [go, python]", `x-verbatim: "quoted value"`, "ref: release # ref comment", "wire: [npm, pypi]", `x-private: "keep quoted"`} {
+		if !strings.Contains(text, preserved) {
+			t.Errorf("missing preserved text %q:\n%s", preserved, text)
+		}
+	}
+}
+
+func TestUnknownContactKindCarriesArbitraryKeysThroughJSON(t *testing.T) {
+	raw := []byte("schema: 1\nmodule: {id: consumer}\nagents:\n  - name: owner\n    role: owner\n    contacts:\n      - intents: [incident]\n        kind: pager-duty\n        service: checkout\n        escalation: 2\n        x-color: red\n")
+	m, err := Parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contact := m.Agents[0].Contacts[0]
+	if contact.Extensions["service"] != "checkout" || contact.Extensions["escalation"] != 2 {
+		t.Fatalf("extensions = %#v", contact.Extensions)
+	}
+	encoded, err := json.Marshal(contact)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range []string{`"service":"checkout"`, `"escalation":2`, `"x-color":"red"`} {
+		if !bytes.Contains(encoded, []byte(field)) {
+			t.Errorf("JSON missing %s: %s", field, encoded)
+		}
+	}
+}
+
+func TestKnownContactKindRejectsAnotherKindsKeys(t *testing.T) {
+	raw := []byte("schema: 1\nmodule: {id: consumer}\nagents:\n  - name: owner\n    role: owner\n    contacts:\n      - intents: [question]\n        kind: email\n        address: owner@example.test\n        project: WRONG\n")
+	if _, err := Parse(raw); err == nil || !strings.Contains(err.Error(), "project: not valid for contact kind email") {
+		t.Fatalf("error = %v", err)
 	}
 }

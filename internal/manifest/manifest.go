@@ -108,7 +108,7 @@ func (m *Manifest) Validate() error {
 			if c.Kind == "" {
 				errs = append(errs, fmt.Errorf("%s.kind: required", cp))
 			}
-			validateExtensions(cp, c.Extensions, &errs)
+			validateContact(cp, c, &errs)
 		}
 	}
 	if m.Policy != nil {
@@ -137,6 +137,42 @@ func (m *Manifest) Validate() error {
 		validateExtensions(p, d.Extensions, &errs)
 	}
 	return errors.Join(errs...)
+}
+
+func validateContact(path string, contact Contact, errs *[]error) {
+	allowed := map[string]map[string]bool{
+		"a2a":          {"url": true, "skill": true},
+		"email":        {"address": true, "subject-prefix": true},
+		"github-issue": {"repo": true, "labels": true, "template": true},
+		"gitlab-issue": {"repo": true, "labels": true, "template": true},
+		"jira":         {"url": true, "project": true, "issue-type": true},
+		"mattermost":   {"channel": true, "handle": true, "server": true},
+		"slack":        {"channel": true, "handle": true, "server": true},
+		"discord":      {"channel": true, "handle": true, "server": true},
+		"telegram":     {"channel": true, "handle": true, "server": true},
+		"teams":        {"channel": true, "handle": true, "server": true},
+		"url":          {"url": true},
+	}
+	kindAllowed, known := allowed[contact.Kind]
+	if !known {
+		return
+	}
+	for key := range contact.Extensions {
+		if !strings.HasPrefix(key, "x-") {
+			*errs = append(*errs, fmt.Errorf("%s.%s: unknown key for contact kind %s", path, key, contact.Kind))
+		}
+	}
+	set := map[string]bool{
+		"url": contact.URL != "", "skill": contact.Skill != "", "address": contact.Address != "",
+		"subject-prefix": contact.SubjectPrefix != "", "repo": contact.Repo != "", "labels": len(contact.Labels) > 0,
+		"template": contact.Template != "", "project": contact.Project != "", "issue-type": contact.IssueType != "",
+		"channel": contact.Channel != "", "handle": contact.Handle != "", "server": contact.Server != "",
+	}
+	for key, present := range set {
+		if present && !kindAllowed[key] {
+			*errs = append(*errs, fmt.Errorf("%s.%s: not valid for contact kind %s", path, key, contact.Kind))
+		}
+	}
 }
 
 func (l *Lock) Validate() error {
@@ -210,6 +246,150 @@ func Marshal(m *Manifest) ([]byte, error) {
 		return nil, err
 	}
 	return append(bytes.TrimRight(b, "\n"), '\n'), nil
+}
+
+// UpdateDependencies edits only the dependencies sequence in an existing
+// manifest. YAML nodes retain comments, scalar styles, flow collections, and
+// extension fields that are not owned by the dependency editor.
+func UpdateDependencies(original []byte, dependencies []Dependency) ([]byte, error) {
+	var document yaml.Node
+	if err := yaml.Unmarshal(original, &document); err != nil {
+		return nil, err
+	}
+	if len(document.Content) != 1 || document.Content[0].Kind != yaml.MappingNode {
+		return nil, fmt.Errorf("manifest root must be a mapping")
+	}
+	root := document.Content[0]
+	keyIndex, sequence := mappingEntry(root, "dependencies")
+	if sequence == nil {
+		if len(dependencies) == 0 {
+			return original, nil
+		}
+		key := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "dependencies"}
+		sequence = &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
+		root.Content = append(root.Content, key, sequence)
+	} else if sequence.Kind != yaml.SequenceNode {
+		return nil, fmt.Errorf("dependencies must be a sequence")
+	}
+
+	desired := make(map[string]Dependency, len(dependencies))
+	for _, dependency := range dependencies {
+		desired[dependency.ID] = dependency
+	}
+	seen := map[string]bool{}
+	kept := make([]*yaml.Node, 0, len(dependencies))
+	for _, item := range sequence.Content {
+		id := mappingScalar(item, "id")
+		dependency, ok := desired[id]
+		if !ok {
+			continue
+		}
+		updateDependencyNode(item, dependency)
+		kept = append(kept, item)
+		seen[id] = true
+	}
+	for _, dependency := range dependencies {
+		if seen[dependency.ID] {
+			continue
+		}
+		var item yaml.Node
+		if err := item.Encode(dependency); err != nil {
+			return nil, err
+		}
+		kept = append(kept, &item)
+	}
+	sequence.Content = kept
+	if len(dependencies) == 0 && keyIndex >= 0 {
+		root.Content = append(root.Content[:keyIndex], root.Content[keyIndex+2:]...)
+	}
+	return encodeDocument(&document)
+}
+
+func Format(original []byte) ([]byte, error) {
+	var document yaml.Node
+	if err := yaml.Unmarshal(original, &document); err != nil {
+		return nil, err
+	}
+	return encodeDocument(&document)
+}
+
+func encodeDocument(document *yaml.Node) ([]byte, error) {
+	var out bytes.Buffer
+	encoder := yaml.NewEncoder(&out)
+	encoder.SetIndent(2)
+	if err := encoder.Encode(document); err != nil {
+		return nil, err
+	}
+	if err := encoder.Close(); err != nil {
+		return nil, err
+	}
+	return append(bytes.TrimRight(out.Bytes(), "\n"), '\n'), nil
+}
+
+func mappingEntry(mapping *yaml.Node, key string) (int, *yaml.Node) {
+	if mapping == nil || mapping.Kind != yaml.MappingNode {
+		return -1, nil
+	}
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == key {
+			return i, mapping.Content[i+1]
+		}
+	}
+	return -1, nil
+}
+
+func mappingScalar(mapping *yaml.Node, key string) string {
+	_, value := mappingEntry(mapping, key)
+	if value == nil {
+		return ""
+	}
+	return value.Value
+}
+
+func updateDependencyNode(node *yaml.Node, dependency Dependency) {
+	setScalar := func(key, value string, omit bool) {
+		index, current := mappingEntry(node, key)
+		if omit {
+			if index >= 0 {
+				node.Content = append(node.Content[:index], node.Content[index+2:]...)
+			}
+			return
+		}
+		if current == nil {
+			node.Content = append(node.Content,
+				&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key},
+				&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value})
+			return
+		}
+		current.Kind = yaml.ScalarNode
+		current.Tag = "!!str"
+		current.Value = value
+	}
+	setScalar("id", dependency.ID, dependency.ID == "")
+	setScalar("git", dependency.Git, false)
+	setScalar("ref", dependency.Ref, dependency.Ref == "")
+	setScalar("path", dependency.Path, dependency.Path == "")
+	setScalar("track", dependency.Track, dependency.Track == "")
+	wireIndex, wireNode := mappingEntry(node, "wire")
+	if dependency.Wire == nil {
+		if wireIndex >= 0 {
+			node.Content = append(node.Content[:wireIndex], node.Content[wireIndex+2:]...)
+		}
+	} else {
+		style := yaml.Style(0)
+		if wireNode != nil {
+			style = wireNode.Style
+		}
+		var encoded yaml.Node
+		_ = encoded.Encode(*dependency.Wire)
+		encoded.Style = style
+		if wireNode == nil {
+			node.Content = append(node.Content,
+				&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "wire"}, &encoded)
+		} else {
+			*wireNode = encoded
+		}
+	}
 }
 
 func MarshalLock(l *Lock) ([]byte, error) {

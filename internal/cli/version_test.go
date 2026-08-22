@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestVersionDoesNotCheckNetworkWithoutFlag(t *testing.T) {
@@ -88,5 +89,21 @@ func TestUpgradeRefusesManagedChannel(t *testing.T) {
 func TestUpgradeBackupPathIsAdjacentToExecutable(t *testing.T) {
 	if got, want := upgradeBackupPath(`C:\tools\git-a2a.exe`), `C:\tools\git-a2a.exe.old`; got != want {
 		t.Fatalf("upgradeBackupPath() = %q, want %q", got, want)
+	}
+}
+
+func TestGlobalTimeoutOption(t *testing.T) {
+	var out, errOut bytes.Buffer
+	app := New(&out, &errOut)
+	if app.Timeout != 120*time.Second {
+		t.Fatalf("default timeout = %s", app.Timeout)
+	}
+	if code := app.Run([]string{"version", "--timeout", "250ms"}); code != 0 || app.Timeout != 250*time.Millisecond {
+		t.Fatalf("exit=%d timeout=%s err=%s", code, app.Timeout, errOut.String())
+	}
+	out.Reset()
+	errOut.Reset()
+	if code := app.Run([]string{"--timeout=never", "version"}); code != 2 || !strings.Contains(errOut.String(), "invalid --timeout") {
+		t.Fatalf("invalid timeout exit=%d err=%q", code, errOut.String())
 	}
 }

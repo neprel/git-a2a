@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -37,17 +38,34 @@ type App struct {
 	Root     string
 	Timeout  time.Duration
 	Runner   gitx.Runner
+	ctx      context.Context
 }
 
 func New(out, errOut io.Writer) *App {
-	return &App{Out: out, Err: errOut, Root: ".", Timeout: 30 * time.Second}
+	return &App{Out: out, Err: errOut, Root: ".", Timeout: 120 * time.Second}
 }
 
 func (a *App) Run(args []string) int {
 	cleanupPreviousUpgrade()
+	var timeoutErr error
+	args, timeoutErr = a.parseGlobalOptions(args)
+	if timeoutErr != nil {
+		fmt.Fprintf(a.Err, "git-a2a: %v\n", timeoutErr)
+		return 2
+	}
+	if a.Timeout <= 0 {
+		a.Timeout = 120 * time.Second
+	}
+	commandContext, cancel := context.WithTimeout(context.Background(), a.Timeout)
+	a.ctx = commandContext
+	defer cancel()
 	if len(args) == 0 {
 		a.usage()
 		return 2
+	}
+	if len(args) == 2 && (args[1] == "--help" || args[1] == "-h") {
+		a.commandUsage(args[0])
+		return 0
 	}
 	if args[0] == "--version" {
 		return a.version(nil)
@@ -102,6 +120,25 @@ func (a *App) Run(args []string) int {
 func (a *App) usage() {
 	fmt.Fprintln(a.Out, "usage: git-a2a <init|validate|add|set|pin|unpin|wire|update|remove|show|sync|who|status|card|fmt|version|upgrade> [options]")
 }
+func (a *App) commandUsage(command string) {
+	usage := map[string]string{
+		"init":     "git-a2a init [--id ID] [--description TEXT] [--surface DIR] [--export ECOSYSTEM=NAME]",
+		"validate": "git-a2a validate [FILE ...]", "add": "git-a2a add URL [--id ID] [--path DIR] [--track locked|floating] [--wire LIST|--no-wire]",
+		"set": "git-a2a set ID [--git URL] [--ref REF] [--path DIR] [--track locked|floating] [--wire LIST|--no-wire]",
+		"pin": "git-a2a pin ID [COMMIT]", "unpin": "git-a2a unpin ID --ref REF [--track locked|floating]",
+		"wire": "git-a2a wire [ID] [--ecosystem NAME]", "update": "git-a2a update [ID ...] [--check] [--review|--no-review] [--follow-moves]",
+		"remove": "git-a2a remove ID [--keep-wiring]", "show": "git-a2a show [ID] [--json] [--surface]",
+		"sync": "git-a2a sync [--check] [--brief] [--target FILE]", "who": "git-a2a who [ID] [--intent INTENT] [--path FILE] [--json]",
+		"status": "git-a2a status [ID ...] [--offline] [--json] [-v]", "card": "git-a2a card <export|validate|show> [options]",
+		"fmt": "git-a2a fmt [--check]", "version": "git-a2a version [--check]", "upgrade": "git-a2a upgrade [--to VERSION]",
+	}
+	if line := usage[command]; line != "" {
+		fmt.Fprintln(a.Out, "usage: "+line)
+		fmt.Fprintln(a.Out, "global: --timeout DURATION (default 120s)")
+		return
+	}
+	a.usage()
+}
 func (a *App) root() string {
 	if a.Root == "" {
 		return "."
@@ -113,6 +150,38 @@ func (a *App) runner() gitx.Runner {
 		return a.Runner
 	}
 	return gitx.ExecRunner{Timeout: a.Timeout}
+}
+
+func (a *App) context() context.Context {
+	if a.ctx != nil {
+		return a.ctx
+	}
+	return context.Background()
+}
+
+func (a *App) parseGlobalOptions(args []string) ([]string, error) {
+	filtered := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		value := ""
+		if args[i] == "--timeout" {
+			if i+1 >= len(args) {
+				return nil, fmt.Errorf("--timeout needs a duration")
+			}
+			i++
+			value = args[i]
+		} else if strings.HasPrefix(args[i], "--timeout=") {
+			value = strings.TrimPrefix(args[i], "--timeout=")
+		} else {
+			filtered = append(filtered, args[i])
+			continue
+		}
+		duration, err := time.ParseDuration(value)
+		if err != nil || duration <= 0 {
+			return nil, fmt.Errorf("invalid --timeout %q", value)
+		}
+		a.Timeout = duration
+	}
+	return filtered, nil
 }
 
 type stringList []string
@@ -260,6 +329,7 @@ func (a *App) validate(paths []string) int {
 		return 2
 	}
 	failed := false
+	var details []string
 	for _, p := range paths {
 		var err error
 		if strings.HasSuffix(p, ".lock") {
@@ -269,13 +339,16 @@ func (a *App) validate(paths []string) int {
 		}
 		if err != nil {
 			failed = true
-			fmt.Fprintf(a.Err, "%s: %v\n", p, err)
+			details = append(details, fmt.Sprintf("%s: %v", p, err))
 		} else {
 			fmt.Fprintf(a.Out, "%s: valid\n", p)
 		}
 	}
 	if failed {
 		fmt.Fprintf(a.Err, "%d file(s): validation failed\n", len(paths))
+		for _, detail := range details {
+			fmt.Fprintln(a.Err, detail)
+		}
 		return 1
 	}
 	fmt.Fprintf(a.Err, "%d file(s): valid\n", len(paths))
@@ -370,9 +443,12 @@ func (a *App) add(args []string) int {
 	}
 	defer os.RemoveAll(work)
 	f := fetch.Fetcher{Runner: a.runner()}
-	res, err := f.Fetch(context.Background(), o.url, o.ref, o.path, work)
+	res, err := f.Fetch(a.context(), o.url, o.ref, o.path, work)
 	if err != nil {
 		fmt.Fprintf(a.Err, "add: %v\n", err)
+		if fetch.IsMissingManifest(err) {
+			return 2
+		}
 		return 1
 	}
 	depManifest, err := manifest.Parse(res.Manifest)
@@ -390,7 +466,7 @@ func (a *App) add(args []string) int {
 		o.ref = "HEAD"
 		if depManifest.Module.Release != nil && depManifest.Module.Release.Channel != "" {
 			o.ref = depManifest.Module.Release.Channel
-			next, e := f.Fetch(context.Background(), o.url, o.ref, o.path, work)
+			next, e := f.Fetch(a.context(), o.url, o.ref, o.path, work)
 			if e != nil {
 				fmt.Fprintf(a.Err, "add: release channel %s: %v\n", o.ref, e)
 				return 1
@@ -431,12 +507,12 @@ func (a *App) add(args []string) int {
 	locked.Cards = cards
 	preflight := filepath.Join(work, "preflight")
 	copyAdapterFiles(root, preflight)
-	if _, err := wireAll(context.Background(), preflight, dep, depManifest, locked, false); err != nil {
+	if _, err := wireAll(a.context(), preflight, dep, depManifest, locked, false); err != nil {
 		fmt.Fprintf(a.Err, "add: wiring preflight: %v; no files changed\n", err)
 		return 1
 	}
 	snapshots := snapshotAdapterFiles(root)
-	outcomes, err := wireAll(context.Background(), root, dep, depManifest, locked, true)
+	outcomes, err := wireAll(a.context(), root, dep, depManifest, locked, true)
 	if err != nil {
 		restoreAdapterFiles(root, snapshots)
 		fmt.Fprintf(a.Err, "add: wiring failed and was rolled back: %v\n", err)
@@ -491,11 +567,23 @@ func defaultPath(p string) string {
 	return p
 }
 func writeManifest(root string, m *manifest.Manifest) error {
-	b, err := manifest.Marshal(m)
+	path := filepath.Join(root, "a2amodule.yml")
+	original, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		original = nil
+	} else if err != nil {
+		return err
+	}
+	var b []byte
+	if len(original) == 0 {
+		b, err = manifest.Marshal(m)
+	} else {
+		b, err = manifest.UpdateDependencies(original, m.Dependencies)
+	}
 	if err != nil {
 		return err
 	}
-	return lockfile.Atomic(filepath.Join(root, "a2amodule.yml"), b, 0o644)
+	return lockfile.Atomic(path, b, 0o644)
 }
 func short(s string) string {
 	if len(s) > 12 {
@@ -510,12 +598,17 @@ func short(s string) string {
 func (a *App) update(args []string) int {
 	check := false
 	followMoves := false
+	review := writerIsTerminal(a.Out)
 	var ids []string
 	for _, arg := range args {
 		if arg == "--check" {
 			check = true
 		} else if arg == "--follow-moves" {
 			followMoves = true
+		} else if arg == "--review" {
+			review = true
+		} else if arg == "--no-review" {
+			review = false
 		} else if strings.HasPrefix(arg, "-") {
 			fmt.Fprintf(a.Err, "update: unknown option %s\n", arg)
 			return 2
@@ -548,7 +641,7 @@ func (a *App) update(args []string) int {
 		found++
 		entry := l.Dependencies[d.ID]
 		cacheRepair := cacheNeedsRepair(root, d.ID, entry.Manifest)
-		resolution, e := gitx.ResolveDetailed(context.Background(), a.runner(), d.Git, d.Ref)
+		resolution, e := gitx.ResolveDetailed(a.context(), a.runner(), d.Git, d.Ref)
 		if e != nil {
 			fmt.Fprintf(a.Err, "update %s: %v\n", d.ID, e)
 			return 1
@@ -578,7 +671,7 @@ func (a *App) update(args []string) int {
 		if cacheRepair && entry.Commit == commit {
 			fetchRef = entry.Commit
 		}
-		res, e := f.Fetch(context.Background(), d.Git, fetchRef, defaultPath(d.Path), work)
+		res, e := f.Fetch(a.context(), d.Git, fetchRef, defaultPath(d.Path), work)
 		if e != nil {
 			_ = os.RemoveAll(work)
 			fmt.Fprintf(a.Err, "update %s: %v\n", d.ID, e)
@@ -615,6 +708,10 @@ func (a *App) update(args []string) int {
 		if resolution.Kind == "tag" && entry.Commit != "" && entry.Commit != res.Commit {
 			advisories = append(advisories, fmt.Sprintf("tag %s moved from %s to %s", d.Ref, short(entry.Commit), short(res.Commit)))
 		}
+		oldManifest, _ := os.ReadFile(filepath.Join(cache.Dir(root, d.ID), "a2amodule.yml"))
+		if review && !bytes.Equal(oldManifest, res.Manifest) {
+			fmt.Fprint(a.Out, textDiff(d.ID+" manifest", oldManifest, res.Manifest))
+		}
 		sum := sha256.Sum256(res.Manifest)
 		stagedRoot := filepath.Join(work, "staged-cache")
 		if e = cache.Save(stagedRoot, d.ID, res.Manifest, res.Commit, res.Method); e != nil {
@@ -626,16 +723,36 @@ func (a *App) update(args []string) int {
 		for _, warning := range warnings {
 			advisories = append(advisories, fmt.Sprintf("warning: %s card snapshot: %v", d.ID, warning))
 		}
-		entry = manifest.LockedDependency{Git: d.Git, Ref: d.Ref, Path: defaultPath(d.Path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:]), Cards: cards, Surface: entry.Surface}
+		surfaceTree := ""
+		oldSurface := filepath.Join(cache.Dir(root, d.ID), "surface")
+		if depManifest.Module.Surface != "" {
+			if info, statErr := os.Stat(oldSurface); statErr == nil && info.IsDir() {
+				result, surfaceErr := f.Surface(a.context(), d.Git, res.Commit, defaultPath(d.Path), depManifest.Module.Surface, filepath.Join(cache.Dir(stagedRoot, d.ID), "surface"), filepath.Join(work, "surface-fetch"))
+				if surfaceErr != nil {
+					_ = os.RemoveAll(work)
+					fmt.Fprintf(a.Err, "update %s surface: %v\n", d.ID, surfaceErr)
+					return 1
+				}
+				surfaceTree = result.Tree
+				if review {
+					oldText := surfaceText(oldSurface)
+					newText := surfaceText(filepath.Join(cache.Dir(stagedRoot, d.ID), "surface"))
+					if !bytes.Equal(oldText, newText) {
+						fmt.Fprint(a.Out, textDiff(d.ID+" surface", oldText, newText))
+					}
+				}
+			}
+		}
+		entry = manifest.LockedDependency{Git: d.Git, Ref: d.Ref, Path: defaultPath(d.Path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:]), Cards: cards, Surface: surfaceTree}
 		preflight := filepath.Join(work, "preflight")
 		copyAdapterFiles(root, preflight)
-		if _, e = wireAll(context.Background(), preflight, d, depManifest, entry, false); e != nil {
+		if _, e = wireAll(a.context(), preflight, d, depManifest, entry, false); e != nil {
 			_ = os.RemoveAll(work)
 			fmt.Fprintf(a.Err, "update %s wiring preflight: %v; no files changed\n", d.ID, e)
 			return 1
 		}
 		snapshots := snapshotAdapterFiles(root)
-		outcomes, wireErr := wireAll(context.Background(), root, d, depManifest, entry, true)
+		outcomes, wireErr := wireAll(a.context(), root, d, depManifest, entry, true)
 		if wireErr != nil {
 			restoreAdapterFiles(root, snapshots)
 			_ = os.RemoveAll(work)
@@ -670,6 +787,9 @@ func (a *App) update(args []string) int {
 	}
 	if check && changed > 0 {
 		fmt.Fprintf(a.Err, "%d dependency update(s) available\n", changed)
+		for _, advisory := range advisories {
+			fmt.Fprintln(a.Err, advisory)
+		}
 		return 1
 	}
 	if changed == 0 {
@@ -698,7 +818,7 @@ func (a *App) snapshotCards(root, id, url, modulePath, commit string, m *manifes
 
 func (a *App) snapshotCardsTo(dir, url, modulePath, commit string, m *manifest.Manifest, f fetch.Fetcher) (map[string]string, []error) {
 	reader := func(cardPath string) ([]byte, error) {
-		return f.File(context.Background(), url, commit, path.Join(defaultPath(modulePath), cardPath))
+		return f.File(a.context(), url, commit, path.Join(defaultPath(modulePath), cardPath))
 	}
 	return a2a.Snapshot(m, dir, reader)
 }
@@ -739,24 +859,50 @@ func (a *App) remove(args []string) int {
 	}
 	if !keep {
 		depManifest, loadErr := manifest.Load(filepath.Join(cache.Dir(root, id), "a2amodule.yml"))
-		if loadErr == nil {
-			for _, implementation := range adapters.All() {
-				for _, exp := range depManifest.Module.Exports {
-					if exp.Ecosystem != implementation.Ecosystem() {
-						continue
-					}
-					ok, _, detectErr := implementation.Detect(root)
-					if detectErr != nil {
-						fmt.Fprintf(a.Err, "remove: %v\n", detectErr)
-						return 1
-					}
-					if !ok {
-						continue
-					}
-					if _, unwireErr := implementation.Unwire(context.Background(), root, m.Dependencies[idx], exp); unwireErr != nil {
-						fmt.Fprintf(a.Err, "remove: unwire %s: %v\n", exp.Ecosystem, unwireErr)
-						return 1
-					}
+		if loadErr != nil {
+			locked, lockErr := lockfile.Load(root)
+			if lockErr != nil {
+				fmt.Fprintf(a.Err, "remove: cannot recover wiring metadata for %s: %v\n", id, loadErr)
+				return 1
+			}
+			entry, ok := locked.Dependencies[id]
+			if !ok {
+				fmt.Fprintf(a.Err, "remove: cannot recover wiring metadata for %s: lock entry missing\n", id)
+				return 1
+			}
+			work, tempErr := os.MkdirTemp("", "git-a2a-remove-")
+			if tempErr != nil {
+				fmt.Fprintf(a.Err, "remove: %v\n", tempErr)
+				return 1
+			}
+			defer os.RemoveAll(work)
+			res, fetchErr := (fetch.Fetcher{Runner: a.runner()}).Fetch(a.context(), entry.Git, entry.Commit, defaultPath(entry.Path), work)
+			if fetchErr != nil {
+				fmt.Fprintf(a.Err, "remove: recover manifest for unwiring: %v\n", fetchErr)
+				return 1
+			}
+			depManifest, loadErr = manifest.Parse(res.Manifest)
+			if loadErr != nil {
+				fmt.Fprintf(a.Err, "remove: recovered manifest: %v\n", loadErr)
+				return 1
+			}
+		}
+		for _, implementation := range adapters.All() {
+			for _, exp := range depManifest.Module.Exports {
+				if exp.Ecosystem != implementation.Ecosystem() {
+					continue
+				}
+				ok, _, detectErr := implementation.Detect(root)
+				if detectErr != nil {
+					fmt.Fprintf(a.Err, "remove: %v\n", detectErr)
+					return 1
+				}
+				if !ok {
+					continue
+				}
+				if _, unwireErr := implementation.Unwire(a.context(), root, m.Dependencies[idx], exp); unwireErr != nil {
+					fmt.Fprintf(a.Err, "remove: unwire %s: %v\n", exp.Ecosystem, unwireErr)
+					return 1
 				}
 			}
 		}
@@ -830,19 +976,35 @@ func (a *App) show(args []string) int {
 				d = &own.Dependencies[i]
 			}
 		}
-		l, _ := lockfile.Load(root)
+		l, lockErr := lockfile.Load(root)
+		if lockErr != nil {
+			fmt.Fprintf(a.Err, "show: lock: %v\n", lockErr)
+			return 1
+		}
 		entry, ok := l.Dependencies[id]
 		if d == nil || !ok {
 			fmt.Fprintln(a.Err, "show: dependency is not locked")
 			return 2
 		}
-		names, e := (fetch.Fetcher{Runner: a.runner()}).Surface(context.Background(), d.Git, entry.Commit, defaultPath(d.Path), m.Module.Surface, filepath.Join(cache.Dir(root, id), "surface"))
+		work, workErr := os.MkdirTemp("", "git-a2a-surface-")
+		if workErr != nil {
+			fmt.Fprintf(a.Err, "show: surface: %v\n", workErr)
+			return 1
+		}
+		defer os.RemoveAll(work)
+		result, e := (fetch.Fetcher{Runner: a.runner()}).Surface(a.context(), d.Git, entry.Commit, defaultPath(d.Path), m.Module.Surface, filepath.Join(cache.Dir(root, id), "surface"), work)
 		if e != nil {
 			fmt.Fprintf(a.Err, "show: surface: %v\n", e)
 			return 1
 		}
-		sort.Strings(names)
-		for _, name := range names {
+		entry.Surface = result.Tree
+		l.Dependencies[id] = entry
+		if e := lockfile.Write(root, l); e != nil {
+			fmt.Fprintf(a.Err, "show: surface lock: %v\n", e)
+			return 1
+		}
+		sort.Strings(result.Files)
+		for _, name := range result.Files {
 			fmt.Fprintln(a.Out, name)
 		}
 	}
@@ -866,12 +1028,12 @@ func (a *App) format(args []string) int {
 		fmt.Fprintln(a.Err, "no manifest found")
 		return 2
 	}
-	m, err := manifest.Parse(original)
+	_, err = manifest.Parse(original)
 	if err != nil {
 		fmt.Fprintf(a.Err, "%s: %v\n", p, err)
 		return 1
 	}
-	formatted, err := manifest.Marshal(m)
+	formatted, err := manifest.Format(original)
 	if err != nil {
 		fmt.Fprintf(a.Err, "fmt: %v\n", err)
 		return 1

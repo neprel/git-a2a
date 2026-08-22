@@ -109,6 +109,10 @@ other than `v` plus that exact value and must pass build and tests before any pu
 On Windows a standalone-binary upgrade renames the running executable to an adjacent `.old`
 file before installing its replacement; a failed install restores it, and the next invocation
 removes the `.old` remnant best-effort.
+Homebrew and Scoop publication is optional and skipped when its repository token is absent;
+npm is likewise optional, while PyPI uses its protected GitHub environment and OIDC. winget is
+not automated in the first release: add it only after a stable package identity and publisher
+account exist. Prerelease tags are GitHub prereleases and never the `latest` release.
 
 # dep Reference CLI runtime dependencies
 

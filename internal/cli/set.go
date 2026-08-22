@@ -187,12 +187,12 @@ func (a *App) applySet(o setOptions) int {
 		fmt.Fprintf(a.Err, "set: lock: %v\n", err)
 		return 1
 	}
-	resolution, resolveErr := gitx.ResolveDetailed(context.Background(), a.runner(), next.Git, next.Ref)
+	resolution, resolveErr := gitx.ResolveDetailed(a.context(), a.runner(), next.Git, next.Ref)
 	if resolveErr != nil {
 		fmt.Fprintf(a.Err, "set: %v\n", resolveErr)
 		return 1
 	}
-	res, err := f.Fetch(context.Background(), next.Git, next.Ref, defaultPath(next.Path), filepath.Join(work, "new"))
+	res, err := f.Fetch(a.context(), next.Git, next.Ref, defaultPath(next.Path), filepath.Join(work, "new"))
 	if err != nil {
 		fmt.Fprintf(a.Err, "set: %v\n", err)
 		return 1
@@ -213,7 +213,7 @@ func (a *App) applySet(o setOptions) int {
 			fmt.Fprintf(a.Err, "set: old manifest unavailable and dependency %s is not locked\n", o.id)
 			return 1
 		}
-		oldRes, fetchErr := f.Fetch(context.Background(), oldEntry.Git, oldEntry.Commit, defaultPath(oldEntry.Path), filepath.Join(work, "old"))
+		oldRes, fetchErr := f.Fetch(a.context(), oldEntry.Git, oldEntry.Commit, defaultPath(oldEntry.Path), filepath.Join(work, "old"))
 		if fetchErr != nil {
 			fmt.Fprintf(a.Err, "set: restore old manifest from lock: %v\n", fetchErr)
 			return 1
@@ -233,7 +233,7 @@ func (a *App) applySet(o setOptions) int {
 	}
 	defer os.RemoveAll(preflight)
 	copyAdapterFiles(root, preflight)
-	if _, err = rewireSet(context.Background(), preflight, oldDep, next, oldManifest, nextManifest, locked, false); err != nil {
+	if _, err = rewireSet(a.context(), preflight, oldDep, next, oldManifest, nextManifest, locked, false); err != nil {
 		fmt.Fprintf(a.Err, "set: adapter cannot express change: %v; no files changed\n", err)
 		return 1
 	}
@@ -246,7 +246,7 @@ func (a *App) applySet(o setOptions) int {
 		return 0
 	}
 	snapshots := snapshotAdapterFiles(root)
-	outcomes, err := rewireSet(context.Background(), root, oldDep, next, oldManifest, nextManifest, locked, true)
+	outcomes, err := rewireSet(a.context(), root, oldDep, next, oldManifest, nextManifest, locked, true)
 	if err != nil {
 		restoreAdapterFiles(root, snapshots)
 		fmt.Fprintf(a.Err, "set: wiring failed and was rolled back: %v\n", err)

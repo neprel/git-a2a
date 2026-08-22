@@ -95,3 +95,27 @@ func TestWireConvertsInlineDependencyArraysOnly(t *testing.T) {
 		}
 	}
 }
+
+func TestWireUpdatesExistingPEP621GitPin(t *testing.T) {
+	root := t.TempDir()
+	oldCommit := strings.Repeat("a", 40)
+	newCommit := strings.Repeat("b", 40)
+	content := "[project]\nname = \"consumer\"\ndependencies = [\n  \"left-pad>=1\",\n  \"acme-lib @ git+https://example.test/acme/lib.git@" + oldCommit + "\",\n]\n"
+	if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dep := adapter.Dependency{Git: "https://mirror.example.test/acme/lib.git", Track: "locked"}
+	exp := adapter.Export{Ecosystem: "pypi", Name: "acme-lib"}
+	change, err := (Adapter{}).Wire(context.Background(), root, dep, exp, adapter.Locked{Git: dep.Git, Commit: newCommit})
+	if err != nil || !change.Changed {
+		t.Fatalf("change=%#v err=%v", change, err)
+	}
+	updated, readErr := os.ReadFile(filepath.Join(root, "pyproject.toml"))
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	got := string(updated)
+	if strings.Contains(got, oldCommit) || !strings.Contains(got, "git+"+dep.Git+"@"+newCommit) || !strings.Contains(got, "left-pad>=1") {
+		t.Fatalf("dependency was not updated minimally:\n%s", got)
+	}
+}

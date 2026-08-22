@@ -17,7 +17,7 @@ the way microservices take dependencies on services at runtime.
   `AGENTS.md`, answers "who do I ask about this and how", exports and validates A2A agent
   cards, and reports liveness and drift.
 
-Status: **specification draft, CLI not yet released.** The normative spec is
+Status: **early release.** The normative spec is
 [`spec/_.hint`](spec/_.hint) (read it with `hint spec`); worked examples are in
 [`spec/examples/`](spec/examples/). Agent cards follow the
 [A2A protocol](https://a2a-protocol.org/) v1.0; git-a2a adds semantics through the extension
@@ -42,6 +42,8 @@ go install github.com/neprel/git-a2a/cmd/git-a2a@latest
 go run github.com/neprel/git-a2a/cmd/git-a2a@latest --version
 curl -fsSL https://raw.githubusercontent.com/neprel/git-a2a/main/install.sh | sh
 brew install neprel/tap/git-a2a
+scoop bucket add git-a2a https://github.com/neprel/scoop-bucket
+scoop install git-a2a
 npx git-a2a --version
 uvx git-a2a --version
 ```
@@ -51,14 +53,24 @@ explicit release check and prints the correct update command for the install cha
 `version` never uses the network. `git-a2a upgrade` replaces the executable only for the
 standalone `binary` channel. Package-manager installations must be upgraded by that manager.
 
-For an agent container, copy a release binary into the image; no runtime is required:
+Linux packages are attached to each GitHub Release. After downloading the matching asset, use
+`sudo dpkg -i git-a2a_*.deb`, `sudo rpm -i git-a2a_*.rpm`, or `sudo apk add --allow-untrusted
+git-a2a_*.apk`. The scratch container can be run directly with `docker run --rm
+ghcr.io/neprel/git-a2a:0.1.0 version`.
+
+For an agent container, add the matching release archive; Docker extracts its `git-a2a` binary
+and no runtime is required:
 
 ```dockerfile
 ARG GIT_A2A_VERSION=1.0.0
-COPY git-a2a-${GIT_A2A_VERSION} /usr/local/bin/git-a2a
+ARG TARGETARCH
+ADD git-a2a_${GIT_A2A_VERSION}_linux_${TARGETARCH}.tar.gz /usr/local/bin/
 RUN chmod 0755 /usr/local/bin/git-a2a
 ```
 
 GitHub Releases contain archives for Darwin, Linux, and Windows on amd64 and arm64, checksums,
 SBOMs, deb/rpm/apk packages, and a `ghcr.io/neprel/git-a2a` scratch image. The npm and PyPI
 packages are convenience launchers and do not block a release.
+
+Maintainer setup, optional secrets, prerelease behavior, and signing limitations are documented
+in [`docs/releasing.md`](docs/releasing.md).

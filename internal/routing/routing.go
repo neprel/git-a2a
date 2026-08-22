@@ -1,6 +1,7 @@
 package routing
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"sort"
@@ -107,24 +108,34 @@ func glob(pattern, value string) bool {
 }
 
 func ContactText(c manifest.Contact) string {
+	var text string
 	switch c.Kind {
 	case "a2a":
-		return fmt.Sprintf("A2A %s", c.URL)
+		text = fmt.Sprintf("A2A %s", c.URL)
 	case "email":
-		return fmt.Sprintf("email %s", c.Address)
+		text = fmt.Sprintf("email %s", c.Address)
 	case "github-issue", "gitlab-issue":
-		text := fmt.Sprintf("%s %s", c.Kind, c.Repo)
+		text = fmt.Sprintf("%s %s", c.Kind, c.Repo)
 		if len(c.Labels) > 0 {
 			text += " labels=" + strings.Join(c.Labels, ",")
 		}
-		return text
 	case "jira":
-		return fmt.Sprintf("Jira %s project %s", c.URL, c.Project)
+		text = fmt.Sprintf("Jira %s project %s", c.URL, c.Project)
 	case "mattermost", "slack", "discord", "telegram", "teams":
-		return fmt.Sprintf("%s channel %s handle %s", c.Kind, c.Channel, c.Handle)
+		text = fmt.Sprintf("%s channel %s handle %s", c.Kind, c.Channel, c.Handle)
 	case "url":
-		return c.URL
+		text = c.URL
 	default:
-		return fmt.Sprintf("kind=%s", c.Kind)
+		text = fmt.Sprintf("kind=%s", c.Kind)
 	}
+	keys := make([]string, 0, len(c.Extensions))
+	for key := range c.Extensions {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		value, _ := json.Marshal(c.Extensions[key])
+		text += fmt.Sprintf(" %s=%s", key, value)
+	}
+	return text
 }

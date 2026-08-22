@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -69,7 +68,7 @@ func (a *App) wire(args []string) int {
 			dep.Wire = &selection
 		}
 		snapshots := snapshotAdapterFiles(root)
-		outcomes, wireErr := wireAll(context.Background(), root, dep, module, entry, true)
+		outcomes, wireErr := wireAll(a.context(), root, dep, module, entry, true)
 		if wireErr != nil {
 			restoreAdapterFiles(root, snapshots)
 			fmt.Fprintf(a.Err, "wire: %s failed and was rolled back: %v\n", original.ID, wireErr)

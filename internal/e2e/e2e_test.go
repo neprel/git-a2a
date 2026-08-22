@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/neprel/git-a2a/internal/cli"
+	"github.com/neprel/git-a2a/internal/gitx"
 	"github.com/neprel/git-a2a/internal/manifest"
 )
 
@@ -71,8 +73,11 @@ func TestAddUpdateCheckRemoveAgainstLocalBareRepository(t *testing.T) {
 	}
 	out.Reset()
 	errOut.Reset()
-	if code := app.Run([]string{"update"}); code != 0 {
+	if code := app.Run([]string{"update", "--review"}); code != 0 {
 		t.Fatalf("update exit %d: %s", code, errOut.String())
+	}
+	if !strings.Contains(out.String(), "--- acme-lib-utils manifest (locked)") || !strings.Contains(out.String(), "+x-revision: two") {
+		t.Fatalf("review diff missing:\n%s", out.String())
 	}
 	next, _ := manifest.LoadLock(filepath.Join(consumer, "a2amodule.lock"))
 	if next.Dependencies["acme-lib-utils"].Commit == old {
@@ -454,6 +459,281 @@ func TestCacheLossIsRecoverableBySetAndUpdate(t *testing.T) {
 		errOut.Reset()
 		if code := app.Run(args); code != 0 {
 			t.Fatalf("%v after repair exit %d: %s", args, code, errOut.String())
+		}
+	}
+}
+
+func TestShowSurfaceRecordsFetchedTreeInLock(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "source")
+	bare := filepath.Join(tmp, "library.git")
+	consumer := filepath.Join(tmp, "consumer")
+	mustMkdir(t, filepath.Join(source, "surface"))
+	git(t, source, "init", "-b", "main")
+	git(t, source, "config", "user.email", "test@example.com")
+	git(t, source, "config", "user.name", "Test")
+	mustWrite(t, filepath.Join(source, "a2amodule.yml"), []byte("schema: 1\nmodule:\n  id: acme-lib\n  surface: surface/\n  release:\n    channel: main\n"))
+	mustWrite(t, filepath.Join(source, "surface", "API.md"), []byte("public API\n"))
+	git(t, source, "add", "a2amodule.yml", "surface/API.md")
+	git(t, source, "commit", "-m", "surface")
+	wantTree := strings.TrimSpace(gitOutput(t, source, "rev-parse", "HEAD:surface"))
+	git(t, tmp, "clone", "--bare", source, bare)
+	mustMkdir(t, consumer)
+	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte("schema: 1\nmodule:\n  id: consumer\n"))
+	var out, errOut bytes.Buffer
+	app := cli.New(&out, &errOut)
+	app.Root = consumer
+	if code := app.Run([]string{"add", "file://" + bare, "--no-wire"}); code != 0 {
+		t.Fatalf("add exit %d: %s", code, errOut.String())
+	}
+	out.Reset()
+	errOut.Reset()
+	if code := app.Run([]string{"show", "acme-lib", "--surface"}); code != 0 {
+		t.Fatalf("show --surface exit %d: %s", code, errOut.String())
+	}
+	if !strings.Contains(out.String(), "API.md\n") {
+		t.Fatalf("surface listing missing: %q", out.String())
+	}
+	locked, err := manifest.LoadLock(filepath.Join(consumer, "a2amodule.lock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := locked.Dependencies["acme-lib"].Surface; got != "tree:"+wantTree {
+		t.Fatalf("surface lock = %q, want tree:%s", got, wantTree)
+	}
+	if body, err := os.ReadFile(filepath.Join(consumer, ".git-a2a", "cache", "acme-lib", "surface", "API.md")); err != nil || string(body) != "public API\n" {
+		t.Fatalf("surface body=%q err=%v", body, err)
+	}
+}
+
+func TestAddRemoteWithoutManifestReturnsNothingResolved(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "source")
+	bare := filepath.Join(tmp, "empty.git")
+	consumer := filepath.Join(tmp, "consumer")
+	mustMkdir(t, source)
+	git(t, source, "init", "-b", "main")
+	git(t, source, "config", "user.email", "test@example.com")
+	git(t, source, "config", "user.name", "Test")
+	mustWrite(t, filepath.Join(source, "README.md"), []byte("no manifest\n"))
+	git(t, source, "add", "README.md")
+	git(t, source, "commit", "-m", "no manifest")
+	git(t, tmp, "clone", "--bare", source, bare)
+	mustMkdir(t, consumer)
+	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte("schema: 1\nmodule: {id: consumer}\n"))
+	var out, errOut bytes.Buffer
+	app := cli.New(&out, &errOut)
+	app.Root = consumer
+	if code := app.Run([]string{"add", "file://" + bare}); code != 2 {
+		t.Fatalf("exit %d, want 2: %s", code, errOut.String())
+	}
+}
+
+func TestUpdateCheckPrintsAmbiguityAdvisoryBeforeReturning(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "source")
+	bare := filepath.Join(tmp, "library.git")
+	consumer := filepath.Join(tmp, "consumer")
+	mustMkdir(t, source)
+	git(t, source, "init", "-b", "main")
+	git(t, source, "config", "user.email", "test@example.com")
+	git(t, source, "config", "user.name", "Test")
+	mustWrite(t, filepath.Join(source, "a2amodule.yml"), []byte("schema: 1\nmodule: {id: acme-lib}\n"))
+	git(t, source, "add", "a2amodule.yml")
+	git(t, source, "commit", "-m", "one")
+	git(t, source, "tag", "release")
+	git(t, source, "branch", "release")
+	git(t, tmp, "clone", "--bare", source, bare)
+	mustMkdir(t, consumer)
+	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte("schema: 1\nmodule: {id: consumer}\n"))
+	var out, errOut bytes.Buffer
+	app := cli.New(&out, &errOut)
+	app.Root = consumer
+	if code := app.Run([]string{"add", "file://" + bare + "#release", "--no-wire"}); code != 0 {
+		t.Fatalf("add exit %d: %s", code, errOut.String())
+	}
+	mustWrite(t, filepath.Join(source, "a2amodule.yml"), []byte("schema: 1\nmodule: {id: acme-lib}\nx-revision: two\n"))
+	git(t, source, "add", "a2amodule.yml")
+	git(t, source, "commit", "-m", "two")
+	git(t, source, "tag", "-f", "release")
+	git(t, source, "push", bare, "main", "--force", "refs/tags/release")
+	out.Reset()
+	errOut.Reset()
+	if code := app.Run([]string{"update", "--check"}); code != 1 {
+		t.Fatalf("update --check exit %d: %s", code, errOut.String())
+	}
+	if !strings.Contains(errOut.String(), "dependency update(s) available") || !strings.Contains(errOut.String(), "ambiguous; selected refs/tags/release") {
+		t.Fatalf("check advisories missing:\n%s", errOut.String())
+	}
+}
+
+func TestRemoveDoesNotReportSuccessWhenMissingCacheCannotRecover(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "source")
+	bare := filepath.Join(tmp, "library.git")
+	consumer := filepath.Join(tmp, "consumer")
+	mustMkdir(t, source)
+	git(t, source, "init", "-b", "main")
+	git(t, source, "config", "user.email", "test@example.com")
+	git(t, source, "config", "user.name", "Test")
+	mustWrite(t, filepath.Join(source, "a2amodule.yml"), []byte("schema: 1\nmodule:\n  id: acme-lib\n  exports:\n    - ecosystem: npm\n      name: '@acme/lib'\n"))
+	git(t, source, "add", "a2amodule.yml")
+	git(t, source, "commit", "-m", "module")
+	git(t, tmp, "clone", "--bare", source, bare)
+	mustMkdir(t, consumer)
+	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte("schema: 1\nmodule: {id: consumer}\n"))
+	mustWrite(t, filepath.Join(consumer, "package.json"), []byte("{\"name\":\"consumer\",\"dependencies\":{}}\n"))
+	var out, errOut bytes.Buffer
+	app := cli.New(&out, &errOut)
+	app.Root = consumer
+	if code := app.Run([]string{"add", "file://" + bare}); code != 0 {
+		t.Fatalf("add exit %d: %s", code, errOut.String())
+	}
+	if err := os.RemoveAll(filepath.Join(consumer, ".git-a2a")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(bare); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	errOut.Reset()
+	if code := app.Run([]string{"remove", "acme-lib"}); code != 1 || strings.Contains(errOut.String(), "removed acme-lib") {
+		t.Fatalf("remove exit %d: %s", code, errOut.String())
+	}
+	own, err := manifest.Load(filepath.Join(consumer, "a2amodule.yml"))
+	if err != nil || len(own.Dependencies) != 1 {
+		t.Fatalf("dependency metadata changed: %#v err=%v", own, err)
+	}
+	packageBytes, readErr := os.ReadFile(filepath.Join(consumer, "package.json"))
+	if readErr != nil || !strings.Contains(string(packageBytes), "@acme/lib") {
+		t.Fatal("wiring was removed before recovery failed")
+	}
+}
+
+func TestPolyglotConsumerFullDependencyLifecycle(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "source")
+	original := filepath.Join(tmp, "original.git")
+	fork := filepath.Join(tmp, "fork.git")
+	consumer := filepath.Join(tmp, "consumer")
+	publicOriginal := "https://example.test/acme/lib.git"
+	publicFork := "https://mirror.example.test/acme/lib.git"
+	mustMkdir(t, source)
+	git(t, source, "init", "-b", "main")
+	git(t, source, "config", "user.email", "test@example.com")
+	git(t, source, "config", "user.name", "Test")
+	manifestOne := []byte("schema: 1\nmodule:\n  id: acme-lib\n  repository: " + publicOriginal + "\n  release:\n    channel: main\n  exports:\n    - ecosystem: npm\n      name: '@acme/lib'\n    - ecosystem: pypi\n      name: acme-lib\n    - ecosystem: golang\n      name: example.test/acme/lib\nagents:\n  - name: owner\n    role: owner\n    contacts:\n      - intents: ['*']\n        kind: url\n        url: https://owner.example.test/\n")
+	mustWrite(t, filepath.Join(source, "a2amodule.yml"), manifestOne)
+	git(t, source, "add", "a2amodule.yml")
+	git(t, source, "commit", "-m", "one")
+	git(t, tmp, "clone", "--bare", source, original)
+	git(t, tmp, "clone", "--bare", source, fork)
+	mustMkdir(t, consumer)
+	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte("# keep this comment\nschema: 1\nmodule:\n  id: consumer\n  description: >-\n    folded consumer description\n  languages: [typescript, python, go]\nx-local: \"keep quoted\"\n"))
+	mustWrite(t, filepath.Join(consumer, "package.json"), []byte("{\"name\":\"consumer\",\"dependencies\":{\"left-pad\":\"^1.0.0\"}}\n"))
+	mustWrite(t, filepath.Join(consumer, "pyproject.toml"), []byte("[project]\nname = \"consumer\"\ndependencies = []\n"))
+	mustWrite(t, filepath.Join(consumer, "go.mod"), []byte("module example.test/consumer\n\ngo 1.24\n"))
+	var out, errOut bytes.Buffer
+	app := cli.New(&out, &errOut)
+	app.Root = consumer
+	app.Runner = mappedLocalRunner{delegate: gitx.ExecRunner{}, remotes: map[string]string{
+		publicOriginal: "file://" + original,
+		publicFork:     "file://" + fork,
+	}}
+	var transcript strings.Builder
+	run := func(args ...string) string {
+		t.Helper()
+		out.Reset()
+		errOut.Reset()
+		fmt.Fprintf(&transcript, "$ git-a2a %s\n", strings.Join(args, " "))
+		if code := app.Run(args); code != 0 {
+			t.Fatalf("git-a2a %v exit %d\nstdout:\n%s\nstderr:\n%s", args, code, out.String(), errOut.String())
+		}
+		transcript.WriteString(out.String())
+		transcript.WriteString(errOut.String())
+		return out.String() + errOut.String()
+	}
+
+	run("add", publicOriginal)
+	assertPolyglotPins(t, consumer)
+	run("sync")
+	if text := run("status", "acme-lib", "--offline"); !strings.Contains(text, "npm clean, pypi clean, golang clean") {
+		t.Fatalf("polyglot status is not clean:\n%s", text)
+	}
+
+	mustWrite(t, filepath.Join(source, "a2amodule.yml"), append(manifestOne, []byte("x-revision: two\n")...))
+	git(t, source, "add", "a2amodule.yml")
+	git(t, source, "commit", "-m", "two")
+	git(t, source, "push", original, "main")
+	run("update", "--review")
+	assertPolyglotPins(t, consumer)
+	run("set", "acme-lib", "--git", publicFork)
+	assertPolyglotPins(t, consumer)
+	run("pin", "acme-lib")
+	run("unpin", "acme-lib", "--ref", "main")
+	run("remove", "acme-lib")
+
+	own, err := manifest.Load(filepath.Join(consumer, "a2amodule.yml"))
+	if err != nil || len(own.Dependencies) != 0 {
+		t.Fatalf("dependencies after remove: %#v err=%v", own, err)
+	}
+	manifestBytes, _ := os.ReadFile(filepath.Join(consumer, "a2amodule.yml"))
+	for _, preserved := range []string{"# keep this comment", "description: >-", "languages: [typescript, python, go]", `x-local: "keep quoted"`} {
+		if !strings.Contains(string(manifestBytes), preserved) {
+			t.Errorf("manifest lost %q:\n%s", preserved, manifestBytes)
+		}
+	}
+	packageBytes, _ := os.ReadFile(filepath.Join(consumer, "package.json"))
+	if got, want := string(packageBytes), "{\"name\":\"consumer\",\"dependencies\":{\"left-pad\":\"^1.0.0\"}}\n"; got != want {
+		t.Fatalf("package.json not restored\ngot  %s\nwant %s", got, want)
+	}
+	pyproject, _ := os.ReadFile(filepath.Join(consumer, "pyproject.toml"))
+	if strings.Contains(string(pyproject), "acme-lib") {
+		t.Fatalf("PyPI wiring remains:\n%s", pyproject)
+	}
+	goMod, _ := os.ReadFile(filepath.Join(consumer, "go.mod"))
+	if strings.Contains(string(goMod), "example.test/acme/lib") {
+		t.Fatalf("Go wiring remains:\n%s", goMod)
+	}
+	t.Logf("scenario output:\n%s", transcript.String())
+}
+
+type mappedLocalRunner struct {
+	delegate gitx.Runner
+	remotes  map[string]string
+}
+
+func (runner mappedLocalRunner) Run(ctx context.Context, dir string, stdin []byte, args ...string) ([]byte, error) {
+	mapped := append([]string(nil), args...)
+	for i, argument := range mapped {
+		for public, local := range runner.remotes {
+			if argument == public {
+				mapped[i] = local
+			} else if argument == "--remote="+public {
+				mapped[i] = "--remote=" + local
+			}
+		}
+	}
+	return runner.delegate.Run(ctx, dir, stdin, mapped...)
+}
+
+func assertPolyglotPins(t *testing.T, root string) {
+	t.Helper()
+	locked, err := manifest.LoadLock(filepath.Join(root, "a2amodule.lock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	commit := locked.Dependencies["acme-lib"].Commit
+	for _, test := range []struct {
+		file, pin string
+	}{
+		{"package.json", commit},
+		{"pyproject.toml", commit},
+		{"go.mod", commit[:12]},
+	} {
+		body, readErr := os.ReadFile(filepath.Join(root, test.file))
+		if readErr != nil || !strings.Contains(string(body), test.pin) {
+			t.Fatalf("%s does not contain locked pin %s: %v\n%s", test.file, test.pin, readErr, body)
 		}
 	}
 }

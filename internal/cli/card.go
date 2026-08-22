@@ -1,9 +1,9 @@
 package cli
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -103,10 +103,11 @@ func (a *App) cardExport(args []string) int {
 	}
 	repository := m.Module.Repository
 	if repository == "" {
-		if out, e := a.runner().Run(context.Background(), a.root(), nil, "config", "--get", "remote.origin.url"); e == nil {
+		if out, e := a.runner().Run(a.context(), a.root(), nil, "config", "--get", "remote.origin.url"); e == nil {
 			repository = strings.TrimSpace(string(out))
 		}
 	}
+	repository = stripURLUserinfo(repository)
 	ref := "HEAD"
 	if m.Module.Release != nil && m.Module.Release.Channel != "" {
 		ref = m.Module.Release.Channel
@@ -135,6 +136,15 @@ func (a *App) cardExport(args []string) int {
 	}
 	fmt.Fprintf(a.Err, "exported A2A v1.0 card for %s\n", agentName)
 	return 0
+}
+
+func stripURLUserinfo(raw string) string {
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.User == nil {
+		return raw
+	}
+	parsed.User = nil
+	return parsed.String()
 }
 
 func (a *App) cardShow(args []string) int {

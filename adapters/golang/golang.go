@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/neprel/git-a2a/internal/adapter"
@@ -23,7 +22,7 @@ func (Adapter) Detect(root string) (bool, adapter.Variant, error) {
 	return err == nil, "go", err
 }
 
-func (Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) (adapter.Change, error) {
+func (Adapter) Wire(ctx context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) (adapter.Change, error) {
 	p := filepath.Join(root, "go.mod")
 	b, err := os.ReadFile(p)
 	if err != nil {
@@ -35,39 +34,36 @@ func (Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp 
 		return adapter.Change{}, adapter.NotWirable(err.Error())
 	}
 	version := "v0.0.0-00010101000000-" + locked.Commit[:12]
-	if dep.Track == "floating" {
-		version = dep.Ref
-	}
-	next := upsertLine(s, "require", exp.Name, fmt.Sprintf("require %s v0.0.0", exp.Name))
+	args := []string{"mod", "edit"}
 	if source == exp.Name {
-		next = upsertLine(next, "require", exp.Name, fmt.Sprintf("require %s %s", exp.Name, version))
-		next = removeLine(next, "replace", exp.Name)
+		args = append(args, "-require="+exp.Name+"@"+version, "-dropreplace="+exp.Name)
 	} else {
-		next = upsertLine(next, "replace", exp.Name, fmt.Sprintf("replace %s => %s %s", exp.Name, source, version))
+		args = append(args, "-require="+exp.Name+"@v0.0.0", "-replace="+exp.Name+"="+source+"@"+version)
 	}
-	changed := next != s
-	if changed {
-		err = os.WriteFile(p, []byte(next), 0o644)
+	if err := adapter.Command(ctx, root, "go", args...); err != nil {
+		return adapter.Change{}, err
 	}
+	next, err := os.ReadFile(p)
+	changed := string(next) != s
 	return adapter.Change{File: "go.mod", Entry: exp.Name, Changed: changed}, err
 }
 
-func (Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, exp adapter.Export) (adapter.Change, error) {
+func (Adapter) Unwire(ctx context.Context, root string, _ adapter.Dependency, exp adapter.Export) (adapter.Change, error) {
 	p := filepath.Join(root, "go.mod")
 	b, err := os.ReadFile(p)
 	if err != nil {
 		return adapter.Change{}, err
 	}
 	s := string(b)
-	next := removeLine(removeLine(s, "require", exp.Name), "replace", exp.Name)
-	changed := next != s
-	if changed {
-		err = os.WriteFile(p, []byte(next), 0o644)
+	if err := adapter.Command(ctx, root, "go", "mod", "edit", "-droprequire="+exp.Name, "-dropreplace="+exp.Name); err != nil {
+		return adapter.Change{}, err
 	}
+	next, err := os.ReadFile(p)
+	changed := string(next) != s
 	return adapter.Change{File: "go.mod", Entry: exp.Name, Changed: changed}, err
 }
 func (Adapter) Refresh(ctx context.Context, root string, _ adapter.Dependency, _ adapter.Export, _ adapter.Locked) error {
-	return adapter.Command(ctx, root, "go", "mod", "tidy")
+	return nil
 }
 func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
 	b, err := os.ReadFile(filepath.Join(root, "go.mod"))
@@ -84,7 +80,7 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 	}
 	source, _ := sourceModule(locked.Git, exp.Path)
 	badURL := source != "" && !strings.Contains(strings.ToLower(line), strings.ToLower(source))
-	badPin := dep.Track != "floating" && !strings.Contains(line, prefix)
+	badPin := !strings.Contains(line, prefix)
 	if badURL || badPin {
 		return []adapter.Finding{{File: "go.mod", Entry: exp.Name, Want: prefix, Got: strings.TrimSpace(line)}}, nil
 	}
@@ -112,18 +108,24 @@ func sourceModule(raw, path string) (string, error) {
 	}
 	return hostPath, nil
 }
-func linePattern(kind, name string) *regexp.Regexp {
-	return regexp.MustCompile(`(?m)^\s*` + kind + `\s+` + regexp.QuoteMeta(name) + `(?:\s|$).*$`)
-}
-func upsertLine(s, kind, name, line string) string {
-	re := linePattern(kind, name)
-	if re.MatchString(s) {
-		return re.ReplaceAllString(s, line)
+func findLine(s, kind, name string) string {
+	inBlock := false
+	for _, line := range strings.Split(s, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 2 && fields[0] == kind && fields[1] == "(" {
+			inBlock = true
+			continue
+		}
+		if inBlock && len(fields) == 1 && fields[0] == ")" {
+			inBlock = false
+			continue
+		}
+		if inBlock && len(fields) >= 2 && fields[0] == name {
+			return line
+		}
+		if !inBlock && len(fields) >= 3 && fields[0] == kind && fields[1] == name {
+			return line
+		}
 	}
-	if !strings.HasSuffix(s, "\n") {
-		s += "\n"
-	}
-	return s + line + "\n"
+	return ""
 }
-func removeLine(s, kind, name string) string { return linePattern(kind, name).ReplaceAllString(s, "") }
-func findLine(s, kind, name string) string   { return linePattern(kind, name).FindString(s) }
