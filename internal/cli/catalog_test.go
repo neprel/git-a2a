@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/neprel/git-a2a/internal/catalog"
@@ -36,5 +37,33 @@ func TestCatalogExportMatchesARDGolden(t *testing.T) {
 		if entry.Type != catalog.A2AAgentCardType {
 			t.Fatalf("entry type = %q", entry.Type)
 		}
+	}
+}
+
+func TestCatalogExportUsesDefaultBranchAndNeverHEAD(t *testing.T) {
+	root := t.TempDir()
+	manifest := "schema: 1\nmodule:\n  id: demo\n  repository: https://example.test/acme/demo.git\nagents:\n  - name: owner\n    role: owner\n    contacts:\n      - intents: [question]\n        kind: a2a\n        url: https://agent.example.test/\n"
+	if err := os.WriteFile(filepath.Join(root, "a2amodule.yml"), []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out, errOut bytes.Buffer
+	app := New(&out, &errOut)
+	app.Root = root
+	app.Runner = scriptedGitRunner{output: []byte("ref: refs/heads/main\tHEAD\n2222222222222222222222222222222222222222\tHEAD\n")}
+	if code := app.Run([]string{"catalog", "export"}); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	if !strings.Contains(out.String(), `"ref": "main"`) || strings.Contains(out.String(), `"ref": "HEAD"`) {
+		t.Fatalf("catalog ref was not resolved:\n%s", out.String())
+	}
+
+	out.Reset()
+	errOut.Reset()
+	app.Runner = scriptedGitRunner{err: os.ErrNotExist}
+	if code := app.Run([]string{"catalog", "export"}); code != 0 {
+		t.Fatalf("unresolved default exit %d: %s", code, errOut.String())
+	}
+	if strings.Contains(out.String(), `"ref"`) {
+		t.Fatalf("unresolved default ref must be omitted:\n%s", out.String())
 	}
 }

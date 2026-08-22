@@ -29,7 +29,7 @@ func (Adapter) Detect(root string) (bool, adapter.Variant, error) {
 	if _, err := os.Stat(filepath.Join(root, "uv.lock")); err == nil || strings.Contains(s, "[tool.uv") {
 		return true, "uv", nil
 	}
-	if _, err := os.Stat(filepath.Join(root, "poetry.lock")); err == nil {
+	if _, err := os.Stat(filepath.Join(root, "poetry.lock")); err == nil || regexp.MustCompile(`(?m)^\[tool\.poetry\.dependencies\][ \t]*$`).MatchString(s) {
 		return true, "poetry", nil
 	}
 	if _, err := os.Stat(filepath.Join(root, "pdm.lock")); err == nil {
@@ -51,6 +51,14 @@ func (a Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, ex
 	s := string(b)
 	if exp.Path != "" && exp.Path != "." && v != "uv" {
 		return adapter.Change{}, adapter.NotWirable(fmt.Sprintf("%s cannot express subdirectory %s", v, exp.Path))
+	}
+	if v == "poetry" {
+		value := fmt.Sprintf("{ git = %q, rev = %q }", dep.Git, pin(dep, locked))
+		next, changed, err := upsertTableEntry(s, "tool.poetry.dependencies", exp.Name, value)
+		if err == nil && changed {
+			err = os.WriteFile(p, []byte(next), 0o644)
+		}
+		return adapter.Change{File: "pyproject.toml", Entry: exp.Name, Changed: changed}, err
 	}
 	requirement := exp.Name
 	if v != "uv" {
@@ -80,6 +88,8 @@ func (a Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, ex
 	}
 	s, changed := removeDependency(string(b), exp.Name)
 	s, c := removeUVSource(s, exp.Name)
+	changed = changed || c
+	s, c = removeTableEntry(s, "tool.poetry.dependencies", exp.Name)
 	changed = changed || c
 	if changed {
 		err = os.WriteFile(p, []byte(s), 0o644)
@@ -177,7 +187,8 @@ func ensureProjectDependency(s, requirement, name string) (string, bool, error) 
 	body := s[start:end]
 	prefixStart, open, close, ok := dependencyArrayRange(body)
 	if !ok {
-		return "", false, fmt.Errorf("pyproject.toml: [project].dependencies array is required")
+		block := "\n# git-a2a:begin dependencies " + name + "\ndependencies = [" + strconv.Quote(requirement) + "]\n# git-a2a:end dependencies " + name + "\n"
+		return s[:end] + block + s[end:], true, nil
 	}
 	items := body[open+1 : close]
 	for _, item := range quotedItems(items) {
@@ -330,6 +341,10 @@ func upsertUVSource(s, name, value string) (string, bool) {
 }
 
 func removeDependency(s, name string) (string, bool) {
+	managed := regexp.MustCompile(`(?ms)\n# git-a2a:begin dependencies ` + regexp.QuoteMeta(name) + `\n.*?^# git-a2a:end dependencies ` + regexp.QuoteMeta(name) + `\n`)
+	if managed.MatchString(s) {
+		return managed.ReplaceAllString(s, ""), true
+	}
 	start, end, ok := section(s, "project")
 	if !ok {
 		return s, false
@@ -341,6 +356,49 @@ func removeDependency(s, name string) (string, bool) {
 	}
 	body = re.ReplaceAllString(body, "")
 	return s[:start] + body + s[end:], true
+}
+
+func upsertTableEntry(s, table, name, value string) (string, bool, error) {
+	start, end, ok := section(s, table)
+	if !ok {
+		return "", false, fmt.Errorf("pyproject.toml: [%s] table is required", table)
+	}
+	body := s[start:end]
+	line := tomlKey(name) + " = " + value
+	re := regexp.MustCompile(`(?m)^[ \t]*` + tomlKeyPattern(name) + `[ \t]*=.*$`)
+	if old := re.FindString(body); old != "" {
+		if strings.TrimSpace(old) == line {
+			return s, false, nil
+		}
+		body = re.ReplaceAllString(body, line)
+	} else {
+		if !strings.HasSuffix(body, "\n") {
+			body += "\n"
+		}
+		body += line + "\n"
+	}
+	return s[:start] + body + s[end:], true, nil
+}
+
+func removeTableEntry(s, table, name string) (string, bool) {
+	start, end, ok := section(s, table)
+	if !ok {
+		return s, false
+	}
+	body := s[start:end]
+	re := regexp.MustCompile(`(?m)^[ \t]*` + tomlKeyPattern(name) + `[ \t]*=.*\n?`)
+	if !re.MatchString(body) {
+		return s, false
+	}
+	body = re.ReplaceAllString(body, "")
+	return s[:start] + body + s[end:], true
+}
+
+func tomlKey(name string) string {
+	if regexp.MustCompile(`^[A-Za-z0-9_-]+$`).MatchString(name) {
+		return name
+	}
+	return strconv.Quote(name)
 }
 func removeUVSource(s, name string) (string, bool) {
 	start, end, ok := section(s, "tool.uv.sources")

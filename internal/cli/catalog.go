@@ -42,7 +42,14 @@ func (a *App) catalog(args []string) int {
 		}
 	}
 	repository = stripURLUserinfo(repository)
-	value, err := catalog.Build(m, root, repository)
+	ref := ""
+	for _, agent := range m.Agents {
+		if agent.Card == "" {
+			ref = a.exportRef(m, repository)
+			break
+		}
+	}
+	value, err := catalog.Build(m, root, repository, ref)
 	if err != nil {
 		fmt.Fprintf(a.Err, "catalog export: %v\n", err)
 		return 2

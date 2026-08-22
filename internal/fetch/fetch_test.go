@@ -66,7 +66,7 @@ func TestArchiveSelectedFirst(t *testing.T) {
 	if got.Method != "archive" || !bytes.Equal(got.Manifest, body) {
 		t.Fatalf("got %#v", got)
 	}
-	if len(r.calls) != 2 {
+	if len(r.calls) != 3 {
 		t.Fatalf("calls: %v", r.calls)
 	}
 }

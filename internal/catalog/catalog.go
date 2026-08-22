@@ -37,7 +37,7 @@ type Entry struct {
 	Data        map[string]any `json:"data,omitempty"`
 }
 
-func Build(module *manifest.Manifest, root, repository string) (*Catalog, error) {
+func Build(module *manifest.Manifest, root, repository, ref string) (*Catalog, error) {
 	publisher, namespace, err := repositoryIdentity(repository)
 	if err != nil {
 		return nil, err
@@ -47,10 +47,6 @@ func Build(module *manifest.Manifest, root, repository string) (*Catalog, error)
 		displayName = module.Module.ID
 	}
 	result := &Catalog{SpecVersion: SpecVersion, Host: Host{DisplayName: displayName, Identifier: publisher}}
-	ref := "HEAD"
-	if module.Module.Release != nil && module.Module.Release.Channel != "" {
-		ref = module.Module.Release.Channel
-	}
 	for _, agent := range module.Agents {
 		entry := Entry{
 			Identifier:  "urn:air:" + publisher + ":" + namespace + ":" + segment(agent.Name),

@@ -1,0 +1,90 @@
+{:paths ["src" "resources"]
+ :deps
+ {com.cognitect/transit-clj  {:mvn/version "1.1.357"}
+  com.cognitect/transit-cljs {:mvn/version "0.8.280"}
+  org.clojure/data.json      {:mvn/version "2.4.0"}
+  http-kit/http-kit          {:mvn/version "2.7.0"}
+  com.google.code.gson/gson  {:mvn/version "2.10.1"}}
+;;  :deps/prep-lib
+;;  {:ensure "resources/portal"
+;;   :alias  :build
+;;   :fn     prep}
+ :aliases
+ {:dev
+  {:extra-paths ["dev" "test"]
+   :extra-deps
+   {org.clojure/clojure           {:mvn/version  "1.12.4"}
+    babashka/process              {:mvn/version "0.6.25"}
+    hiccup/hiccup                 {:mvn/version "2.0.0"}
+    io.aviso/pretty               {:mvn/version "1.4.4"}
+    io.github.clojure/tools.build {:git/tag "v0.10.13"
+                                   :git/sha "ae52edf"
+                                   :exclusions [com.google.guava/guava]}
+    io.github.djblue/tetris       {:git/url "https://github.com/djblue/tetris.git"
+                                   :git/sha "d40ae6b96f918ab7bb7f09ac071f77ca086e8b7f"}
+    com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.7.0"}}
+   :jvm-opts ["-Djdk.attach.allowAttachSelf=true"]}
+  :plk
+  {:extra-deps {planck/planck {:mvn/version "2.27.0"}}}
+  :cljs
+  {:extra-deps
+   {org.clojure/clojurescript {:mvn/version "1.12.134"}
+    lambdaisland/deep-diff2   {:mvn/version "2.12.219"}
+    org.babashka/sci          {:mvn/version "0.12.51"}
+    reagent/reagent           {:mvn/version "2.0.1"}
+    io.github.babashka/sci.configs
+    {:git/url "https://github.com/babashka/sci.configs"
+     :git/sha "a785be2090991bf99ddc1c8cb4923a7217f6e098"}}}
+  :shadow
+  {:jvm-opts ["-Xss16m"]
+   :extra-deps
+   {thheller/shadow-cljs {:mvn/version "3.3.6"}}}
+  :build
+  {:extra-paths ["src" "dev" "resources"]
+   :ns-default  tasks.build
+   :extra-deps  {babashka/babashka {:mvn/version "1.12.217"}
+                 babashka/fs       {:mvn/version "0.5.32"}
+                 ;; need to duplicate main deps here for prep build
+                 com.cognitect/transit-clj  {:mvn/version "1.0.333"}
+                 com.cognitect/transit-cljs {:mvn/version "0.8.280"}
+                 org.clojure/data.json      {:mvn/version "2.5.0"}
+                 http-kit/http-kit          {:mvn/version "2.7.0"}
+                 com.google.code.gson/gson  {:mvn/version "2.10.1"}}}
+  :deploy
+  {:replace-deps {slipset/deps-deploy {:mvn/version "0.2.2"}}
+   :exec-fn      deps-deploy.deps-deploy/deploy}
+  :edn  {:main-opts ["-m" "portal.main" "edn"]}
+  :json {:main-opts ["-m" "portal.main" "json"]}
+  :kondo
+  {:extra-paths ["dev"]
+   :main-opts   ["-m" "tasks.kondo"]
+   :extra-deps  {clj-kondo/clj-kondo {:mvn/version "2026.04.15"}}}
+  :cljfmt
+  {:main-opts  ["-m" "cljfmt.main"]
+   :extra-deps {dev.weavejester/cljfmt {:mvn/version "0.16.3"}}}
+  :cider
+  {:extra-deps
+   {nrepl/nrepl       {:mvn/version "1.6.0"}
+    cider/cider-nrepl {:mvn/version "0.58.0"}}}
+  :check
+  {:extra-paths ["dev"]
+   :main-opts ["-m" "tasks.load"]
+   :override-deps
+   {org.clojure/clojure {:mvn/version "1.10.0"}}}
+  :test
+  {:extra-paths ["test"]
+   :extra-deps
+   {babashka/clj-http-lite
+    {:git/url "https://github.com/babashka/clj-http-lite.git"
+     :sha     "6ad6d6333d2e9baf1644a870072c12f206a9b722"}}
+   :override-deps
+   {org.clojure/clojure {:mvn/version "1.10.0"}}}
+  :coverage
+  {:extra-deps
+   {cloverage/cloverage {:mvn/version "1.2.4"}}}
+  :antq
+  {:replace-deps
+   {com.github.liquidz/antq {:mvn/version "2.11.1276"}
+    org.slf4j/slf4j-nop     {:mvn/version "2.0.17"}}}
+  :yaml
+  {:extra-deps {clj-commons/clj-yaml {:mvn/version "1.0.29"}}}}}

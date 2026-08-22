@@ -45,7 +45,7 @@ func (f Fetcher) Fetch(ctx context.Context, url, ref, modulePath, work string) (
 	}
 	commit := resolution.Commit
 	manifestPath := path.Join(modulePath, "a2amodule.yml")
-	if b, err := f.archive(ctx, url, commit, manifestPath); err == nil {
+	if b, err := f.archiveResolved(ctx, url, resolution, manifestPath); err == nil {
 		return Result{Manifest: b, Commit: commit, Ref: resolution.FullRef, Method: "archive"}, nil
 	}
 	if b, err := f.sparse(ctx, url, commit, manifestPath, work); err == nil {
@@ -79,24 +79,66 @@ func (f Fetcher) archive(ctx context.Context, url, commit, manifestPath string) 
 	return nil, fmt.Errorf("%s not present in archive", manifestPath)
 }
 
-func (f Fetcher) File(ctx context.Context, url, commit, filePath string) ([]byte, error) {
-	filePath = path.Clean(filePath)
-	if b, err := f.archive(ctx, url, commit, filePath); err == nil {
-		return b, nil
-	}
-	work, err := os.MkdirTemp("", "git-a2a-file-")
+func (f Fetcher) archiveResolved(ctx context.Context, url string, resolution gitx.Resolution, filePath string) ([]byte, error) {
+	body, err := f.archive(ctx, url, resolution.FullRef, filePath)
 	if err != nil {
 		return nil, err
 	}
-	defer os.RemoveAll(work)
+	confirmed, err := gitx.ResolveDetailed(ctx, f.Runner, url, resolution.FullRef)
+	if err != nil || confirmed.Commit != resolution.Commit {
+		return nil, fmt.Errorf("remote ref moved while archive was read")
+	}
+	return body, nil
+}
+
+func (f Fetcher) File(ctx context.Context, url, commit, filePath string) ([]byte, error) {
+	result, err := f.fileAtCommit(ctx, url, commit, filePath, "")
+	return result.Manifest, err
+}
+
+// FetchFile resolves ref and returns a single file together with the strategy
+// used. It is primarily useful for conformance checks of real git hosts.
+func (f Fetcher) FetchFile(ctx context.Context, url, ref, filePath, work string) (Result, error) {
+	resolution, err := gitx.ResolveDetailed(ctx, f.Runner, url, ref)
+	if err != nil {
+		return Result{}, err
+	}
+	if body, archiveErr := f.archiveResolved(ctx, url, resolution, path.Clean(filePath)); archiveErr == nil {
+		return Result{Manifest: body, Commit: resolution.Commit, Ref: resolution.FullRef, Method: "archive"}, nil
+	}
+	result, err := f.fileAtCommit(ctx, url, resolution.Commit, filePath, work)
+	if err != nil {
+		return Result{}, err
+	}
+	result.Ref = resolution.FullRef
+	return result, nil
+}
+
+func (f Fetcher) fileAtCommit(ctx context.Context, url, commit, filePath, work string) (Result, error) {
+	filePath = path.Clean(filePath)
+	if b, err := f.archive(ctx, url, commit, filePath); err == nil {
+		return Result{Manifest: b, Commit: commit, Method: "archive"}, nil
+	}
+	cleanup := false
+	if work == "" {
+		var err error
+		work, err = os.MkdirTemp("", "git-a2a-file-")
+		if err != nil {
+			return Result{}, err
+		}
+		cleanup = true
+	}
+	if cleanup {
+		defer os.RemoveAll(work)
+	}
 	if b, err := f.sparse(ctx, url, commit, filePath, work); err == nil {
-		return b, nil
+		return Result{Manifest: b, Commit: commit, Method: "sparse"}, nil
 	}
 	b, err := f.shallow(ctx, url, commit, filePath, work)
 	if err != nil {
-		return nil, fmt.Errorf("fetch file: archive, sparse, and shallow strategies failed: %w", err)
+		return Result{}, fmt.Errorf("fetch file: archive, sparse, and shallow strategies failed: %w", err)
 	}
-	return b, nil
+	return Result{Manifest: b, Commit: commit, Method: "shallow"}, nil
 }
 
 func (f Fetcher) sparse(ctx context.Context, url, commit, manifestPath, work string) ([]byte, error) {

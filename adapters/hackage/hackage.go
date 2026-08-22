@@ -71,6 +71,12 @@ func (a Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, ex
 	if loc == nil {
 		return adapter.Change{File: file, Entry: exp.Name}, nil
 	}
+	if variant == "stack" {
+		created := regexp.MustCompile(`(?m)^extra-deps:[ \t]*# git-a2a:created ` + regexp.QuoteMeta(exp.Name) + `\n`)
+		if header := created.FindIndex(body); header != nil {
+			loc[0] = header[0]
+		}
+	}
 	if variant == "cabal" && loc[0] > 0 && body[loc[0]-1] == '\n' {
 		loc[0]--
 	}
@@ -159,7 +165,7 @@ func upsert(document, name, comment, block string, variant adapter.Variant) (str
 		if strings.HasSuffix(document, "\n") {
 			separator = ""
 		}
-		return document + separator + "extra-deps:\n" + managed, true, nil
+		return document + separator + "extra-deps: # git-a2a:created " + name + "\n" + managed, true, nil
 	}
 	_ = start
 	return document[:end] + managed + document[end:], true, nil

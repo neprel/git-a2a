@@ -4,6 +4,8 @@ The Cargo adapter owns one entry in `[dependencies]`. Locked wiring writes the f
 as `rev`; floating wiring writes the declared ref as `branch`. Cargo discovers a named crate
 anywhere in the Git repository, so an export subdirectory does not become a Cargo `path` key.
 Unrelated TOML text and dependency entries remain byte-for-byte unchanged.
+If `[dependencies]` is absent, the adapter creates it inside a delimited block; unwire removes
+the block as a unit instead of leaving an empty table.
 
 # decision Cargo.lock stays downstream
 

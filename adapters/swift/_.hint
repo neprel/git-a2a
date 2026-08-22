@@ -4,6 +4,10 @@ The Swift adapter edits one `.package(url:..., revision:...)` expression in the 
 `Package(dependencies:)` array. Locked dependencies use `revision`; floating dependencies use
 `branch`. The export name identifies status output; SwiftPM derives package identity from the
 Git URL. `Package.resolved` remains downstream because resolving can rewrite unrelated pins.
+Only a `dependencies:` argument at the outer `Package(...)` call depth is eligible; target
+dependency arrays with the same label are never edited. Insertions are delimited and remember
+an added separator, empty array, or newly created top-level argument so unwire restores the
+original Swift source bytes.
 
 # invariant Source moves remove the old Swift identity
 

@@ -1,0 +1,15 @@
+packages:
+  hspec-meta
+  hspec.cabal
+  hspec-discover
+  hspec-core
+  hspec-api
+  hspec-contrib
+  hspec-discover/example
+  hspec-discover/integration-test
+  doc/_includes/formatter/discover
+
+program-options
+  ghc-options: -Werror
+
+tests: True

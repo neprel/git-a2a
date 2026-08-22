@@ -22,7 +22,11 @@ func CommandOutput(ctx context.Context, root, name string, args ...string) ([]by
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("%s %s: %w: %s", name, strings.Join(args, " "), err, strings.TrimSpace(stderr.String()))
+		detail := strings.TrimSpace(stderr.String())
+		if detail == "" {
+			detail = strings.TrimSpace(stdout.String())
+		}
+		return nil, fmt.Errorf("%s %s: %w: %s", name, strings.Join(args, " "), err, detail)
 	}
 	return stdout.Bytes(), nil
 }

@@ -81,6 +81,16 @@ type Signature struct {
 	Header    map[string]any `json:"header,omitempty"`
 }
 
+// LocationError reports that a card location could not be retrieved. It is
+// distinct from errors returned while parsing or validating retrieved bytes.
+type LocationError struct {
+	Location string
+	Err      error
+}
+
+func (e *LocationError) Error() string { return e.Location + ": " + e.Err.Error() }
+func (e *LocationError) Unwrap() error { return e.Err }
+
 func Read(location, base string) (map[string]any, []byte, error) {
 	var b []byte
 	var err error
@@ -88,18 +98,22 @@ func Read(location, base string) (map[string]any, []byte, error) {
 		client := &http.Client{Timeout: 3 * time.Second}
 		resp, e := client.Get(location)
 		if e != nil {
-			return nil, nil, e
+			return nil, nil, &LocationError{Location: location, Err: e}
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			return nil, nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+			return nil, nil, &LocationError{Location: location, Err: fmt.Errorf("HTTP %d", resp.StatusCode)}
 		}
 		b, err = io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 	} else {
-		b, err = os.ReadFile(filepath.Join(base, filepath.FromSlash(location)))
+		path := filepath.FromSlash(location)
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(base, path)
+		}
+		b, err = os.ReadFile(path)
 	}
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, &LocationError{Location: location, Err: err}
 	}
 	card, err := Parse(b)
 	return card, b, err
@@ -278,7 +292,11 @@ func Export(base map[string]any, binding Binding) (map[string]any, error) {
 	if len(scope) == 0 {
 		scope = []string{"**"}
 	}
-	extensions = append(extensions, map[string]any{"uri": ExtensionURI, "required": false, "params": map[string]any{"module": binding.Module, "repository": binding.Repository, "role": binding.Agent.Role, "scope": scope, "ref": binding.Ref}})
+	params := map[string]any{"module": binding.Module, "repository": binding.Repository, "role": binding.Agent.Role, "scope": scope}
+	if binding.Ref != "" {
+		params["ref"] = binding.Ref
+	}
+	extensions = append(extensions, map[string]any{"uri": ExtensionURI, "required": false, "params": params})
 	capabilities["extensions"] = extensions
 	if err := Validate(card); err != nil {
 		return nil, err

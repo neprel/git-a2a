@@ -1,0 +1,255 @@
+// swift-tools-version:6.2
+import PackageDescription
+import CompilerPluginSupport
+
+let package = Package(
+    name: "vapor",
+    platforms: [
+        .macOS("26.2"),
+        .iOS("26.2"),
+        .tvOS("26.2"),
+        .watchOS("26.2"),
+    ],
+    products: [
+        .library(name: "Vapor", targets: ["Vapor"]),
+        .library(name: "VaporTesting", targets: ["VaporTesting"]),
+        .library(name: "VaporMacros", targets: ["VaporMacros"]),
+    ],
+    traits: [
+        .trait(name: "WebSockets"),
+        .trait(name: "bcrypt"),
+        .trait(name: "HTTPClient"),
+        .trait(name: "Multipart"),
+        .trait(name: "MacroRouting"),
+        .default(enabledTraits: [
+            "WebSockets",
+            "bcrypt",
+            "HTTPClient",
+            "Multipart",
+            "MacroRouting",
+        ]),
+    ],
+    dependencies: [
+        // HTTP client library built on SwiftNIO
+        .package(url: "https://github.com/swift-server/async-http-client.git", from: "1.24.0"),
+
+        // 💻 APIs for creating interactive CLI tools.
+        .package(url: "https://github.com/vapor/console-kit.git", from: "5.0.0-beta"),
+
+        // API package for reading configuration.
+        .package(url: "https://github.com/apple/swift-configuration.git", from: "1.0.0", traits: ["CommandLineArguments"]),
+
+        // 🔑 Hashing (SHA2, HMAC), encryption (AES), public-key (RSA), and random data generation.
+        .package(url: "https://github.com/apple/swift-crypto.git", from: "4.0.0"),
+
+        // 🚍 High-performance trie-node router.
+        .package(url: "https://github.com/vapor/routing-kit.git", from: "5.0.0-beta"),
+
+        // Event-driven network application framework for high performance protocol servers & clients, non-blocking.
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.101.3"),
+
+        // Bindings to OpenSSL-compatible libraries for TLS support in SwiftNIO.
+        // Test-only: `HTTPClient.Configuration.tlsConfiguration` is a `NIOSSL.TLSConfiguration`, so the
+        // server TLS tests need it to pin trust roots. Vapor itself does not depend on NIOSSL.
+        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.37.2"),
+
+        // Useful code around SwiftNIO.
+        .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.34.3"),
+
+        // Swift logging API
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.14.0"),
+
+        // Swift metrics API
+        .package(url: "https://github.com/apple/swift-metrics.git", from: "2.5.0"),
+
+        // Swift tracing API
+        .package(url: "https://github.com/apple/swift-distributed-tracing.git", from: "1.1.0"),
+
+        // Swift service context
+        .package(url: "https://github.com/apple/swift-service-context.git", from: "1.0.0"),
+
+        // Common algorithms
+        .package(url: "https://github.com/apple/swift-algorithms.git", from: "1.0.0"),
+
+        // WebSocket client library built on SwiftNIO
+        // Disable until websockets are working
+//        .package(url: "https://github.com/vapor/websocket-kit.git", from: "2.13.0"),
+
+        // MultipartKit, Multipart encoding and decoding
+        .package(url: "https://github.com/vapor/multipart-kit.git", from: "5.0.0-beta.1"),
+
+        // Low-level atomic operations
+        .package(url: "https://github.com/apple/swift-atomics.git", from: "1.1.0"),
+
+        // Service Lifecycle Management
+        .package(url: "https://github.com/swift-server/swift-service-lifecycle.git", from: "2.6.3"),
+
+        // Swift Types for HTTP Requests
+        .package(url: "https://github.com/apple/swift-http-types", from: "1.0.0"),
+
+        // Common data structures
+        .package(url: "https://github.com/apple/swift-collections", from: "1.2.1"),
+
+        // X509 certificate types for the Swift ecosystem
+        .package(url: "https://github.com/apple/swift-certificates.git", from: "1.14.0"),
+
+        // Work with certificate encoding schemes
+        .package(url: "https://github.com/apple/swift-asn1.git", from: "1.0.0"),
+
+        // Swift syntax parsing and generation
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "602.0.0"),
+
+        // HTTP Server for low level request and response handling
+        .package(url: "https://github.com/swift-server/swift-http-server.git", revision: "13b8e725554b5d10dbf704f9abc39d7c1c80b30a"),
+    ],
+    targets: [
+        // Vapor
+        .target(
+            name: "Vapor",
+            dependencies: [
+                .product(name: "AsyncHTTPClient", package: "async-http-client", condition: .when(traits: ["HTTPClient"])),
+                .product(name: "ConsoleLogger", package: "console-kit"),
+                .product(name: "Configuration", package: "swift-configuration"),
+                .product(name: "Logging", package: "swift-log"),
+                .product(name: "Metrics", package: "swift-metrics"),
+                .product(name: "Tracing", package: "swift-distributed-tracing"),
+                .product(name: "ServiceContextModule", package: "swift-service-context"),
+                .product(name: "NIO", package: "swift-nio"),
+                .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
+                .product(name: "NIOCore", package: "swift-nio"),
+                .product(name: "NIOFoundationEssentialsCompat", package: "swift-nio"),
+                .product(name: "NIOHTTPCompression", package: "swift-nio-extras"),
+                .product(name: "NIOHTTP1", package: "swift-nio"),
+                .product(name: "NIOWebSocket", package: "swift-nio", condition: .when(traits: ["WebSockets"])),
+                .product(name: "Crypto", package: "swift-crypto"),
+                .product(name: "Algorithms", package: "swift-algorithms"),
+                .product(name: "RoutingKit", package: "routing-kit"),
+                // Disable until websockets are working
+                //.product(name: "WebSocketKit", package: "websocket-kit", condition: .when(traits: ["WebSockets"])),
+                .product(name: "MultipartKit", package: "multipart-kit", condition: .when(traits: ["Multipart"])),
+                .product(name: "Atomics", package: "swift-atomics"),
+                .product(name: "_NIOFileSystem", package: "swift-nio"),
+                .product(name: "_NIOFileSystemFoundationCompat", package: "swift-nio"),
+                .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "X509", package: "swift-certificates"),
+                .product(name: "SwiftASN1", package: "swift-asn1"),
+                .product(name: "NIOHTTPServer", package: "swift-http-server"),
+            ],
+            swiftSettings: swiftSettings
+        ),
+
+        .macro(
+            name: "VaporMacrosPlugin",
+            dependencies: [
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+                .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "Algorithms", package: "swift-algorithms")
+            ],
+            swiftSettings: swiftSettings
+        ),
+
+        .target(
+            name: "VaporMacros",
+            dependencies: [
+                .target(name: "VaporMacrosPlugin", condition: .when(traits: ["MacroRouting"])),
+                "Vapor",
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+            ],
+            swiftSettings: swiftSettings
+        ),
+
+        // Development
+        .executableTarget(
+            name: "Development",
+            dependencies: [
+                .target(name: "Vapor"),
+                .product(name: "X509", package: "swift-certificates"),
+                "VaporMacros",
+                .product(name: "SwiftASN1", package: "swift-asn1"),
+            ],
+            resources: [.copy("Resources")],
+            swiftSettings: swiftSettings
+        ),
+
+        // Testing
+        .target(
+            name: "VaporTesting",
+            dependencies: [
+                .target(name: "Vapor"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "AsyncHTTPClient", package: "async-http-client"),
+                .product(name: "MetricsTestKit", package: "swift-metrics"),
+                .product(name: "InMemoryTracing", package: "swift-distributed-tracing"),
+                .product(name: "Instrumentation", package: "swift-distributed-tracing"),
+                .product(name: "InMemoryLogging", package: "swift-log"),
+            ],
+            swiftSettings: swiftSettings
+        ),
+        .testTarget(
+            name: "VaporTests",
+            dependencies: [
+                .product(name: "NIOTestUtils", package: "swift-nio"),
+                .product(name: "NIOSSL", package: "swift-nio-ssl"),
+                .product(name: "SwiftASN1", package: "swift-asn1"),
+                .target(name: "VaporTesting"),
+                .target(name: "Vapor"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "AsyncHTTPClient", package: "async-http-client"),
+                .product(name: "MetricsTestKit", package: "swift-metrics"),
+                .product(name: "InMemoryTracing", package: "swift-distributed-tracing"),
+            ],
+            resources: [
+                .copy("Utilities/foo.txt"),
+                .copy("Utilities/index.html"),
+                .copy("Utilities/SubUtilities/"),
+                .copy("Utilities/foo bar.html"),
+                .copy("Utilities/test.env"),
+                .copy("Utilities/my-secret-env-content"),
+                .copy("Utilities/expired.crt"),
+                .copy("Utilities/expired.key"),
+                .copy("Utilities/localhost.crt"),
+                .copy("Utilities/localhost.key"),
+                .copy("Utilities/long-test-file.txt"),
+            ],
+            swiftSettings: swiftSettings
+        ),
+        .testTarget(
+            name: "VaporMacroTests",
+            dependencies: [
+                .target(name: "VaporMacrosPlugin", condition: .when(traits: ["MacroRouting"])),
+                .product(name: "SwiftSyntaxMacrosGenericTestSupport", package: "swift-syntax", condition: .when(traits: ["MacroRouting"])),
+                .product(name: "SwiftSyntaxMacroExpansion", package: "swift-syntax", condition: .when(traits: ["MacroRouting"])),
+            ],
+            swiftSettings: swiftSettings
+        ),
+        .testTarget(
+            name: "VaporMacroIntegrationTests",
+            dependencies: [
+                .target(name: "Vapor"),
+                .target(name: "VaporMacros"),
+                .target(name: "VaporTesting"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+            ],
+            swiftSettings: swiftSettings
+        ),
+    ]
+)
+
+var swiftSettings: [SwiftSetting] { [
+    .strictMemorySafety(),
+    .enableUpcomingFeature("ExistentialAny"),
+    .enableUpcomingFeature("InternalImportsByDefault"),
+    .enableUpcomingFeature("MemberImportVisibility"),
+    .enableUpcomingFeature("InferIsolatedConformances"),
+    .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+    .enableUpcomingFeature("ImmutableWeakCaptures"),
+    .enableExperimentalFeature("SuppressedAssociatedTypesWithDefaults"),
+    .enableExperimentalFeature("LifetimeDependence"),
+    .enableExperimentalFeature("Lifetimes"),
+    .enableUpcomingFeature("LifetimeDependence"),
+    .enableUpcomingFeature("ImmutableWeakCaptures"),
+] }

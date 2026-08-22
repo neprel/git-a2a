@@ -14,3 +14,8 @@ git source or locked revision changed; mere presence of the project name does no
 UV source keys may be bare or single-/double-quoted TOML keys. Matching consumes horizontal
 indentation only, never the newline after `[tool.uv.sources]`, so replacing a key cannot join it
 to the table header or create a quoted duplicate beside a bare key.
+
+Poetry projects with `[tool.poetry.dependencies]` use Poetry's native inline Git table. PEP 621
+projects whose `dependencies` field is absent gain a delimited field that unwire removes as a
+unit; this supports valid projects with dynamic or intentionally empty runtime dependencies
+without reconstructing `pyproject.toml`.

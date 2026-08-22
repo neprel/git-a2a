@@ -4,6 +4,9 @@ The Hex adapter owns one tuple in the consumer's `deps` list in `mix.exs`. Locke
 the full lock commit as `ref`; floating wiring uses the declared ref as `branch`. Export
 subdirectories use Mix's native `sparse` option. `mix.lock` remains downstream and wiring does
 not run dependency resolution.
+The tuple is delimited with Elixir comments; if insertion adds a comma to the preceding tuple,
+the separator is marked and removed with the dependency so a pre-existing trailing-comma choice
+is never guessed.
 
 # test Hex adapter
 

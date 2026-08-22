@@ -57,6 +57,11 @@ func (Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, exp 
 		return adapter.Change{}, err
 	}
 	re := managedBlock(exp.Name)
+	if created := createdDependencies(exp.Name); created.Match(body) {
+		next := created.ReplaceAll(body, nil)
+		err = os.WriteFile(path, next, 0o644)
+		return adapter.Change{File: "build.zig.zon", Entry: exp.Name, Changed: true}, err
+	}
 	if !re.Match(body) {
 		return adapter.Change{File: "build.zig.zon", Entry: exp.Name}, nil
 	}
@@ -101,11 +106,32 @@ func upsert(document, name, block string) (string, bool, error) {
 	}
 	start, end, ok := dependenciesObject(document)
 	if !ok {
-		return "", false, fmt.Errorf("build.zig.zon: .dependencies object is required")
+		rootStart, rootEnd, rootOK := rootObject(document)
+		if !rootOK {
+			return "", false, fmt.Errorf("build.zig.zon: top-level object is required")
+		}
+		_ = rootStart
+		insertAt := strings.LastIndex(document[:rootEnd], "\n") + 1
+		container := "    // git-a2a:begin-container " + name + "\n    .dependencies = .{\n" + block + "    },\n    // git-a2a:end-container " + name + "\n"
+		return document[:insertAt] + container + document[insertAt:], true, nil
 	}
 	_ = start
 	insertAt := strings.LastIndex(document[:end], "\n") + 1
 	return document[:insertAt] + block + document[insertAt:], true, nil
+}
+
+func rootObject(document string) (int, int, bool) {
+	loc := regexp.MustCompile(`\.\s*\{`).FindStringIndex(document)
+	if loc == nil {
+		return 0, 0, false
+	}
+	start := loc[1] - 1
+	end, ok := matchingBrace(document, start)
+	return start, end, ok
+}
+
+func createdDependencies(name string) *regexp.Regexp {
+	return regexp.MustCompile(`(?ms)^[ \t]*// git-a2a:begin-container ` + regexp.QuoteMeta(name) + `\n.*?^[ \t]*// git-a2a:end-container ` + regexp.QuoteMeta(name) + `\n`)
 }
 
 func dependenciesObject(document string) (int, int, bool) {

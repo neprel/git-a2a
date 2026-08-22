@@ -9,7 +9,9 @@ defmodule Consumer.MixProject do
   defp deps do
     [
       {:jason, "~> 1.4"},
-    {:acme_lib_utils, git: "https://github.com/acme/lib-utils.git", ref: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", sparse: "elixir/lib"}
+    # git-a2a:begin acme_lib_utils
+    {:acme_lib_utils, git: "https://github.com/acme/lib-utils.git", ref: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", sparse: "elixir/lib"},
+    # git-a2a:end acme_lib_utils
     ]
   end
 end

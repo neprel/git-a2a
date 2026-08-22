@@ -2,12 +2,14 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -29,6 +31,7 @@ func TestCardExportSynthesizesValidV1Card(t *testing.T) {
 	var out, errOut bytes.Buffer
 	app := New(&out, &errOut)
 	app.Root = root
+	app.Runner = scriptedGitRunner{output: []byte("ref: refs/heads/trunk\tHEAD\n1111111111111111111111111111111111111111\tHEAD\n")}
 	if code := app.Run([]string{"card", "export", "demo-owner"}); code != 0 {
 		t.Fatalf("exit %d: %s", code, errOut.String())
 	}
@@ -43,6 +46,10 @@ func TestCardExportSynthesizesValidV1Card(t *testing.T) {
 	extensions := caps["extensions"].([]any)
 	if extensions[0].(map[string]any)["uri"] != a2a.ExtensionURI {
 		t.Fatalf("extension: %#v", extensions)
+	}
+	params := extensions[0].(map[string]any)["params"].(map[string]any)
+	if params["ref"] != "trunk" {
+		t.Fatalf("exported ref = %#v, want default branch trunk", params["ref"])
 	}
 }
 
@@ -132,6 +139,30 @@ func TestCardVerifyUsesGeneratedKeyAndJWKS(t *testing.T) {
 	if !strings.Contains(out.String(), "verified EdDSA signature with key generated") {
 		t.Fatalf("output = %q", out.String())
 	}
+
+	absolute := filepath.Join(t.TempDir(), "signed-card.json")
+	if err = os.WriteFile(absolute, cardRaw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	errOut.Reset()
+	app.Root = t.TempDir()
+	if code := app.Run([]string{"card", "verify", absolute}); code != 0 {
+		t.Fatalf("absolute path exit %d: %s", code, errOut.String())
+	}
+}
+
+func TestCardVerifyUnresolvedLocationIsUsageFailure(t *testing.T) {
+	var out, errOut bytes.Buffer
+	app := New(&out, &errOut)
+	app.Root = t.TempDir()
+	missing := filepath.Join(t.TempDir(), "missing-card.json")
+	if code := app.Run([]string{"card", "verify", missing}); code != 2 {
+		t.Fatalf("exit %d, want 2: %s", code, errOut.String())
+	}
+	if !strings.Contains(errOut.String(), "nothing resolved") || strings.Contains(errOut.String(), "signature invalid") {
+		t.Fatalf("stderr = %q", errOut.String())
+	}
 }
 
 func TestCardExportStripsRepositoryURLUserinfo(t *testing.T) {
@@ -177,4 +208,19 @@ func runGitForCard(t *testing.T, dir string, args ...string) {
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("git %v: %v: %s", args, err, output)
 	}
+}
+
+type scriptedGitRunner struct {
+	output []byte
+	err    error
+}
+
+func (r scriptedGitRunner) Run(context.Context, string, []byte, ...string) ([]byte, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	if r.output == nil {
+		return nil, errors.New("git operation unavailable in test")
+	}
+	return r.output, nil
 }

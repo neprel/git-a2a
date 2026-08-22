@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/neprel/git-a2a/internal/a2a"
 	"github.com/neprel/git-a2a/internal/cache"
+	"github.com/neprel/git-a2a/internal/gitx"
 	lockfile "github.com/neprel/git-a2a/internal/lock"
 	"github.com/neprel/git-a2a/internal/manifest"
 )
@@ -41,6 +43,11 @@ func (a *App) cardVerify(args []string) int {
 	}
 	_, raw, err := a2a.Read(args[0], a.root())
 	if err != nil {
+		var locationErr *a2a.LocationError
+		if errors.As(err, &locationErr) {
+			fmt.Fprintf(a.Err, "card verify: nothing resolved: %v\n", err)
+			return 2
+		}
 		fmt.Fprintf(a.Err, "card signature invalid: %v\n", err)
 		return 1
 	}
@@ -130,10 +137,7 @@ func (a *App) cardExport(args []string) int {
 		}
 	}
 	repository = stripURLUserinfo(repository)
-	ref := "HEAD"
-	if m.Module.Release != nil && m.Module.Release.Channel != "" {
-		ref = m.Module.Release.Channel
-	}
+	ref := a.exportRef(m, repository)
 	card, err := a2a.Export(base, a2a.Binding{Module: m.Module.ID, Repository: repository, Ref: ref, Agent: *agent, ModuleDescription: m.Module.Description})
 	if err != nil {
 		fmt.Fprintf(a.Err, "card export: %v\n", err)
@@ -158,6 +162,20 @@ func (a *App) cardExport(args []string) int {
 	}
 	fmt.Fprintf(a.Err, "exported A2A v1.0 card for %s\n", agentName)
 	return 0
+}
+
+func (a *App) exportRef(m *manifest.Manifest, repository string) string {
+	if m.Module.Release != nil && m.Module.Release.Channel != "" {
+		return m.Module.Release.Channel
+	}
+	if repository == "" {
+		return ""
+	}
+	resolved, err := gitx.ResolveDetailed(a.context(), a.runner(), repository, "HEAD")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimPrefix(resolved.FullRef, "refs/heads/")
 }
 
 func stripURLUserinfo(raw string) string {

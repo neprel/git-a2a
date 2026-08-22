@@ -4,6 +4,9 @@ The Clojure adapter owns one delimited qualified lib entry in the top-level `:de
 `deps.edn`. It writes `:git/url` and the full lock commit as `:git/sha`; `:deps/root` carries an
 export subdirectory. tools.deps has no branch-following coordinate, so even a floating module
 dependency is rewired to the commit most recently resolved by git-a2a.
+When the root map has no `:deps`, the adapter creates a delimited top-level `:deps` entry and
+removes that entire entry on unwire. Inline closing braces use a distinct delimiter so insertion
+and removal do not manufacture a newline.
 
 # test Clojure adapter
 

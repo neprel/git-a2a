@@ -1,0 +1,96 @@
+packages:
+  servant/
+  servant-client-core/
+  servant-client/
+  servant-server/
+
+  servant-auth/servant-auth
+  servant-auth/servant-auth-client
+  servant-auth/servant-auth-docs
+  servant-auth/servant-auth-server
+  servant-auth/servant-auth-swagger
+  servant-docs/
+  servant-foreign/
+  servant-http-streams/
+  servant-openapi3/
+  servant-quickcheck/
+  servant-swagger/
+
+  doc/tutorial/
+
+-- servant streaming
+packages:
+  servant-machines/
+  servant-conduit/
+  servant-pipes/
+
+-- servant GHCJS
+-- packages:
+--   servant-jsaddle/
+
+-- Cookbooks
+packages:
+  doc/cookbook/basic-auth
+  doc/cookbook/basic-streaming
+  doc/cookbook/curl-mock
+  doc/cookbook/custom-errors
+  doc/cookbook/db-sqlite-simple
+  doc/cookbook/expose-prometheus
+  doc/cookbook/file-upload
+  doc/cookbook/hoist-server-with-context
+  doc/cookbook/https
+  doc/cookbook/infinite-streams
+  doc/cookbook/jwt-and-basic-auth
+  doc/cookbook/managed-resource
+  doc/cookbook/named-routes
+  -- doc/cookbook/open-id-connect -- Bitrotted since 2019
+  doc/cookbook/openapi3
+  doc/cookbook/pagination
+  doc/cookbook/sentry
+  doc/cookbook/structuring-apis
+  doc/cookbook/testing
+  doc/cookbook/using-custom-monad
+  doc/cookbook/using-free-client
+  doc/cookbook/uverb
+
+if(impl(ghc<9.14.1))
+  packages:
+    -- Waiting for Oleg Grenrus
+    doc/cookbook/db-postgres-pool
+
+tests: True
+optimization: False
+
+-- Development flags
+package *
+  ghc-options: -fshow-hole-constraints -fhide-source-paths
+
+-- reorder-goals: True
+
+-- Required as a workaround for:
+-- https://github.com/haskell-cryptography/HsOpenSSL/issues/95
+package HsOpenSSL
+  ghc-options: -optc=-Wno-discarded-qualifiers -optc=-Wno-deprecated-declarations -optc=-Wno-incompatible-pointer-types
+
+-- Print ticks so that doctest type querying is consistent across GHC versions.
+-- This block can be removed when we drop support for GHC 9.4 and below.
+if(impl(ghc >= 9.6.1))
+  package servant
+    ghc-options: -fprint-redundant-promotion-ticks
+
+  package servant-server
+    ghc-options: -fprint-redundant-promotion-ticks
+
+  package lzma
+    flags: -pkgconfig
+
+if(impl(ghc >= 9.14.1))
+  allow-newer: servant-js:base
+
+  -- Waiting for Oleg Grenrus
+  allow-newer: file-embed-lzma:base
+  allow-newer: file-embed-lzma:template-haskell
+  allow-newer: lzma:base
+
+  -- https://github.com/Gabriella439/Haskell-Pipes-Safe-Library/issues/71
+  allow-newer: pipes-safe:base

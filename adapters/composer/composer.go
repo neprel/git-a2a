@@ -39,11 +39,14 @@ func (Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp 
 	if err := json.Unmarshal(body, &doc); err != nil {
 		return adapter.Change{}, err
 	}
-	if raw := doc["repositories"]; len(raw) > 0 && strings.HasPrefix(strings.TrimSpace(string(raw)), "[") {
-		return adapter.Change{}, adapter.NotWirable("composer.json repositories must use the named object form for addressable wiring")
-	}
 	repository, _ := json.Marshal(map[string]string{"type": "vcs", "url": dep.Git})
-	next, repositoryChanged, err := setObjectEntry(body, "repositories", exp.Name, repository)
+	var next []byte
+	var repositoryChanged bool
+	if raw := doc["repositories"]; len(raw) > 0 && strings.HasPrefix(strings.TrimSpace(string(raw)), "[") {
+		next, repositoryChanged, err = setArrayRepository(body, dep.Git, repository)
+	} else {
+		next, repositoryChanged, err = setObjectEntry(body, "repositories", exp.Name, repository)
+	}
 	if err != nil {
 		return adapter.Change{}, err
 	}
@@ -58,7 +61,7 @@ func (Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp 
 	return adapter.Change{File: "composer.json", Entry: "require." + exp.Name, Changed: repositoryChanged || requireChanged}, err
 }
 
-func (Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, exp adapter.Export) (adapter.Change, error) {
+func (Adapter) Unwire(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export) (adapter.Change, error) {
 	path := filepath.Join(root, "composer.json")
 	body, err := os.ReadFile(path)
 	if err != nil {
@@ -68,7 +71,17 @@ func (Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, exp 
 	if err != nil {
 		return adapter.Change{}, err
 	}
-	next, repositoryChanged, err := removeObjectEntry(next, "repositories", exp.Name)
+	var repositoryChanged bool
+	var repositories json.RawMessage
+	var doc map[string]json.RawMessage
+	if json.Unmarshal(next, &doc) == nil {
+		repositories = doc["repositories"]
+	}
+	if strings.HasPrefix(strings.TrimSpace(string(repositories)), "[") {
+		next, repositoryChanged, err = removeArrayRepository(next, dep.Git)
+	} else {
+		next, repositoryChanged, err = removeObjectEntry(next, "repositories", exp.Name)
+	}
 	if repositoryChanged {
 		next = removeEmptyObject(next, "repositories")
 	}
@@ -88,20 +101,17 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 		return nil, err
 	}
 	var doc struct {
-		Repositories map[string]struct {
-			Type string `json:"type"`
-			URL  string `json:"url"`
-		} `json:"repositories"`
-		Require map[string]string `json:"require"`
+		Repositories json.RawMessage   `json:"repositories"`
+		Require      map[string]string `json:"require"`
 	}
 	if err := json.Unmarshal(body, &doc); err != nil {
 		return nil, err
 	}
-	repository := doc.Repositories[exp.Name]
+	repositoryType, repositoryURL := repositoryFor(doc.Repositories, exp.Name, locked.Git)
 	constraint := doc.Require[exp.Name]
 	badPin := dep.Track != "floating" && !strings.Contains(constraint, locked.Commit)
-	if repository.Type != "vcs" || gitx.NormalizeURL(repository.URL) != gitx.NormalizeURL(locked.Git) || constraint == "" || badPin {
-		return []adapter.Finding{{File: "composer.json", Entry: exp.Name, Want: locked.Commit, Got: repository.URL + " " + constraint}}, nil
+	if repositoryType != "vcs" || gitx.NormalizeURL(repositoryURL) != gitx.NormalizeURL(locked.Git) || constraint == "" || badPin {
+		return []adapter.Finding{{File: "composer.json", Entry: exp.Name, Want: locked.Commit, Got: repositoryURL + " " + constraint}}, nil
 	}
 	return nil, nil
 }
@@ -182,11 +192,12 @@ func removeObjectEntry(body []byte, object, key string) ([]byte, bool, error) {
 		return nil, false, err
 	}
 	removeStart, removeEnd := loc[0], valueEnd
-	for removeEnd < len(content) && strings.ContainsRune(" \t\r\n", rune(content[removeEnd])) {
-		removeEnd++
+	afterValue := removeEnd
+	for afterValue < len(content) && strings.ContainsRune(" \t\r\n", rune(content[afterValue])) {
+		afterValue++
 	}
-	if removeEnd < len(content) && content[removeEnd] == ',' {
-		removeEnd++
+	if afterValue < len(content) && content[afterValue] == ',' {
+		removeEnd = afterValue + 1
 	} else {
 		for removeStart > 0 && strings.ContainsRune(" \t\r\n", rune(content[removeStart-1])) {
 			removeStart--
@@ -225,11 +236,12 @@ func removeEmptyObject(body []byte, key string) []byte {
 	for removeStart > 0 && (body[removeStart-1] == ' ' || body[removeStart-1] == '\t') {
 		removeStart--
 	}
-	for removeEnd < len(body) && strings.ContainsRune(" \t\r\n", rune(body[removeEnd])) {
-		removeEnd++
+	afterValue := removeEnd
+	for afterValue < len(body) && strings.ContainsRune(" \t\r\n", rune(body[afterValue])) {
+		afterValue++
 	}
-	if removeEnd < len(body) && body[removeEnd] == ',' {
-		removeEnd++
+	if afterValue < len(body) && body[afterValue] == ',' {
+		removeEnd = afterValue + 1
 	} else {
 		for removeStart > 0 && strings.ContainsRune(" \t\r\n", rune(body[removeStart-1])) {
 			removeStart--
@@ -239,6 +251,113 @@ func removeEmptyObject(body []byte, key string) []byte {
 		}
 	}
 	return append(append([]byte(nil), body[:removeStart]...), body[removeEnd:]...)
+}
+
+func arrayRange(body []byte, key string) (int, int, bool) {
+	encoded, _ := json.Marshal(key)
+	re := regexp.MustCompile(regexp.QuoteMeta(string(encoded)) + `\s*:\s*\[`)
+	loc := re.FindIndex(body)
+	if loc == nil {
+		return 0, 0, false
+	}
+	start := loc[1] - 1
+	end, err := jsonValueEnd(string(body), start)
+	return start, end - 1, err == nil
+}
+
+func setArrayRepository(body []byte, gitURL string, value []byte) ([]byte, bool, error) {
+	start, end, ok := arrayRange(body, "repositories")
+	if !ok {
+		return nil, false, fmt.Errorf("composer.json: repositories array is malformed")
+	}
+	var entries []struct {
+		Type string `json:"type"`
+		URL  string `json:"url"`
+	}
+	if err := json.Unmarshal(body[start:end+1], &entries); err != nil {
+		return nil, false, err
+	}
+	for _, entry := range entries {
+		if entry.Type == "vcs" && gitx.NormalizeURL(entry.URL) == gitx.NormalizeURL(gitURL) {
+			return body, false, nil
+		}
+	}
+	content := string(body[start+1 : end])
+	trimmed := strings.TrimRight(content, " \t\r\n")
+	suffix := content[len(trimmed):]
+	if strings.TrimSpace(trimmed) != "" {
+		trimmed += ","
+	}
+	trimmed += "\n    " + string(value)
+	return []byte(string(body[:start+1]) + trimmed + suffix + string(body[end:])), true, nil
+}
+
+func removeArrayRepository(body []byte, gitURL string) ([]byte, bool, error) {
+	start, end, ok := arrayRange(body, "repositories")
+	if !ok {
+		return body, false, nil
+	}
+	content := string(body[start+1 : end])
+	for cursor := 0; cursor < len(content); {
+		for cursor < len(content) && (strings.ContainsRune(" \t\r\n,", rune(content[cursor]))) {
+			cursor++
+		}
+		if cursor >= len(content) {
+			break
+		}
+		valueEnd, err := jsonValueEnd(content, cursor)
+		if err != nil {
+			return nil, false, err
+		}
+		var entry struct {
+			Type string `json:"type"`
+			URL  string `json:"url"`
+		}
+		if json.Unmarshal([]byte(content[cursor:valueEnd]), &entry) == nil && entry.Type == "vcs" && gitx.NormalizeURL(entry.URL) == gitx.NormalizeURL(gitURL) {
+			removeStart, removeEnd := cursor, valueEnd
+			after := removeEnd
+			for after < len(content) && strings.ContainsRune(" \t\r\n", rune(content[after])) {
+				after++
+			}
+			if after < len(content) && content[after] == ',' {
+				removeEnd = after + 1
+			} else {
+				for removeStart > 0 && strings.ContainsRune(" \t\r\n", rune(content[removeStart-1])) {
+					removeStart--
+				}
+				if removeStart > 0 && content[removeStart-1] == ',' {
+					removeStart--
+				}
+			}
+			content = content[:removeStart] + content[removeEnd:]
+			return []byte(string(body[:start+1]) + content + string(body[end:])), true, nil
+		}
+		cursor = valueEnd
+	}
+	return body, false, nil
+}
+
+func repositoryFor(raw json.RawMessage, name, gitURL string) (string, string) {
+	var object map[string]struct {
+		Type string `json:"type"`
+		URL  string `json:"url"`
+	}
+	if json.Unmarshal(raw, &object) == nil {
+		entry := object[name]
+		return entry.Type, entry.URL
+	}
+	var list []struct {
+		Type string `json:"type"`
+		URL  string `json:"url"`
+	}
+	if json.Unmarshal(raw, &list) == nil {
+		for _, entry := range list {
+			if gitx.NormalizeURL(entry.URL) == gitx.NormalizeURL(gitURL) {
+				return entry.Type, entry.URL
+			}
+		}
+	}
+	return "", ""
 }
 
 func jsonValueEnd(document string, start int) (int, error) {

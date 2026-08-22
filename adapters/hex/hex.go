@@ -53,6 +53,12 @@ func (Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, exp 
 	if err != nil {
 		return adapter.Change{}, err
 	}
+	if re := managedBlock(exp.Name); re.Match(body) {
+		next := re.ReplaceAll(body, nil)
+		next = separatorMarker(exp.Name).ReplaceAll(next, nil)
+		err = os.WriteFile(path, next, 0o644)
+		return adapter.Change{File: "mix.exs", Entry: exp.Name, Changed: true}, err
+	}
 	re := dependencyLine(exp.Name)
 	if !re.Match(body) {
 		return adapter.Change{File: "mix.exs", Entry: exp.Name}, nil
@@ -85,6 +91,17 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 }
 
 func upsert(document, name, line string) (string, bool, error) {
+	if block := managedBlock(name).FindString(document); block != "" {
+		if strings.Contains(block, line) {
+			return document, false, nil
+		}
+		old := dependencyLine(name).FindString(block)
+		if old == "" {
+			return "", false, fmt.Errorf("mix.exs: malformed git-a2a dependency block for %s", name)
+		}
+		replacement := strings.Replace(block, old, line+",\n", 1)
+		return strings.Replace(document, block, replacement, 1), true, nil
+	}
 	re := dependencyLine(name)
 	if old := re.FindString(document); old != "" {
 		if strings.TrimSpace(old) == strings.TrimSpace(line) {
@@ -100,9 +117,9 @@ func upsert(document, name, line string) (string, bool, error) {
 	trimmed := strings.TrimRight(content, " \t\r\n")
 	suffix := content[len(trimmed):]
 	if strings.TrimSpace(trimmed) != "" && !strings.HasSuffix(strings.TrimSpace(trimmed), ",") {
-		trimmed += ","
+		trimmed += ", # git-a2a:separator " + name
 	}
-	trimmed += "\n" + line
+	trimmed += "\n    # git-a2a:begin " + name + "\n" + line + ",\n    # git-a2a:end " + name
 	return document[:start+1] + trimmed + suffix + document[end:], true, nil
 }
 
@@ -173,4 +190,12 @@ func atomPattern(name string) string {
 
 func dependencyLine(name string) *regexp.Regexp {
 	return regexp.MustCompile(`(?m)^[ \t]*\{[ \t]*` + atomPattern(name) + `[ \t]*,.*\}[ \t]*,?[ \t]*(?:\n|$)`)
+}
+
+func managedBlock(name string) *regexp.Regexp {
+	return regexp.MustCompile(`(?ms)\n[ \t]*# git-a2a:begin ` + regexp.QuoteMeta(name) + `\n.*?^[ \t]*# git-a2a:end ` + regexp.QuoteMeta(name))
+}
+
+func separatorMarker(name string) *regexp.Regexp {
+	return regexp.MustCompile(`, # git-a2a:separator ` + regexp.QuoteMeta(name))
 }

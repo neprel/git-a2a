@@ -35,7 +35,7 @@ func (Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp 
 		key, value = "branch", dep.Ref
 	}
 	entry := fmt.Sprintf(".package(url: %s, %s: %s)", strconv.Quote(dep.Git), key, strconv.Quote(value))
-	next, changed, err := upsert(string(body), dep.Git, entry)
+	next, changed, err := upsert(string(body), exp.Name, dep.Git, entry)
 	if err != nil {
 		return adapter.Change{}, adapter.NotWirable(err.Error())
 	}
@@ -50,6 +50,22 @@ func (Adapter) Unwire(_ context.Context, root string, dep adapter.Dependency, ex
 	body, err := os.ReadFile(file)
 	if err != nil {
 		return adapter.Change{}, err
+	}
+	if re := createdDependencies(exp.Name); re.Match(body) {
+		next := re.ReplaceAll(body, nil)
+		err = os.WriteFile(file, next, 0o644)
+		return adapter.Change{File: "Package.swift", Entry: exp.Name, Changed: true}, err
+	}
+	if re := emptyDependencies(exp.Name); re.Match(body) {
+		next := re.ReplaceAll(body, []byte("[]"))
+		err = os.WriteFile(file, next, 0o644)
+		return adapter.Change{File: "Package.swift", Entry: exp.Name, Changed: true}, err
+	}
+	if re := managedEntry(exp.Name); re.Match(body) {
+		next := re.ReplaceAll(body, nil)
+		next = separatorMarker(exp.Name).ReplaceAll(next, nil)
+		err = os.WriteFile(file, next, 0o644)
+		return adapter.Change{File: "Package.swift", Entry: exp.Name, Changed: true}, err
 	}
 	next, changed, err := remove(string(body), dep.Git)
 	if err != nil {
@@ -84,10 +100,23 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 	return nil, nil
 }
 
-func upsert(document, gitURL, entry string) (string, bool, error) {
+func upsert(document, name, gitURL, entry string) (string, bool, error) {
+	if managedEntry(name).MatchString(document) || emptyDependencies(name).MatchString(document) || createdDependencies(name).MatchString(document) {
+		current, _ := findEntry(document, gitURL)
+		if current == entry {
+			return document, false, nil
+		}
+	}
 	open, close, ok := dependencyArray(document)
 	if !ok {
-		return "", false, fmt.Errorf("Package.swift: top-level Package dependencies array is required")
+		targets := topLevelArgument(document, "targets")
+		if targets < 0 {
+			return "", false, fmt.Errorf("Package.swift: top-level Package targets argument is required")
+		}
+		lineStart := strings.LastIndex(document[:targets], "\n") + 1
+		indent := document[lineStart:targets]
+		block := indent + "// git-a2a:begin-container " + name + "\n" + indent + "dependencies: [\n" + indent + "    " + entry + ",\n" + indent + "],\n" + indent + "// git-a2a:end-container " + name + "\n"
+		return document[:lineStart] + block + document[lineStart:], true, nil
 	}
 	if _, span := findEntry(document[open+1:close], gitURL); span != nil {
 		start, end := open+1+span[0], open+1+span[1]
@@ -102,7 +131,8 @@ func upsert(document, gitURL, entry string) (string, bool, error) {
 		indent = match[1]
 	}
 	if strings.TrimSpace(content) == "" {
-		return document[:open+1] + "\n" + indent + entry + ",\n    " + document[close:], true, nil
+		block := "[ // git-a2a:empty " + name + "\n" + indent + entry + ",\n    ]"
+		return document[:open] + block + document[close+1:], true, nil
 	}
 	insertAt := close
 	for insertAt > open+1 && (document[insertAt-1] == ' ' || document[insertAt-1] == '\t' || document[insertAt-1] == '\n' || document[insertAt-1] == '\r') {
@@ -117,12 +147,14 @@ func upsert(document, gitURL, entry string) (string, bool, error) {
 			cursor++
 		}
 		if cursor >= close || document[cursor] != ',' {
-			updated = document[:lastEnd] + "," + document[lastEnd:]
-			insertAt++
-			close++
+			updated = document[:lastEnd] + ", // git-a2a:separator " + name + document[lastEnd:]
+			delta := len(", // git-a2a:separator " + name)
+			insertAt += delta
+			close += delta
 		}
 	}
-	return updated[:insertAt] + "\n" + indent + entry + "," + updated[insertAt:], true, nil
+	block := "\n" + indent + "// git-a2a:begin " + name + "\n" + indent + entry + ",\n" + indent + "// git-a2a:end " + name
+	return updated[:insertAt] + block + updated[insertAt:], true, nil
 }
 
 func remove(document, gitURL string) (string, bool, error) {
@@ -152,21 +184,111 @@ func remove(document, gitURL string) (string, bool, error) {
 }
 
 func dependencyArray(document string) (int, int, bool) {
-	packageAt := strings.Index(document, "Package(")
-	if packageAt < 0 {
-		return 0, 0, false
-	}
-	dependencyAt := strings.Index(document[packageAt:], "dependencies:")
+	dependencyAt := topLevelArgument(document, "dependencies")
 	if dependencyAt < 0 {
 		return 0, 0, false
 	}
-	open := strings.Index(document[packageAt+dependencyAt:], "[")
+	open := strings.Index(document[dependencyAt:], "[")
 	if open < 0 {
 		return 0, 0, false
 	}
-	open += packageAt + dependencyAt
+	open += dependencyAt
 	close := matching(document, open, '[', ']')
 	return open, close, close > open
+}
+
+func topLevelArgument(document, name string) int {
+	packageAt := strings.Index(document, "Package(")
+	if packageAt < 0 {
+		return -1
+	}
+	open := packageAt + strings.Index(document[packageAt:], "(")
+	paren, bracket, brace := 1, 0, 0
+	quoted, escaped, lineComment, blockComment := false, false, false, false
+	for i := open + 1; i < len(document); i++ {
+		c := document[i]
+		if lineComment {
+			if c == '\n' {
+				lineComment = false
+			}
+			continue
+		}
+		if blockComment {
+			if c == '*' && i+1 < len(document) && document[i+1] == '/' {
+				blockComment = false
+				i++
+			}
+			continue
+		}
+		if quoted {
+			if escaped {
+				escaped = false
+			} else if c == '\\' {
+				escaped = true
+			} else if c == '"' {
+				quoted = false
+			}
+			continue
+		}
+		if c == '/' && i+1 < len(document) && document[i+1] == '/' {
+			lineComment = true
+			i++
+			continue
+		}
+		if c == '/' && i+1 < len(document) && document[i+1] == '*' {
+			blockComment = true
+			i++
+			continue
+		}
+		if c == '"' {
+			quoted = true
+			continue
+		}
+		switch c {
+		case '(':
+			paren++
+		case ')':
+			paren--
+		case '[':
+			bracket++
+		case ']':
+			bracket--
+		case '{':
+			brace++
+		case '}':
+			brace--
+		}
+		if paren == 0 {
+			break
+		}
+		if paren == 1 && bracket == 0 && brace == 0 && strings.HasPrefix(document[i:], name) {
+			beforeOK := i == 0 || !(document[i-1] == '_' || document[i-1] >= 'A' && document[i-1] <= 'Z' || document[i-1] >= 'a' && document[i-1] <= 'z')
+			j := i + len(name)
+			for j < len(document) && (document[j] == ' ' || document[j] == '\t') {
+				j++
+			}
+			if beforeOK && j < len(document) && document[j] == ':' {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+func managedEntry(name string) *regexp.Regexp {
+	return regexp.MustCompile(`(?ms)^[ \t]*// git-a2a:begin ` + regexp.QuoteMeta(name) + `\n.*?^[ \t]*// git-a2a:end ` + regexp.QuoteMeta(name) + `(?:\n|$)`)
+}
+
+func separatorMarker(name string) *regexp.Regexp {
+	return regexp.MustCompile(`, // git-a2a:separator ` + regexp.QuoteMeta(name))
+}
+
+func emptyDependencies(name string) *regexp.Regexp {
+	return regexp.MustCompile(`(?ms)\[[ \t]*// git-a2a:empty ` + regexp.QuoteMeta(name) + `\n.*?\]`)
+}
+
+func createdDependencies(name string) *regexp.Regexp {
+	return regexp.MustCompile(`(?ms)^[ \t]*// git-a2a:begin-container ` + regexp.QuoteMeta(name) + `\n.*?^[ \t]*// git-a2a:end-container ` + regexp.QuoteMeta(name) + `\n`)
 }
 
 func findEntry(document, gitURL string) (string, []int) {

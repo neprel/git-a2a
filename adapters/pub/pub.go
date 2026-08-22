@@ -55,6 +55,11 @@ func (Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, exp 
 	if err != nil {
 		return adapter.Change{}, err
 	}
+	if re := createdDependencies(exp.Name); re.Match(body) {
+		next := re.ReplaceAll(body, nil)
+		err = os.WriteFile(file, next, 0o644)
+		return adapter.Change{File: "pubspec.yaml", Entry: exp.Name, Changed: true}, err
+	}
 	start, end, ok, rangeErr := entryRange(string(body), exp.Name)
 	if rangeErr != nil || !ok {
 		return adapter.Change{File: "pubspec.yaml", Entry: exp.Name}, rangeErr
@@ -98,7 +103,8 @@ func upsert(document, name, entry string) (string, bool, error) {
 		if strings.HasSuffix(document, "\n") {
 			separator = ""
 		}
-		return document + separator + "dependencies:\n" + entry, true, nil
+		block := "# git-a2a:begin " + name + "\ndependencies:\n" + entry + "# git-a2a:end " + name + "\n"
+		return document + separator + block, true, nil
 	}
 	start, end, found, err := entryRange(document, name)
 	if err != nil {
@@ -113,6 +119,10 @@ func upsert(document, name, entry string) (string, bool, error) {
 	return document[:sectionEnd] + entry + document[sectionEnd:], true, nil
 }
 
+func createdDependencies(name string) *regexp.Regexp {
+	return regexp.MustCompile(`(?ms)^# git-a2a:begin ` + regexp.QuoteMeta(name) + `\ndependencies:\n.*?^# git-a2a:end ` + regexp.QuoteMeta(name) + `\n`)
+}
+
 func dependenciesRange(document string) (int, int, bool) {
 	header := regexp.MustCompile(`(?m)^dependencies:[ \t]*(?:#.*)?$`).FindStringIndex(document)
 	if header == nil {
@@ -123,7 +133,7 @@ func dependenciesRange(document string) (int, int, bool) {
 		start++
 	}
 	end := len(document)
-	if next := regexp.MustCompile(`(?m)^[A-Za-z_][A-Za-z0-9_-]*:`).FindStringIndex(document[start:]); next != nil {
+	if next := regexp.MustCompile(`(?m)^(?:[A-Za-z_][A-Za-z0-9_-]*:|# git-a2a:end )`).FindStringIndex(document[start:]); next != nil {
 		end = start + next[0]
 	}
 	return start, end, true

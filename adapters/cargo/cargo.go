@@ -49,6 +49,11 @@ func (Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, exp 
 	if err != nil {
 		return adapter.Change{}, err
 	}
+	if re := createdDependencies(exp.Name); re.Match(body) {
+		next := re.ReplaceAll(body, nil)
+		err = os.WriteFile(file, next, 0o644)
+		return adapter.Change{File: "Cargo.toml", Entry: exp.Name, Changed: true}, err
+	}
 	start, end, ok := dependenciesSection(string(body))
 	if !ok {
 		return adapter.Change{File: "Cargo.toml", Entry: exp.Name}, nil
@@ -98,7 +103,8 @@ func upsert(document, name, line string) (string, bool) {
 		if strings.HasSuffix(document, "\n") {
 			separator = ""
 		}
-		return document + separator + "\n[dependencies]\n" + line + "\n", true
+		block := "# git-a2a:begin " + name + "\n[dependencies]\n" + line + "\n# git-a2a:end " + name + "\n"
+		return document + separator + block, true
 	}
 	section := document[start:end]
 	re := dependencyLine(name)
@@ -114,6 +120,10 @@ func upsert(document, name, line string) (string, bool) {
 		section += line + "\n"
 	}
 	return document[:start] + section + document[end:], true
+}
+
+func createdDependencies(name string) *regexp.Regexp {
+	return regexp.MustCompile(`(?ms)^# git-a2a:begin ` + regexp.QuoteMeta(name) + `\n\[dependencies\]\n.*?^# git-a2a:end ` + regexp.QuoteMeta(name) + `\n`)
 }
 
 func dependenciesSection(document string) (int, int, bool) {

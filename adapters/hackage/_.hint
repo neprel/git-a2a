@@ -10,6 +10,8 @@ declared ref when floating). Both native forms carry an export subdirectory.
 
 The package export name appears only in comment delimiters around the owned stanza/item. Human
 Cabal fields and Stack entries outside those delimiters remain byte-for-byte unchanged.
+When Stack has no `extra-deps`, its created header is marked and removed together with the last
+owned item rather than leaving an empty project field.
 
 # test Hackage adapter
 

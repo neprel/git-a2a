@@ -1,11 +1,12 @@
 # decision Composer uses an addressable VCS repository and require pair
 
-The Composer adapter owns `repositories[<package-name>]` in Composer's named object form and
-`require[<package-name>]`. The repository remains `type: vcs`; a locked dependency uses
+The Composer adapter owns `repositories[<package-name>]` in Composer's named object form, or the
+unique `type: vcs` entry with the dependency Git URL when an existing manifest uses Composer's
+array form, plus `require[<package-name>]`. The repository remains `type: vcs`; a locked dependency uses
 `dev-<ref>#<full-commit>` and a floating dependency uses `dev-<ref>`. Named repositories let
-`set` replace the source without leaving stale VCS entries. Existing repository arrays and
-subdirectory exports return a typed not-wirable result because neither form is safely
-addressable with Composer's native VCS metadata.
+`set` replace the source without leaving stale VCS entries; array entries are addressed by their
+normalized URL. Subdirectory exports return a typed not-wirable result because Composer's VCS
+metadata cannot select them.
 
 # decision composer.lock stays downstream
 

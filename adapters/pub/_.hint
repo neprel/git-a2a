@@ -4,6 +4,8 @@ The Pub adapter owns one two-space-indented entry under top-level `dependencies`
 `git.url`, `git.ref`, and optional `git.path`; locked refs are the full lock commit and floating
 refs are the declared branch. It splices only that YAML entry, preserving every unrelated byte.
 Inline dependency maps are rejected as not wirable instead of being reformatted.
+If top-level `dependencies` is absent, the adapter creates a delimited mapping and removes the
+container as a unit on unwire.
 
 # decision pubspec.lock stays downstream
 

@@ -103,7 +103,7 @@ func (a Adapter) Refresh(ctx context.Context, root string, _ adapter.Dependency,
 func refreshCommand(variant adapter.Variant, name string) []string {
 	switch variant {
 	case "yarn-berry":
-		return []string{"yarn", "up", name}
+		return []string{"yarn", "install", "--mode=update-lockfile"}
 	case "pnpm":
 		return []string{"pnpm", "update", name}
 	case "bun":
@@ -149,7 +149,7 @@ func dependencyURL(dep adapter.Dependency, locked adapter.Locked, variant, path 
 			url = "ssh://" + parts[0] + "/" + parts[1]
 		}
 	}
-	if !strings.HasPrefix(url, "git+") {
+	if !strings.HasPrefix(url, "git+") && !strings.HasPrefix(url, "git://") {
 		url = "git+" + url
 	}
 	if variant == "yarn-berry" {
@@ -224,11 +224,12 @@ func removeDependency(b []byte, name string) ([]byte, bool, error) {
 		return b, false, nil
 	}
 	removeStart, removeEnd := loc[0], loc[1]
-	for removeEnd < len(body) && strings.ContainsRune(" \t\r\n", rune(body[removeEnd])) {
-		removeEnd++
+	afterValue := removeEnd
+	for afterValue < len(body) && strings.ContainsRune(" \t\r\n", rune(body[afterValue])) {
+		afterValue++
 	}
-	if removeEnd < len(body) && body[removeEnd] == ',' {
-		removeEnd++
+	if afterValue < len(body) && body[afterValue] == ',' {
+		removeEnd = afterValue + 1
 	} else {
 		for removeStart > 0 && strings.ContainsRune(" \t\r\n", rune(body[removeStart-1])) {
 			removeStart--
@@ -238,7 +239,42 @@ func removeDependency(b []byte, name string) ([]byte, bool, error) {
 		}
 	}
 	body = body[:removeStart] + body[removeEnd:]
-	return []byte(string(b[:start+1]) + body + string(b[end:])), true, nil
+	next := []byte(string(b[:start+1]) + body + string(b[end:]))
+	if strings.TrimSpace(body) == "" {
+		next = removeEmptyTopLevelObject(next, "dependencies")
+	}
+	return next, true, nil
+}
+
+func removeEmptyTopLevelObject(b []byte, key string) []byte {
+	start, end, ok := objectRange(b, key)
+	if !ok || strings.TrimSpace(string(b[start+1:end])) != "" {
+		return b
+	}
+	encoded, _ := json.Marshal(key)
+	keyAt := strings.LastIndex(string(b[:start]), string(encoded))
+	if keyAt < 0 {
+		return b
+	}
+	removeStart, removeEnd := keyAt, end+1
+	for removeStart > 0 && (b[removeStart-1] == ' ' || b[removeStart-1] == '\t') {
+		removeStart--
+	}
+	afterValue := removeEnd
+	for afterValue < len(b) && strings.ContainsRune(" \t\r\n", rune(b[afterValue])) {
+		afterValue++
+	}
+	if afterValue < len(b) && b[afterValue] == ',' {
+		removeEnd = afterValue + 1
+	} else {
+		for removeStart > 0 && strings.ContainsRune(" \t\r\n", rune(b[removeStart-1])) {
+			removeStart--
+		}
+		if removeStart > 0 && b[removeStart-1] == ',' {
+			removeStart--
+		}
+	}
+	return append(append([]byte(nil), b[:removeStart]...), b[removeEnd:]...)
 }
 
 func objectRange(b []byte, key string) (int, int, bool) {

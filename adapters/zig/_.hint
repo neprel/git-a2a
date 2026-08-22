@@ -5,6 +5,8 @@ native `git+<url>#<commit>` form and its `.hash` comes from the export extension
 `x-zig-hash`. The adapter must return typed not-wirable for a missing hash or a subdirectory
 export: a Git commit is not Zig's package content hash, and inventing one would make a wiring
 command report success over a dependency Zig rejects.
+If a valid package object omits `.dependencies`, the adapter creates a delimited dependencies
+container and unwire removes that container exactly.
 
 # test Zig adapter
 

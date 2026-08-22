@@ -52,6 +52,11 @@ func (Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, exp 
 	if err != nil {
 		return adapter.Change{}, err
 	}
+	if re := createdDepsBlock(exp.Name); re.Match(body) {
+		next := re.ReplaceAll(body, nil)
+		err = os.WriteFile(path, next, 0o644)
+		return adapter.Change{File: "deps.edn", Entry: exp.Name, Changed: true}, err
+	}
 	re := managedBlock(exp.Name)
 	if !re.Match(body) {
 		return adapter.Change{File: "deps.edn", Entry: exp.Name}, nil
@@ -71,6 +76,9 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 		return nil, err
 	}
 	block := managedBlock(exp.Name).FindString(string(body))
+	if block == "" {
+		block = createdDepsBlock(exp.Name).FindString(string(body))
+	}
 	match := regexp.MustCompile(`:git/url\s+"([^"]+)"`).FindStringSubmatch(block)
 	gotURL := ""
 	if len(match) == 2 {
@@ -83,9 +91,38 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 }
 
 func upsert(document, name, entry string) (string, bool, error) {
+	if block := createdDepsBlock(name).FindString(document); block != "" {
+		if strings.Contains(block, entry) {
+			return document, false, nil
+		}
+		return strings.Replace(document, block, strings.Replace(block, regexp.MustCompile(regexp.QuoteMeta(name)+`\s+\{.*\}`).FindString(block), entry, 1), 1), true, nil
+	}
+	re := managedBlock(name)
+	if old := re.FindString(document); old != "" {
+		if strings.Contains(old, entry) {
+			return document, false, nil
+		}
+		line := regexp.MustCompile(`(?m)^[ \t]*` + regexp.QuoteMeta(name) + `\s+\{.*\}\s*$`)
+		indent := regexp.MustCompile(`(?m)^([ \t]*);; git-a2a:begin`).FindStringSubmatch(old)
+		prefix := "  "
+		if len(indent) == 2 {
+			prefix = indent[1]
+		}
+		replacement := line.ReplaceAllString(old, prefix+entry)
+		return strings.Replace(document, old, replacement, 1), true, nil
+	}
 	start, end, ok := depsMap(document)
 	if !ok {
-		return "", false, fmt.Errorf("deps.edn: top-level :deps map is required")
+		rootStart := strings.Index(document, "{")
+		if rootStart < 0 {
+			return "", false, fmt.Errorf("deps.edn: top-level map is required")
+		}
+		rootEnd, rootOK := matchingBrace(document, rootStart)
+		if !rootOK {
+			return "", false, fmt.Errorf("deps.edn: top-level map is not balanced")
+		}
+		block := "\n ;; git-a2a:begin-container " + name + "\n :deps {" + entry + "}\n ;; git-a2a:end-container " + name + "\n"
+		return document[:rootEnd] + block + document[rootEnd:], true, nil
 	}
 	lineStart := strings.LastIndex(document[:end], "\n") + 1
 	closingIndent := document[lineStart:end]
@@ -94,20 +131,21 @@ func upsert(document, name, entry string) (string, bool, error) {
 		lineStart = end
 	}
 	indent := closingIndent + "  "
-	block := indent + ";; git-a2a:begin " + name + "\n" + indent + entry + "\n" + indent + ";; git-a2a:end " + name + "\n"
-	re := managedBlock(name)
-	if old := re.FindString(document); old != "" {
-		if old == block {
-			return document, false, nil
-		}
-		return re.ReplaceAllStringFunc(document, func(string) string { return block }), true, nil
+	marker := ";; git-a2a:begin "
+	if lineStart == end {
+		marker = ";; git-a2a:begin-inline "
 	}
+	block := indent + marker + name + "\n" + indent + entry + "\n" + indent + ";; git-a2a:end " + name + "\n"
 	prefix := ""
 	if lineStart == end {
 		prefix = "\n"
 	}
 	_ = start
 	return document[:lineStart] + prefix + block + document[lineStart:], true, nil
+}
+
+func createdDepsBlock(name string) *regexp.Regexp {
+	return regexp.MustCompile(`(?ms)\n[ \t]*;; git-a2a:begin-container ` + regexp.QuoteMeta(name) + `\n.*?^[ \t]*;; git-a2a:end-container ` + regexp.QuoteMeta(name) + `\n`)
 }
 
 func depsMap(document string) (int, int, bool) {
@@ -160,7 +198,7 @@ func matchingBrace(document string, start int) (int, bool) {
 }
 
 func managedBlock(name string) *regexp.Regexp {
-	return regexp.MustCompile(`(?ms)^[ \t]*;; git-a2a:begin ` + regexp.QuoteMeta(name) + `\n.*?^[ \t]*;; git-a2a:end ` + regexp.QuoteMeta(name) + `\n`)
+	return regexp.MustCompile(`(?ms)(?:\n[ \t]*;; git-a2a:begin-inline |^[ \t]*;; git-a2a:begin )` + regexp.QuoteMeta(name) + `\n.*?^[ \t]*;; git-a2a:end ` + regexp.QuoteMeta(name) + `\n`)
 }
 
 func validLib(name string) bool {

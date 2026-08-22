@@ -1,5 +1,5 @@
 {
   "name": "consumer-yarn",
-  "packageManager": "yarn@4.9.0",
+  "packageManager": "yarn@4.12.0",
   "dependencies": {}
 }

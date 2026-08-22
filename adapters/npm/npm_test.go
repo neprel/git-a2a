@@ -114,6 +114,13 @@ func TestNPMRefreshOnlyUpdatesLockfileWithoutScripts(t *testing.T) {
 	}
 }
 
+func TestYarnRefreshUsesPinnedManifestRange(t *testing.T) {
+	got := strings.Join(refreshCommand("yarn-berry", "@acme/lib"), " ")
+	if got != "yarn install --mode=update-lockfile" {
+		t.Fatalf("refresh command = %q", got)
+	}
+}
+
 func TestYarnBerryDependencyURLUsesGitTransport(t *testing.T) {
 	commit := strings.Repeat("a", 40)
 	for _, gitURL := range []string{
@@ -130,6 +137,16 @@ func TestYarnBerryDependencyURLUsesGitTransport(t *testing.T) {
 		if !strings.HasPrefix(got, "git+") || !strings.HasSuffix(got, "#commit="+commit) {
 			t.Errorf("dependencyURL(%q) = %q", gitURL, got)
 		}
+	}
+}
+
+func TestYarnBerryKeepsNativeGitProtocol(t *testing.T) {
+	commit := strings.Repeat("a", 40)
+	dep := adapter.Dependency{Git: "git://127.0.0.1/library.git", Track: "locked"}
+	got := dependencyURL(dep, adapter.Locked{Commit: commit}, "yarn-berry", "")
+	want := dep.Git + "#commit=" + commit
+	if got != want {
+		t.Fatalf("dependency URL = %q, want %q", got, want)
 	}
 }
 func copyFile(t *testing.T, src, dst string) []byte {

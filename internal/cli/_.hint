@@ -1,0 +1,24 @@
+# decision Manifest-changing commands are transactions
+
+`add`, `update`, `set`, and `wire` stage every manifest, lock, cache, surface, and ecosystem
+edit before publishing any of them. A failure before commit leaves every tracked file byte-for-byte
+unchanged; a commit failure rolls back already-published files. `wire` is idempotent and may repair
+an intentionally partial dependency without changing its identity.
+
+# decision Exit codes classify outcomes
+
+Exit 0 means the requested state was reached (warnings may still be present). Exit 1 means a valid
+request found drift, failed trust, a missing Refresh prerequisite, or another operational failure.
+Exit 2 means invocation or resolution failed: invalid flags, absent input, unknown identity, or a
+location from which no input could be read. Preserve these classes across subcommands.
+
+# decision Output separates records from diagnostics
+
+Machine-consumable records and command results go to stdout, one record per line unless the command
+explicitly emits JSON or a document. Progress, warnings, summaries, and errors go to stderr. Durable
+state belongs in the manifest, lock, or `.git-a2a/`; command delivery history is never invented.
+
+# invariant Dry runs and checks do not mutate
+
+`--dry-run`, `--check`, offline inspection, help, and validation paths do not change tracked files,
+the lock, or `.git-a2a/`.

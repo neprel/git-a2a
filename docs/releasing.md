@@ -34,12 +34,30 @@ and signing/notarization should be configured before claiming Gatekeeper-clean i
 The Scoop bucket is automated. winget submission is deliberately deferred until the stable
 package identity and publisher account exist; it is not part of the first automated release.
 
+Before a stable release, manually exercise replacement of an installed binary on Windows:
+
+```powershell
+$env:GIT_A2A_UPGRADE_BASE_URL = "https://github.com/neprel/git-a2a/releases/download"
+git-a2a upgrade --to 1.0.0-rc.1
+git-a2a --version
+git-a2a upgrade --to 1.0.0
+git-a2a --version
+```
+
+Run this from a fresh PowerShell process with the binary installed outside the checkout. Confirm
+that the old process exits, the `.new` file is renamed into place, and a second invocation leaves
+no `.old` or `.new` sibling. The ordinary CI workflow runs `go test ./...` on `windows-latest`;
+this manual check covers the live executable-replacement path that a unit test cannot own.
+
 ## Release checklist
 
 1. Set `internal/version/VERSION`, commit it, and run `.github/scripts/check-version.sh v<VERSION>`
    and `.github/scripts/check-version.sh v<VERSION>-rc.1`. npm keeps the SemVer prerelease form;
    PyPI maps `-rc.N` to its equivalent `rcN` spelling.
-2. Run `go test ./...`, `go build ./...`, `goreleaser check`, and `goreleaser release --snapshot --clean`.
+2. Run `go test ./...`, `go build ./...`, `scripts/a2a-schema.sh`, `goreleaser check`, and
+   `goreleaser release --snapshot --clean`. The conformance script fetches the pinned official
+   A2A proto and pinned Google API imports into a temporary directory, generates the non-normative
+   JSON Schema with a pinned generator, and validates both card and catalog exports.
 3. Push the tag. Verify GitHub archives, checksums, SBOMs, deb/rpm/apk, GHCR, and every configured
    optional channel. A prerelease tag must remain a GitHub prerelease and must not become latest.
 4. Create the stable tag on the exact reviewed commit only after the release-candidate path is
