@@ -1,0 +1,59 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+  id-token: write
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.24.x'
+          cache: true
+      - uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
+  npm:
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          registry-url: https://registry.npmjs.org
+      - run: gh release download "$GITHUB_REF_NAME" --dir release-artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: python3 dist/npm/build_packages.py --artifacts release-artifacts --version "${GITHUB_REF_NAME#v}" --out npm-packages
+      - name: Publish platform packages and launcher
+        run: |
+          for package in npm-packages/darwin-* npm-packages/linux-* npm-packages/windows-*; do npm publish "$package" --access public --provenance; done
+          npm publish npm-packages/git-a2a --access public --provenance
+  pypi:
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/git-a2a
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - run: gh release download "$GITHUB_REF_NAME" --dir release-artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: python3 dist/pypi/build_wheels.py --artifacts release-artifacts --version "${GITHUB_REF_NAME#v}" --out wheelhouse
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
+        with:
+          packages-dir: wheelhouse/

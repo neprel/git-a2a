@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -203,45 +202,9 @@ func Marshal(m *Manifest) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return bytes.TrimRight(b, "\n")[:], nil
+	return append(bytes.TrimRight(b, "\n"), '\n'), nil
 }
 
 func MarshalLock(l *Lock) ([]byte, error) {
-	var node yaml.Node
-	b, err := yaml.Marshal(l)
-	if err != nil {
-		return nil, err
-	}
-	if err := yaml.Unmarshal(b, &node); err != nil {
-		return nil, err
-	}
-	if len(node.Content) > 0 {
-		sortMapNode(node.Content[0])
-	}
-	var out bytes.Buffer
-	enc := yaml.NewEncoder(&out)
-	enc.SetIndent(2)
-	if err := enc.Encode(&node); err != nil {
-		return nil, err
-	}
-	return out.Bytes(), nil
-}
-
-func sortMapNode(n *yaml.Node) {
-	if n.Kind == yaml.MappingNode {
-		pairs := make([][2]*yaml.Node, 0, len(n.Content)/2)
-		for i := 0; i < len(n.Content); i += 2 {
-			pairs = append(pairs, [2]*yaml.Node{n.Content[i], n.Content[i+1]})
-		}
-		sort.SliceStable(pairs, func(i, j int) bool { return pairs[i][0].Value < pairs[j][0].Value })
-		n.Content = n.Content[:0]
-		for _, p := range pairs {
-			n.Content = append(n.Content, p[0], p[1])
-			sortMapNode(p[1])
-		}
-	} else {
-		for _, child := range n.Content {
-			sortMapNode(child)
-		}
-	}
+	return yaml.Marshal(l)
 }

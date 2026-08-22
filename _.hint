@@ -74,6 +74,19 @@ image. All channels install the same binary with the same version string (`git-a
 prints version, commit, and build target). Wrappers contain no logic: they locate and exec the
 binary, nothing else, so behaviour never depends on the channel.
 
+# decision Public releases are published by GitHub Actions
+
+The project is public and open source. Tag-triggered GitHub Actions runners build and publish
+release artifacts and distribution wrappers; no paid or self-hosted release service is part of
+the design. Third-party actions are pinned to full commit SHAs.
+
+# dep Reference CLI runtime dependencies
+
+- `gopkg.in/yaml.v3` for YAML parsing and emission.
+
+Everything else in the CLI uses the Go standard library or executes the user's installed
+ecosystem tools. Add no other runtime dependency without recording and reviewing it here.
+
 # decision Fetch the manifest, never the repository {#fetch_only_manifest}
 
 `git-a2a add` and `update` obtain exactly `a2amodule.yml` (and, on demand, the declared

@@ -67,6 +67,9 @@ func TestLockDeterministic(t *testing.T) {
 	if strings.Index(string(one), "a:") > strings.Index(string(one), "z:") {
 		t.Fatal("dependency keys are not sorted")
 	}
+	if !strings.HasPrefix(string(one), "schema: 1\ndependencies:\n") {
+		t.Fatalf("non-canonical top-level order:\n%s", one)
+	}
 }
 
 func TestManifestExtension(t *testing.T) {

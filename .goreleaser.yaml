@@ -1,0 +1,43 @@
+version: 2
+project_name: git-a2a
+before:
+  hooks:
+    - go mod tidy
+builds:
+  - id: git-a2a
+    main: ./cmd/git-a2a
+    binary: git-a2a
+    env: [CGO_ENABLED=0]
+    flags: [-trimpath]
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X github.com/neprel/git-a2a/internal/cli.Version={{.Version}} -X github.com/neprel/git-a2a/internal/cli.Commit={{.Commit}} -X github.com/neprel/git-a2a/internal/cli.Target={{.Os}}/{{.Arch}}
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files: [LICENSE, README.md, spec/README.md]
+checksum:
+  name_template: checksums.txt
+sboms:
+  - artifacts: archive
+changelog:
+  sort: asc
+  filters:
+    exclude: ['^docs:', '^test:']
+brews:
+  - repository:
+      owner: neprel
+      name: homebrew-tap
+      token: '{{ .Env.HOMEBREW_TAP_TOKEN }}'
+    homepage: https://github.com/neprel/git-a2a
+    description: Import git modules together with their owning agents
+scoops:
+  - repository:
+      owner: neprel
+      name: scoop-bucket
+      token: '{{ .Env.SCOOP_BUCKET_TOKEN }}'
+    homepage: https://github.com/neprel/git-a2a
+    description: Import git modules together with their owning agents

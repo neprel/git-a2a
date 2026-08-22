@@ -31,3 +31,26 @@ git-a2a status                                 # upstream, wiring, agents: up / 
 ```
 
 License: MIT.
+
+## Installation
+
+Tagged releases are built and published entirely by GitHub Actions. Every channel installs
+the same static Go binary:
+
+```sh
+brew install neprel/tap/git-a2a
+npx git-a2a --version
+uvx git-a2a --version
+go install github.com/neprel/git-a2a/cmd/git-a2a@latest
+curl -fsSL https://raw.githubusercontent.com/neprel/git-a2a/main/install.sh | sh
+```
+
+For an agent container, copy a release binary into the image; no runtime is required:
+
+```dockerfile
+COPY git-a2a /usr/local/bin/git-a2a
+RUN chmod 0755 /usr/local/bin/git-a2a
+```
+
+GitHub Releases contain archives for Darwin, Linux, and Windows on amd64 and arm64, checksums,
+and SBOMs. The npm and PyPI packages are thin launchers around those exact binaries.

@@ -6,7 +6,11 @@ plans/
 
 # toolchains
 node_modules/
-dist/
+dist/*
+!dist/npm/
+!dist/npm/**
+!dist/pypi/
+!dist/pypi/**
 bin/
 *.test
 coverage/

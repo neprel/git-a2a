@@ -1,0 +1,16 @@
+{
+  "name": "git-a2a",
+  "version": "0.0.0-dev",
+  "description": "Thin launcher for the git-a2a binary",
+  "license": "MIT",
+  "bin": { "git-a2a": "bin/git-a2a.js" },
+  "engines": { "node": ">=18" },
+  "optionalDependencies": {
+    "@git-a2a/darwin-arm64": "0.0.0-dev",
+    "@git-a2a/darwin-amd64": "0.0.0-dev",
+    "@git-a2a/linux-arm64": "0.0.0-dev",
+    "@git-a2a/linux-amd64": "0.0.0-dev",
+    "@git-a2a/windows-arm64": "0.0.0-dev",
+    "@git-a2a/windows-amd64": "0.0.0-dev"
+  }
+}
