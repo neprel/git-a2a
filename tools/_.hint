@@ -60,7 +60,8 @@ byte-identical reference copies, a byte-identical static-site skill tree, and th
 UTF-8 bytes with LF endings so byte checks have the same result on Windows and POSIX.
 `gen-reference.py` also writes a byte-identical copy under `internal/reference/`; Go embeds that
 generated artifact for `git-a2a explain`. Check mode fails if either the public guide or embedded
-copy differs from the same rendered source.
+copy differs from the same rendered source after platform newline normalization; the generator
+itself and the committed Git blobs remain explicit UTF-8 with LF endings.
 
 # test Release channels
 

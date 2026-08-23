@@ -282,9 +282,9 @@ def main() -> None:
         if forbidden in rendered:
             fail(f"generated reference contains unresolved wording: {forbidden}")
     if args.check:
-        if not OUTPUT_PATH.exists() or OUTPUT_PATH.read_bytes() != rendered_bytes:
+        if not OUTPUT_PATH.exists() or OUTPUT_PATH.read_text() != rendered:
             fail("docs/manifest-reference.md is stale; run tools/gen-reference.py")
-        if not EMBED_PATH.exists() or EMBED_PATH.read_bytes() != rendered_bytes:
+        if not EMBED_PATH.exists() or EMBED_PATH.read_text() != rendered:
             fail("internal/reference/manifest-reference.md is stale; run tools/gen-reference.py")
         print("manifest-reference: generated documentation is current and every schema field has HINT")
         return
