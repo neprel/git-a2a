@@ -69,7 +69,9 @@ def build(destination: pathlib.Path) -> None:
             ],
         }],
     }
-    (destination / "index.json").write_text(json.dumps(index, indent=2) + "\n")
+    # Generated artifacts are compared byte-for-byte in CI. Writing bytes keeps LF stable on
+    # Windows instead of letting text mode translate the temporary file to CRLF.
+    (destination / "index.json").write_bytes((json.dumps(index, indent=2) + "\n").encode())
 
 
 def same_tree(left: pathlib.Path, right: pathlib.Path) -> bool:

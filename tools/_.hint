@@ -56,7 +56,8 @@ in the generated document.
 `sync-skill.py` treats `skills/git-a2a/SKILL.md` plus the three canonical docs as inputs. It makes
 byte-identical reference copies, a byte-identical static-site skill tree, and the Stripe-style
 `/.well-known/skills/index.json`; check mode fails on version or copy drift. Skill frontmatter
-`metadata.version` must equal `internal/version/VERSION`.
+`metadata.version` must equal `internal/version/VERSION`. Generated text is written as explicit
+UTF-8 bytes with LF endings so byte checks have the same result on Windows and POSIX.
 
 # test Release channels
 
