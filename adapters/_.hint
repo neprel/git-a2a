@@ -19,12 +19,10 @@ applicable adapter rather than selecting a single ecosystem.
 
 # decision Adapter verification labels distinguish form from execution
 
-`npm`, `pypi`, `golang`, `cargo`, `swift`, and `pub` have been exercised with their native
-toolchains and are `verified`. `gem`, `composer`, `hex`, `hackage` (Cabal/Stack), `zig`,
-`clojure`, `nix`, and `cmake` are `form-verified`: their native forms, golden editors, and lifecycle are
-tested, but their `Refresh` paths have not yet passed the opt-in real-toolchain integration job.
-`status -v` exposes the weaker label; it changes to `verified` only with recorded integration
-evidence, never merely because a fixture parses.
+Every registered adapter through CMake and Gradle has passed its native toolchain lifecycle in
+the opt-in Integration workflow and is `verified`. `status -v` exposes this evidence label; a
+future adapter begins `form-verified` and changes only after a recorded real-toolchain run, never
+merely because a fixture parses.
 
 The compiled integration test runs with `adapters/` as its working directory, matching `go test`
 package semantics so `../testdata/` fixtures resolve identically inside and outside containers.

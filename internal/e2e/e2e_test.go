@@ -106,7 +106,7 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	git(t, source, "config", "user.email", "acme@example.test")
 	git(t, source, "config", "user.name", "Acme")
 	git(t, source, "config", "core.autocrlf", "true")
-	manifestBody := []byte("schema: 1\nmodule:\n  id: acme-native\n  release: {channel: main}\n  exports:\n    - ecosystem: cmake\n      name: acme::native\n")
+	manifestBody := []byte("schema: 1\nmodule:\n  id: acme-native\n  release: {channel: main}\n  exports:\n    - ecosystem: cmake\n      name: acme::native\n    - ecosystem: maven\n      name: com.acme:native\n")
 	mustWrite(t, filepath.Join(source, "a2amodule.yml"), manifestBody)
 	mustWrite(t, filepath.Join(source, "acme.h"), []byte("#define ACME_VERSION 1\n"))
 	mustWrite(t, filepath.Join(source, "CMakeLists.txt"), []byte("add_library(acme-native INTERFACE)\nadd_library(acme::native ALIAS acme-native)\ntarget_include_directories(acme-native INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})\n"))
@@ -120,6 +120,7 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	git(t, consumer, "config", "user.name", "Consumer")
 	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte("schema: 1\nmodule: {id: consumer-app}\n"))
 	mustWrite(t, filepath.Join(consumer, "CMakeLists.txt"), []byte("cmake_minimum_required(VERSION 3.20)\nproject(consumer)\n"))
+	mustWrite(t, filepath.Join(consumer, "settings.gradle.kts"), []byte("rootProject.name = \"consumer\"\n"))
 	git(t, consumer, "add", ".")
 	git(t, consumer, "commit", "-m", "chore: initialize consumer")
 
@@ -151,6 +152,10 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	generated, err := os.ReadFile(filepath.Join(consumer, "deps", "git-a2a.cmake"))
 	if err != nil || !strings.Contains(string(generated), `add_subdirectory("deps/acme-native")`) {
 		t.Fatalf("cmake integration = %q, %v", generated, err)
+	}
+	gradleGenerated, err := os.ReadFile(filepath.Join(consumer, "deps", "git-a2a.settings.gradle.kts"))
+	if err != nil || !strings.Contains(string(gradleGenerated), `substitute(module("com.acme:native"))`) {
+		t.Fatalf("gradle integration = %q, %v", gradleGenerated, err)
 	}
 	run("status", "acme-native", "--offline")
 	if !strings.Contains(strings.SplitN(out.String(), "\n", 2)[0], "VENDOR") {
@@ -203,6 +208,9 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	}
 	if _, statErr := os.Stat(filepath.Join(consumer, "deps", "git-a2a.cmake")); !os.IsNotExist(statErr) {
 		t.Fatalf("--no-vendor left generated CMake integration: %v", statErr)
+	}
+	if _, statErr := os.Stat(filepath.Join(consumer, "deps", "git-a2a.settings.gradle.kts")); !os.IsNotExist(statErr) {
+		t.Fatalf("--no-vendor left generated Gradle integration: %v", statErr)
 	}
 	run("set", "acme-native", "--vendor", "submodule", "--no-refresh")
 	run("remove", "acme-native")

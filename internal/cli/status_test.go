@@ -71,8 +71,8 @@ func TestStatusReportsEachPolyglotWiringStateWithoutPanic(t *testing.T) {
 		strings.Index(lines[0], "SYNC") != strings.LastIndex(lines[1], "none") {
 		t.Fatalf("status columns are not aligned:\n%s", out.String())
 	}
-	if !strings.Contains(out.String(), "composer: form-verified (real toolchain integration pending)") {
-		t.Fatalf("verification detail missing:\n%s", out.String())
+	if strings.Contains(out.String(), "form-verified") {
+		t.Fatalf("verified adapter still reports pending integration:\n%s", out.String())
 	}
 	if strings.Contains(strings.SplitN(out.String(), "\n", 2)[0], "VENDOR") {
 		t.Fatalf("non-vendored status unexpectedly has VENDOR column:\n%s", out.String())

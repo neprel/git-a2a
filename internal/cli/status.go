@@ -219,7 +219,7 @@ func (a *App) status(args []string) int {
 							}
 							ok, variant, detectErr := implementation.Detect(root)
 							if detectErr != nil || !ok {
-								break
+								continue
 							}
 							tool := adapter.InspectTool(a.context(), adapter.ToolFor(ecosystem, variant))
 							if !tool.Ready {

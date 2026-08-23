@@ -1,0 +1,11 @@
+plugins {
+    id 'application'
+}
+
+dependencies {
+    implementation 'com.acme:lib-utils:1.0.0'
+}
+
+application {
+    mainClass = 'com.acme.app.Main'
+}

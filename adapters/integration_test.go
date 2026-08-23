@@ -18,6 +18,7 @@ import (
 	"github.com/neprel/git-a2a/adapters/composer"
 	"github.com/neprel/git-a2a/adapters/gem"
 	"github.com/neprel/git-a2a/adapters/golang"
+	"github.com/neprel/git-a2a/adapters/gradle"
 	"github.com/neprel/git-a2a/adapters/hackage"
 	"github.com/neprel/git-a2a/adapters/hex"
 	"github.com/neprel/git-a2a/adapters/nix"
@@ -71,6 +72,9 @@ func TestRealToolchainAdapterLifecycle(t *testing.T) {
 		{"cmake", "consumer-cmake", cmake.Adapter{}, adapter.Export{Ecosystem: "cmake", Name: "acme::lib-utils"}, func(root string) error {
 			return copyTreeError(libraryPath, filepath.Join(root, "deps", "acme-lib-utils"))
 		}},
+		{"gradle", "consumer-gradle-kts", gradle.Adapter{}, adapter.Export{Ecosystem: "maven", Name: "com.acme:lib-utils"}, func(root string) error {
+			return copyTreeError(libraryPath, filepath.Join(root, "deps", "acme-lib-utils"))
+		}},
 	}
 	for _, test := range cases {
 		if filter != "" && filter != test.name {
@@ -79,7 +83,7 @@ func TestRealToolchainAdapterLifecycle(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			caseDep, caseLocked := dep, locked
 			caseExport := test.export
-			if test.name == "cmake" {
+			if test.name == "cmake" || test.name == "gradle" {
 				caseDep.Vendor = &manifest.Vendor{Mode: "copy"}
 				caseLocked.Vendor = &manifest.LockedVendor{Mode: "copy", Path: "deps/acme-lib-utils", Tree: "tree:" + strings.Repeat("b", 40)}
 			}
@@ -136,13 +140,19 @@ func integrationLibrary(t *testing.T) (string, string, string) {
 	t.Helper()
 	root := t.TempDir()
 	files := map[string]string{
-		"package.json":   `{"name":"@acme/lib-utils","version":"1.0.0"}` + "\n",
-		"pyproject.toml": "[project]\nname = \"acme-lib-utils\"\nversion = \"1.0.0\"\n",
-		"go.mod":         "module acme.dev/lib-utils\n\ngo 1.24\n",
-		"CMakeLists.txt": "cmake_minimum_required(VERSION 3.20)\nproject(acme_lib_utils LANGUAGES CXX)\nadd_library(acme-lib-utils INTERFACE)\nadd_library(acme::lib-utils ALIAS acme-lib-utils)\ntarget_include_directories(acme-lib-utils INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})\n",
-		"acme.hpp":       "#pragma once\ninline int acme_answer() { return 42; }\n",
+		"package.json":                         `{"name":"@acme/lib-utils","version":"1.0.0"}` + "\n",
+		"pyproject.toml":                       "[project]\nname = \"acme-lib-utils\"\nversion = \"1.0.0\"\n",
+		"go.mod":                               "module acme.dev/lib-utils\n\ngo 1.24\n",
+		"CMakeLists.txt":                       "cmake_minimum_required(VERSION 3.20)\nproject(acme_lib_utils LANGUAGES CXX)\nadd_library(acme-lib-utils INTERFACE)\nadd_library(acme::lib-utils ALIAS acme-lib-utils)\ntarget_include_directories(acme-lib-utils INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})\n",
+		"acme.hpp":                             "#pragma once\ninline int acme_answer() { return 42; }\n",
+		"settings.gradle.kts":                  "rootProject.name = \"acme-lib-utils\"\n",
+		"build.gradle.kts":                     "plugins { `java-library` }\ngroup = \"com.acme\"\nversion = \"1.0.0\"\n",
+		"src/main/java/com/acme/LibUtils.java": "package com.acme;\n\npublic final class LibUtils {\n    public static int answer() { return 42; }\n}\n",
 	}
 	for name, body := range files {
+		if err := os.MkdirAll(filepath.Dir(filepath.Join(root, name)), 0o755); err != nil {
+			t.Fatal(err)
+		}
 		if err := os.WriteFile(filepath.Join(root, name), []byte(body), 0o644); err != nil {
 			t.Fatal(err)
 		}

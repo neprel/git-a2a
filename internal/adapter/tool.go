@@ -85,6 +85,12 @@ func ToolFor(ecosystem string, variant Variant) ToolRequirement {
 		}
 	case "clojure":
 		command, versionArg = "clj", []string{"-Sdescribe"}
+	case "maven":
+		if strings.HasPrefix(string(variant), "gradle-") {
+			command = "gradle"
+		} else {
+			command = "mvn"
+		}
 	}
 	return ToolRequirement{Ecosystem: ecosystem, Command: command, VersionArg: versionArg, Install: installHint(command)}
 }
@@ -164,7 +170,7 @@ func VersionAtLeast(versionText, minimum string) bool {
 
 func installHint(command string) string {
 	if runtime.GOOS == "darwin" {
-		packages := map[string]string{"git": "git", "npm": "node", "yarn": "yarn", "pnpm": "pnpm", "bun": "oven-sh/bun/bun", "uv": "uv", "pip": "python", "poetry": "poetry", "pdm": "pdm", "go": "go", "cargo": "rust", "swift": "swift", "dart": "dart", "bundle": "ruby", "composer": "composer", "mix": "elixir", "cabal": "cabal-install", "stack": "haskell-stack", "zig": "zig", "clj": "clojure/tools/clojure", "nix": "nix", "cmake": "cmake"}
+		packages := map[string]string{"git": "git", "npm": "node", "yarn": "yarn", "pnpm": "pnpm", "bun": "oven-sh/bun/bun", "uv": "uv", "pip": "python", "poetry": "poetry", "pdm": "pdm", "go": "go", "cargo": "rust", "swift": "swift", "dart": "dart", "bundle": "ruby", "composer": "composer", "mix": "elixir", "cabal": "cabal-install", "stack": "haskell-stack", "zig": "zig", "clj": "clojure/tools/clojure", "nix": "nix", "cmake": "cmake", "gradle": "gradle", "mvn": "maven"}
 		if name := packages[command]; name != "" {
 			return "brew install " + name
 		}
@@ -176,7 +182,7 @@ func installHint(command string) string {
 		}
 	}
 	if runtime.GOOS == "linux" {
-		packages := map[string]string{"git": "git", "npm": "nodejs npm", "go": "golang-go", "cargo": "cargo", "ruby": "ruby", "bundle": "ruby-bundler", "composer": "composer", "mix": "elixir", "cabal": "cabal-install", "clj": "clojure", "cmake": "cmake"}
+		packages := map[string]string{"git": "git", "npm": "nodejs npm", "go": "golang-go", "cargo": "cargo", "ruby": "ruby", "bundle": "ruby-bundler", "composer": "composer", "mix": "elixir", "cabal": "cabal-install", "clj": "clojure", "cmake": "cmake", "gradle": "gradle", "mvn": "maven"}
 		if name := packages[command]; name != "" {
 			return "sudo apt-get install " + name
 		}
@@ -186,6 +192,7 @@ func installHint(command string) string {
 		"uv": "https://docs.astral.sh/uv/getting-started/installation/", "pip": "https://pip.pypa.io/en/stable/installation/", "poetry": "https://python-poetry.org/docs/#installation", "pdm": "https://pdm-project.org/latest/#installation",
 		"swift": "https://www.swift.org/install/", "dart": "https://dart.dev/get-dart", "bundle": "https://bundler.io/guides/getting_started.html", "composer": "https://getcomposer.org/download/",
 		"mix": "https://elixir-lang.org/install.html", "cabal": "https://www.haskell.org/ghcup/install/", "stack": "https://docs.haskellstack.org/en/stable/install_and_upgrade/", "zig": "https://ziglang.org/download/", "clj": "https://clojure.org/guides/install_clojure", "nix": "https://nixos.org/download/",
+		"gradle": "https://gradle.org/install/", "mvn": "https://maven.apache.org/install.html",
 	}
 	if value := urls[command]; value != "" {
 		return value

@@ -48,6 +48,9 @@ version, PATH state, and the platform install hint; any required missing or inco
 exit 1. `status -v` exposes the same state. `add`, `wire`, `update`, and `set` preserve a completed
 manifest edit and warn when only downstream Refresh is unavailable; a direct adapter `Refresh`
 returns the shared actionable error.
+When multiple build systems share one export ecosystem, prerequisite lookup continues past
+non-matching detectors and reports the tool for the detected implementation (for example Gradle
+for a `maven` export in a repository with `settings.gradle.kts`).
 
 # decision Fetch restores cache from immutable lock state
 

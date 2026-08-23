@@ -14,6 +14,7 @@ func TestToolMappingUsesDetectedVariant(t *testing.T) {
 	}{
 		{"npm", "yarn-berry", "yarn"}, {"npm", "pnpm", "pnpm"}, {"pypi", "uv", "uv"},
 		{"pypi", "pep621", "pip"}, {"golang", "go", "go"}, {"hackage", "stack", "stack"},
+		{"maven", "gradle-kts", "gradle"}, {"maven", "maven", "mvn"},
 	} {
 		if got := ToolFor(test.ecosystem, test.variant).Command; got != test.want {
 			t.Errorf("ToolFor(%s, %s) = %s, want %s", test.ecosystem, test.variant, got, test.want)

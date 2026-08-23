@@ -5,6 +5,10 @@ struct-wide marshal. Existing dependency nodes are updated in place and unrelate
 scalar styles, flow collections, ordering, and extension nodes survive. A full marshal is for
 new manifests and locks; `fmt` canonicalizes through the YAML node tree.
 
+Adapter transactions snapshot both a generated integration file and its precisely marked root
+include/apply line. Gradle therefore adds both settings DSL variants and both
+`deps/git-a2a.settings.gradle(.kts)` outputs to the same rollback set as CMake.
+
 # invariant Dependency mutations are recoverable
 
 `add`, each dependency processed by `update`, and `set` stage fetched manifests, cards, and
