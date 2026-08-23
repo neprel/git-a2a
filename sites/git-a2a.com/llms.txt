@@ -1,21 +1,27 @@
 # git-a2a
 
-> git-a2a is an open standard and CLI for importing git modules together with the agents that own them. A repository publishes one `a2amodule.yml`; consumers resolve one git commit, wire it into their native package managers, and retain the owner's contact and policy metadata.
+> git-a2a is an open repository manifest standard and CLI for importing Git modules together with the agents that own them. A consumer resolves one commit, wires native ecosystems, and retains owner routing and policy.
 
-Use this file as a map to the canonical specification and documentation. The website is explanatory; the repository specification and schemas define behavior.
+Canonical behavior is defined by the repository specification and schemas; the website is a distribution and explanation surface.
 
-## Primary documentation
+## Documentation
 
-- [Specification](https://github.com/neprel/git-a2a/blob/main/spec/README.md): manifest, lock, routing, trust, wire, repository, and moved-to semantics.
-- [CLI reference](https://github.com/neprel/git-a2a/blob/main/docs/cli.md): every command, option, output, and exit-code contract.
-- [A2A agent-card extension](https://git-a2a.com/ext/module/v1): binds an agent card to a module, repository, role, scope, and ref.
-- [Manifest JSON Schema](https://git-a2a.com/schema/a2amodule.v1.json): editor and validation schema for `a2amodule.yml`.
-- [Lock JSON Schema](https://git-a2a.com/schema/a2amodule-lock.v1.json): schema for the generated `a2amodule.lock`.
+- [Specification](https://github.com/neprel/git-a2a/blob/main/spec/README.md)
+- [Manifest field reference](https://github.com/neprel/git-a2a/blob/main/docs/manifest-reference.md)
+- [Authoring guide](https://github.com/neprel/git-a2a/blob/main/docs/authoring.md)
+- [Consumer guide](https://github.com/neprel/git-a2a/blob/main/docs/consuming.md)
+- [Contact kinds](https://github.com/neprel/git-a2a/blob/main/docs/contact-kinds.md)
+- [FAQ](https://github.com/neprel/git-a2a/blob/main/docs/faq.md)
+- [CLI reference](https://github.com/neprel/git-a2a/blob/main/docs/cli.md)
+- [MCP server](https://github.com/neprel/git-a2a/blob/main/docs/mcp.md)
+- [A2A module extension](https://git-a2a.com/ext/module/v1)
+- [Manifest schema](https://git-a2a.com/schema/a2amodule.v1.json)
+- [Lock schema](https://git-a2a.com/schema/a2amodule-lock.v1.json)
+- [Full concatenated project context](https://git-a2a.com/llms-full.txt)
 
-## Project and installation
+## Project
 
-- [Project source](https://github.com/neprel/git-a2a): Go reference CLI, adapters, examples, tests, and MIT license.
-- [Releases](https://github.com/neprel/git-a2a/releases): binaries, packages, checksums, and SBOMs.
-- [Install](https://git-a2a.com/#install): checksum-verifying installers and supported distribution channels.
-- [Full machine-readable overview](https://git-a2a.com/llms-full.txt): self-contained terminology, lifecycle, commands, and invariants.
-- [Agent Skill index](https://git-a2a.com/.well-known/skills/index.json): installable git-a2a task guidance and its reference files.
+- [Canonical site](https://git-a2a.com/)
+- [Source and issues](https://github.com/neprel/git-a2a)
+- [Releases](https://github.com/neprel/git-a2a/releases)
+- [Agent Skill index](https://git-a2a.com/.well-known/skills/index.json)

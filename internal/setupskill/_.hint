@@ -1,6 +1,9 @@
-# decision Setup embeds the released skill
+# decision Setup embeds a thin released-version pointer skill
 
-`git-a2a setup` installs the exact `skills/git-a2a/` package shipped by the same tool version.
-`tools/sync-skill.py` owns this copy and drift-checks it together with the npm/site distributions;
-do not edit files below `files/` directly. The embedded copy keeps setup offline and never installs
-or upgrades the git-a2a executable.
+`git-a2a setup` installs exactly two embedded files: `thin/SKILL.md` and
+`thin/references/README.md`. They direct an agent to the same binary's `usage --prompt` and
+`explain` commands plus the canonical site, instead of copying the full documentation snapshot
+into every consumer repository. `tools/sync-skill.py` keeps the thin frontmatter version equal to
+`internal/version/VERSION` and rejects extra embedded files. The full `skills/git-a2a/` tree
+remains byte-identical in the repository, npm, and site distributions. Setup remains offline and
+never installs or upgrades the executable.

@@ -87,10 +87,13 @@ Maintainer setup is in [docs/releasing.md](docs/releasing.md).
 
 - [Manifest field reference](docs/manifest-reference.md): generated types, defaults, values, and consequences for every field.
 - [Authoring guide](docs/authoring.md): create and publish a module, its surface, agents, contacts, policy, and cards.
+- [Consumer guide](docs/consuming.md): add, fetch, sync, inspect, update, contact, and run deterministic CI.
+- [Contact kinds](docs/contact-kinds.md): generated allowed fields and delivery/instruction behavior for every known kind.
+- [FAQ](docs/faq.md): design boundaries, offline operation, A2A, MCP, Agent Skills, and disposable cache.
 - [Consumer demo](docs/demo.md): inspect the public polyglot library and app end to end.
 - [CLI reference](docs/cli.md): exact commands, flags, outputs, and exit codes.
-- [MCP server](docs/mcp.md): attach the stdio server to Claude Code, Codex, Cursor, Copilot,
-  Gemini CLI, or OpenCode.
+- [MCP server](docs/mcp.md): attach the multi-repository stdio server to Claude Code, Codex,
+  Cursor, Copilot, Gemini CLI, OpenCode, Hermes Agent, or OpenClaw.
 
 ## A2A, AGENTS.md, and Agent Skills
 

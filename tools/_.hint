@@ -63,6 +63,9 @@ UTF-8 bytes with LF endings so byte checks have the same result on Windows and P
 generated artifact for `git-a2a explain`. Check mode fails if either the public guide or embedded
 copy differs from the same rendered source after platform newline normalization; the generator
 itself and the committed Git blobs remain explicit UTF-8 with LF endings.
+The same run extracts `contact_kinds` into `docs/contact-kinds.md`, generates the site's concise
+`llms.txt` map and `llms-full.txt` canonical-document concatenation, and checks local Markdown
+targets across README, spec, and docs. These files are outputs, never separately authored sources.
 
 # test Release channels
 

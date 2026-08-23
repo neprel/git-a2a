@@ -248,7 +248,12 @@ and gives every field's type, requiredness, default, allowed values, behavior, c
 examples in manifest order. `docs/authoring.md` is the hand-written owner workflow and uses the
 public `acme-*` demo rather than inventing a parallel example. The reference may not be edited by
 hand; CI regenerates it and fails on schema/HINT field drift. Narrative guides link to the
-reference instead of restating field contracts.
+reference instead of restating field contracts. `docs/consuming.md` owns the consumer lifecycle
+and CI recipe; `docs/contact-kinds.md` is generated from the same `contact_kinds` vocabulary table
+as the field reference; `docs/faq.md` explains settled boundaries without becoming normative.
+`tools/gen-reference.py` also deterministically generates the concise site `llms.txt` map and
+`llms-full.txt` concatenation of canonical README/spec/guides/reference/CLI/MCP content, checks
+every local Markdown target, and fails CI on drift.
 
 # decision Agent guidance uses a compact command plus a portable skill {#agent_ux}
 

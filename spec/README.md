@@ -15,7 +15,10 @@ Complete manifests live in [`examples/`](./examples/).
 
 Use the generated [manifest field reference](../docs/manifest-reference.md) for every field's
 type, default, allowed values, behavior, and consequence. The [authoring guide](../docs/authoring.md)
-walks from an empty repository to a published module using the public demo.
+walks from an empty repository to a published module using the public demo. Consumers follow the
+[consumer guide](../docs/consuming.md); contact transport fields and behavior are generated in
+[contact kinds](../docs/contact-kinds.md), and design boundaries are answered in the
+[FAQ](../docs/faq.md). Exact executable behavior is in the [CLI reference](../docs/cli.md).
 
 ## Manifest
 
@@ -41,6 +44,17 @@ required field.
 
 Unknown vocabulary values—roles, intents, contact kinds, and ecosystems—are valid.
 Unknown object keys are invalid unless they start with `x-`.
+
+## Consumer lifecycle
+
+`add` resolves a dependency and writes one lock commit for every ecosystem. `fetch` reconstructs
+the ignored `.git-a2a/cache` from that lock after a fresh clone. `sync` projects only published
+module, surface, policy, ownership, and contact data into a bounded AGENTS.md block. `status`
+checks the locked cache, native wiring, upstream movement, cards/trust, and roster; `update`,
+`set`, `pin`, `unpin`, and `wire` change the dependency deliberately and transactionally.
+`who` resolves an owner route and `contact` either delivers through a supported driver or prints
+the declared instruction. The [consumer guide](../docs/consuming.md) gives the complete sequence
+and the non-mutating CI pattern.
 
 ## Routing
 
