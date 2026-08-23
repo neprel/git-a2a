@@ -291,6 +291,17 @@ func (a *App) status(args []string) int {
 	if ownFailed {
 		failures++
 	}
+	showVendor := false
+	for _, dep := range own.Dependencies {
+		if dep.Vendor != nil {
+			showVendor = true
+			break
+		}
+		if entry, ok := l.Dependencies[dep.ID]; ok && entry.Vendor != nil {
+			showVendor = true
+			break
+		}
+	}
 	noun := "dependencies"
 	if len(rows) == 1 {
 		noun = "dependency"
@@ -307,9 +318,17 @@ func (a *App) status(args []string) int {
 		fmt.Fprintln(a.Out, string(b))
 	} else {
 		table := tabwriter.NewWriter(a.Out, 0, 4, 2, ' ', 0)
-		fmt.Fprintln(table, "MODULE\tSOURCE\tREF\tUPSTREAM\tMANIFEST\tWIRING\tVENDOR\tAGENTS\tSYNC")
+		if showVendor {
+			fmt.Fprintln(table, "MODULE\tSOURCE\tREF\tUPSTREAM\tMANIFEST\tWIRING\tVENDOR\tAGENTS\tSYNC")
+		} else {
+			fmt.Fprintln(table, "MODULE\tSOURCE\tREF\tUPSTREAM\tMANIFEST\tWIRING\tAGENTS\tSYNC")
+		}
 		for _, row := range rows {
-			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.ID, row.Source, row.Ref, row.Upstream, row.Manifest, row.Wiring, row.Vendor, row.Agents, row.Sync)
+			if showVendor {
+				fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.ID, row.Source, row.Ref, row.Upstream, row.Manifest, row.Wiring, row.Vendor, row.Agents, row.Sync)
+			} else {
+				fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.ID, row.Source, row.Ref, row.Upstream, row.Manifest, row.Wiring, row.Agents, row.Sync)
+			}
 			if verbose {
 				for _, detail := range row.Details {
 					fmt.Fprintf(table, "  - %s\n", detail)

@@ -76,3 +76,39 @@ func TestRequiresVendoringAndSortsBlocks(t *testing.T) {
 		t.Fatalf("blocks not sorted:\n%s", body)
 	}
 }
+
+func TestOwnedGeneratedFileRepairsForeignContentAndUnwireNeverFails(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, rootFile), []byte("project(consumer)\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	implementation := Adapter{}
+	dep := adapter.Dependency{ID: "acme-native", Vendor: &manifest.Vendor{Mode: "copy"}}
+	exp := adapter.Export{Ecosystem: "cmake", Name: "acme::native"}
+	locked := adapter.Locked{Vendor: &manifest.LockedVendor{Mode: "copy", Path: "deps/acme-native"}}
+	if _, err := implementation.Wire(context.Background(), root, dep, exp, locked); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root, generatedFile)
+	want, _ := os.ReadFile(path)
+	if err := os.WriteFile(path, append(append([]byte(nil), want...), []byte("human_line()\n")...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	change, err := implementation.Wire(context.Background(), root, dep, exp, locked)
+	if err != nil || !change.Changed || !strings.Contains(change.Warning, "discarded") {
+		t.Fatalf("repair Wire = %#v, %v", change, err)
+	}
+	if got, readErr := os.ReadFile(path); readErr != nil || !bytes.Equal(got, want) {
+		t.Fatalf("repaired generated file = %q, %v", got, readErr)
+	}
+	if err := os.WriteFile(path, append(append([]byte(nil), want...), []byte("human_line()\n")...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	change, err = implementation.Unwire(context.Background(), root, dep, exp)
+	if err != nil || !change.Changed {
+		t.Fatalf("Unwire = %#v, %v", change, err)
+	}
+	if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
+		t.Fatalf("generated file remains: %v", statErr)
+	}
+}

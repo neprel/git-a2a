@@ -21,6 +21,29 @@ type fakeRunner struct {
 
 type fileFallbackRunner struct{ body []byte }
 
+type translatedArchiveRunner struct {
+	tar, blob []byte
+}
+
+func (r translatedArchiveRunner) Run(_ context.Context, _ string, _ []byte, args ...string) ([]byte, error) {
+	command := args[0]
+	if command == "-c" {
+		command = args[2]
+	}
+	switch command {
+	case "ls-remote":
+		return []byte(strings.Repeat("a", 40) + "\trefs/heads/main\n"), nil
+	case "archive":
+		return r.tar, nil
+	case "clone", "sparse-checkout", "fetch", "checkout":
+		return nil, nil
+	case "show":
+		return r.blob, nil
+	default:
+		return nil, fmt.Errorf("unexpected command %s", command)
+	}
+}
+
 func (r fileFallbackRunner) Run(_ context.Context, dir string, _ []byte, args ...string) ([]byte, error) {
 	command := args[0]
 	if command == "-c" {
@@ -78,6 +101,26 @@ func TestArchiveSelectedFirst(t *testing.T) {
 	}
 	if len(r.calls) != 3 {
 		t.Fatalf("calls: %v", r.calls)
+	}
+}
+
+func TestArchiveCRLFTranslationUsesRepositoryBlob(t *testing.T) {
+	var archive bytes.Buffer
+	w := tar.NewWriter(&archive)
+	blob := []byte("schema: 1\nmodule: {id: acme-lib}\n")
+	translated := bytes.ReplaceAll(blob, []byte("\n"), []byte("\r\n"))
+	_ = w.WriteHeader(&tar.Header{Name: "a2amodule.yml", Mode: 0o644, Size: int64(len(translated))})
+	_, _ = w.Write(translated)
+	_ = w.Close()
+
+	result, err := (Fetcher{Runner: translatedArchiveRunner{tar: archive.Bytes(), blob: blob}}).Fetch(
+		context.Background(), "file:///repo", "main", ".", t.TempDir(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Method != "sparse" || !bytes.Equal(result.Manifest, blob) {
+		t.Fatalf("result = %#v, want repository blob", result)
 	}
 }
 

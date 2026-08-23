@@ -14,8 +14,8 @@ type Export = manifest.Export
 type Locked = manifest.LockedDependency
 
 type Change struct {
-	File, Entry string
-	Changed     bool
+	File, Entry, Warning string
+	Changed              bool
 }
 type Finding struct{ File, Entry, Want, Got string }
 

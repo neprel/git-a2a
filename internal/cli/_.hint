@@ -34,8 +34,11 @@ never creates one implicitly. `--no-refresh` on add, update, set, pin, unpin, an
 package-manager Refresh phase without skipping deterministic manifest, lock, wiring, or roster
 updates. Human status output expands its table with spaces through Go's tabwriter so every column
 starts at the same position even when a source, ref, or wiring summary is longer than the header.
-The dependency table includes an ASCII-only `VENDOR` value (`none`, `submodule @<sha7>`, `copy`,
-`missing`, or `drift`); ASCII keeps tabwriter byte width equal to terminal cell width.
+Human output includes the ASCII-only `VENDOR` column only when at least one manifest or lock
+dependency is vendored; ordinary native-Git consumers keep the compact pre-vendoring table.
+When present its values are `none`, `submodule @<sha7>`, `copy`, `missing`, or `drift`; ASCII
+keeps tabwriter byte width equal to terminal cell width. JSON always includes `vendor` so its
+machine shape never depends on repository state.
 
 # decision Prerequisite reporting is shared with adapters
 

@@ -1453,11 +1453,14 @@ func wireAllUsing(ctx context.Context, root string, dep manifest.Dependency, mod
 				return nil, err
 			}
 			wired[exp.Ecosystem] = true
-			outcomes = append(outcomes, wireOutcome{Ecosystem: exp.Ecosystem, Changed: change.Changed, Wired: true})
+			outcomes = append(outcomes, wireOutcome{Ecosystem: exp.Ecosystem, Changed: change.Changed, Wired: true, Warning: change.Warning})
 			if refresh && change.Changed {
 				if err := implementation.Refresh(ctx, root, dep, exp, locked); err != nil {
 					if adapter.IsToolUnavailable(err) {
-						outcomes[len(outcomes)-1].Warning = err.Error()
+						if outcomes[len(outcomes)-1].Warning != "" {
+							outcomes[len(outcomes)-1].Warning += "; "
+						}
+						outcomes[len(outcomes)-1].Warning += err.Error()
 						continue
 					}
 					return nil, err

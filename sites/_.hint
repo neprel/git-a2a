@@ -48,7 +48,8 @@ size-specific favicons by ImageMagick, and social cards by the committed headles
 
 # invariant The transcript is real and accessible {#transcript}
 
-`assets/transcript.json` contains real 1.0.1 CLI stdout and stderr bytes from the public demo or
+`assets/transcript.json` contains real CLI stdout and stderr bytes from the repository's canonical
+VERSION build against the public demo or
 its byte-equivalent local bare fixture, including line endings and alignment spaces. The displayed
 add command is exactly the public HTTPS demo command with no hidden flag; npm, uv, and Go resolve
 and refresh against the local bare repository through process-scoped Git URL rewrites. The landing

@@ -860,14 +860,15 @@ acme-lib owner github-issue issue=https://github.com/acme/lib/issues/42
 `git-a2a status [ID ...] [--offline] [--json] [-v]` checks upstream, manifest/cache hashes,
 wiring, cards/trust, and rendered blocks. The table contains dependencies only; the consuming
 module is summarized below it. A repository that has not run `sync` has roster/SYNC `none`, which
-is healthy; `stale` means an existing managed block differs. `VENDOR` reports `none`, a pinned
-submodule, a copy, missing state, or drift. `-v` adds own-module findings,
+is healthy; `stale` means an existing managed block differs. Human output adds `VENDOR` only
+when at least one dependency is vendored; it reports `none`, a pinned submodule, a copy, missing
+state, or drift. JSON always includes `vendor`. `-v` adds own-module findings,
 prerequisite state, and adapter verification labels. Any unhealthy dependency or own-module
 check exits `1`; no match exits `2`.
 
 ```text
 $ git-a2a status --offline
-acme-lib  canonical  branch main  unknown  clean  npm clean  none  unknown  none
+acme-lib  canonical  branch main  unknown  clean  npm clean  unknown  none
 consumer-app: manifest valid · agents none · roster none
 1 dependency: clean
 ```

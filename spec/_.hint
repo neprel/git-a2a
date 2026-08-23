@@ -624,6 +624,14 @@ deletes `.git/modules/<path>`, drops its `.gitmodules` section, restores the ori
 `.gitmodules` bytes, and restores manifest, lock, wiring, and cache. Copy removal uses `git rm -r`.
 No failed transaction leaves a worktree, gitlink, `.gitmodules` entry, or `.git/modules` residue.
 
+# decision Vendor status is explicit without widening ordinary output {#vendor_status}
+
+Machine-readable status always carries a `vendor` state for every dependency. Human status adds
+the `VENDOR` column only when at least one dependency in the consumer manifest or lock is
+vendored; a consumer using only native Git forms retains the compact table. Once shown, the
+column reports `none`, `submodule @<sha7>`, `copy`, `missing`, or `drift` and remains aligned by
+the same tabwriter as every other column.
+
 # decision Copy mode preserves Git tree semantics {#vendor_copy_tree}
 
 Copy materialisation preserves regular/executable modes and creates 120000 entries as symlinks.

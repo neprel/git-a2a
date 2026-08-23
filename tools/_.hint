@@ -71,7 +71,7 @@ targets across README, spec, and docs. These files are outputs, never separately
 
 The transcript generator stores command stdout without trimming, collapsing, or reformatting and
 embeds the same bytes in JSON and the no-JavaScript HTML fallback. Status header changes, including
-the `VENDOR` column, must be regenerated from the fixture rather than patched by hand. The fixture
+the conditional presence of the `VENDOR` column, must be regenerated from the fixture rather than patched by hand. The fixture
 comparison normalises only the resolved commit hash; tabwriter spacing and every other byte remain
 an acceptance check.
 

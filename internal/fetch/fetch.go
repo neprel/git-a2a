@@ -46,6 +46,14 @@ func (f Fetcher) Fetch(ctx context.Context, url, ref, modulePath, work string) (
 	commit := resolution.Commit
 	manifestPath := path.Join(modulePath, "a2amodule.yml")
 	if b, err := f.archiveResolved(ctx, url, resolution, manifestPath); err == nil {
+		// Some Git-for-Windows upload-archive configurations translate LF blobs to CRLF.
+		// Lock hashes describe repository objects, so verify any potentially translated
+		// archive payload through the sparse checkout's raw `git show` path.
+		if bytes.Contains(b, []byte("\r\n")) {
+			if raw, sparseErr := f.sparse(ctx, url, commit, manifestPath, work); sparseErr == nil {
+				return Result{Manifest: raw, Commit: commit, Ref: resolution.FullRef, Method: "sparse"}, nil
+			}
+		}
 		return Result{Manifest: b, Commit: commit, Ref: resolution.FullRef, Method: "archive"}, nil
 	}
 	if b, err := f.sparse(ctx, url, commit, manifestPath, work); err == nil {

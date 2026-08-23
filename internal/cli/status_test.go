@@ -74,6 +74,17 @@ func TestStatusReportsEachPolyglotWiringStateWithoutPanic(t *testing.T) {
 	if !strings.Contains(out.String(), "composer: form-verified (real toolchain integration pending)") {
 		t.Fatalf("verification detail missing:\n%s", out.String())
 	}
+	if strings.Contains(strings.SplitN(out.String(), "\n", 2)[0], "VENDOR") {
+		t.Fatalf("non-vendored status unexpectedly has VENDOR column:\n%s", out.String())
+	}
+	out.Reset()
+	errOut.Reset()
+	if code := app.Run([]string{"status", dep.ID, "--offline", "--json"}); code != 1 {
+		t.Fatalf("json exit %d out=%s err=%s", code, out.String(), errOut.String())
+	}
+	if !strings.Contains(out.String(), `"vendor": "none"`) {
+		t.Fatalf("JSON must always include vendor state:\n%s", out.String())
+	}
 }
 
 func TestStatusTreatsMissingManagedBlockAsHealthyNoneAndUsesModuleFooter(t *testing.T) {

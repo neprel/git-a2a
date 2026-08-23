@@ -51,7 +51,7 @@
     },
     {
       "command": "git-a2a status",
-      "stdout": "MODULE          SOURCE     REF          UPSTREAM    MANIFEST  WIRING                               VENDOR  AGENTS  SYNC\nacme-lib-utils  canonical  branch main  up to date  clean     npm clean, pypi clean, golang clean  none    up      none\nconsumer-app: manifest valid · agents none · roster none\n",
+      "stdout": "MODULE          SOURCE     REF          UPSTREAM    MANIFEST  WIRING                               AGENTS  SYNC\nacme-lib-utils  canonical  branch main  up to date  clean     npm clean, pypi clean, golang clean  up      none\nconsumer-app: manifest valid · agents none · roster none\n",
       "stderr": "1 dependency: clean\n",
       "render": [
         {

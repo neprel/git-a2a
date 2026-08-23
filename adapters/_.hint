@@ -58,3 +58,13 @@ safe refresh operation is otherwise empty. The detected variant chooses the comm
 `pnpm`, `uv`, `poetry`, `cabal`, or `stack`); missing tools return the same actionable
 `<ecosystem>: <tool> not found — install: <platform hint>` error that `doctor` reports. `Wire`
 is a text edit and remains available without the tool.
+
+# invariant Generated integration files are wholly tool-owned and always repairable
+
+Files named `deps/git-a2a.*` are deterministic outputs owned in full by git-a2a, unlike managed
+lines inserted into a user's native root file. `Wire` parses every intact dependency block,
+discards any other bytes, regenerates the complete canonical file, and returns a warning that
+foreign content was discarded. `Drift` reports such content. `Unwire` and `remove` never fail
+because the generated file was edited: they retain other intact generated blocks or delete the
+file and its one managed root include when none remain. CMake, Gradle, MSBuild, Maven, and Meson
+all obey this contract, so a half-wired state is one `git-a2a wire` can always repair.

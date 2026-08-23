@@ -119,7 +119,8 @@ The design bundle is committed at `sites/design/` and is not part of the documen
 
 ## Terminal transcript provenance
 
-`assets/transcript.json` contains real output from a locally built 1.0.1 binary. It was produced
+`assets/transcript.json` contains real output from a locally built binary at the repository's
+canonical VERSION. It was produced
 against a fresh bare repository from `tools/transcript-fixture/library/` and a fresh
 `consumer-app` from `tools/transcript-fixture/consumer/` with these four displayed commands:
 

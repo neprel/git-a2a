@@ -105,6 +105,7 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	git(t, source, "init", "-b", "main")
 	git(t, source, "config", "user.email", "acme@example.test")
 	git(t, source, "config", "user.name", "Acme")
+	git(t, source, "config", "core.autocrlf", "true")
 	manifestBody := []byte("schema: 1\nmodule:\n  id: acme-native\n  release: {channel: main}\n  exports:\n    - ecosystem: cmake\n      name: acme::native\n")
 	mustWrite(t, filepath.Join(source, "a2amodule.yml"), manifestBody)
 	mustWrite(t, filepath.Join(source, "acme.h"), []byte("#define ACME_VERSION 1\n"))
@@ -135,7 +136,7 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 		}
 	}
 
-	run("add", url, "--wire", "cmake", "--vendor", "submodule", "--no-refresh")
+	run("add", url, "--vendor", "submodule", "--no-refresh")
 	locked, err := manifest.LoadLock(filepath.Join(consumer, "a2amodule.lock"))
 	if err != nil {
 		t.Fatal(err)
@@ -152,6 +153,9 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 		t.Fatalf("cmake integration = %q, %v", generated, err)
 	}
 	run("status", "acme-native", "--offline")
+	if !strings.Contains(strings.SplitN(out.String(), "\n", 2)[0], "VENDOR") {
+		t.Fatalf("vendored status has no VENDOR column:\n%s", out.String())
+	}
 	if !strings.Contains(out.String(), "submodule @"+first.Commit[:7]) {
 		t.Fatalf("submodule status missing:\n%s", out.String())
 	}
@@ -181,13 +185,34 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	if _, err = os.Stat(filepath.Join(consumer, ".gitmodules")); !os.IsNotExist(err) {
 		t.Fatalf("switch left .gitmodules: %v", err)
 	}
+	if entries, readErr := os.ReadDir(filepath.Join(consumer, ".git", "modules")); readErr != nil && !os.IsNotExist(readErr) {
+		t.Fatal(readErr)
+	} else if len(entries) != 0 {
+		t.Fatalf("switch left .git/modules residue: %v", entries)
+	}
 	run("status", "acme-native", "--offline")
 	if !strings.Contains(out.String(), "copy") {
 		t.Fatalf("copy status missing:\n%s", out.String())
 	}
+	run("set", "acme-native", "--vendor", "submodule", "--no-refresh")
+	run("set", "acme-native", "--no-vendor", "--no-refresh")
+	if entries, readErr := os.ReadDir(filepath.Join(consumer, ".git", "modules")); readErr != nil && !os.IsNotExist(readErr) {
+		t.Fatal(readErr)
+	} else if len(entries) != 0 {
+		t.Fatalf("--no-vendor left .git/modules residue: %v", entries)
+	}
+	if _, statErr := os.Stat(filepath.Join(consumer, "deps", "git-a2a.cmake")); !os.IsNotExist(statErr) {
+		t.Fatalf("--no-vendor left generated CMake integration: %v", statErr)
+	}
+	run("set", "acme-native", "--vendor", "submodule", "--no-refresh")
 	run("remove", "acme-native")
 	if _, err = os.Stat(filepath.Join(consumer, "deps", "acme-native")); !os.IsNotExist(err) {
-		t.Fatalf("remove left vendored copy: %v", err)
+		t.Fatalf("remove left vendored source: %v", err)
+	}
+	if entries, readErr := os.ReadDir(filepath.Join(consumer, ".git", "modules")); readErr != nil && !os.IsNotExist(readErr) {
+		t.Fatal(readErr)
+	} else if len(entries) != 0 {
+		t.Fatalf("remove left .git/modules residue: %v", entries)
 	}
 }
 

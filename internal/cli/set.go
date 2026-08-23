@@ -450,7 +450,7 @@ func rewireSet(ctx context.Context, root string, oldDep, newDep manifest.Depende
 		if !selected(newDep, impl.Ecosystem()) {
 			continue
 		}
-		if oldDep.ID != newDep.ID || oldDep.Git != newDep.Git || oldDep.Path != newDep.Path {
+		if oldDep.ID != newDep.ID || oldDep.Git != newDep.Git || oldDep.Path != newDep.Path || oldDep.Vendor != nil && newDep.Vendor == nil {
 			for _, exp := range oldExports {
 				if _, err := impl.Unwire(ctx, root, oldDep, exp); err != nil {
 					return nil, err
@@ -466,12 +466,15 @@ func rewireSet(ctx context.Context, root string, oldDep, newDep manifest.Depende
 				}
 				return nil, err
 			}
-			outcomes = append(outcomes, wireOutcome{Ecosystem: impl.Ecosystem(), Changed: change.Changed, Wired: true})
+			outcomes = append(outcomes, wireOutcome{Ecosystem: impl.Ecosystem(), Changed: change.Changed, Wired: true, Warning: change.Warning})
 			if change.Changed {
 				if refresh {
 					if err = impl.Refresh(ctx, root, newDep, exp, locked); err != nil {
 						if adapter.IsToolUnavailable(err) {
-							outcomes[len(outcomes)-1].Warning = err.Error()
+							if outcomes[len(outcomes)-1].Warning != "" {
+								outcomes[len(outcomes)-1].Warning += "; "
+							}
+							outcomes[len(outcomes)-1].Warning += err.Error()
 							continue
 						}
 						return nil, err

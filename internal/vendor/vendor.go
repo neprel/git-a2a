@@ -299,7 +299,10 @@ func (m Manager) removeSubmodule(ctx context.Context, root, relative string) err
 		if !filepath.IsAbs(commonDir) {
 			commonDir = filepath.Join(root, commonDir)
 		}
-		_ = os.RemoveAll(filepath.Join(commonDir, "modules", filepath.FromSlash(relative)))
+		modulesRoot := filepath.Join(commonDir, "modules")
+		moduleStore := filepath.Join(modulesRoot, filepath.FromSlash(relative))
+		_ = os.RemoveAll(moduleStore)
+		pruneEmptyParents(filepath.Dir(moduleStore), modulesRoot)
 	}
 	gitmodules := filepath.Join(root, ".gitmodules")
 	if body, readErr := os.ReadFile(gitmodules); readErr == nil && len(bytes.TrimSpace(body)) == 0 {
@@ -307,6 +310,24 @@ func (m Manager) removeSubmodule(ctx context.Context, root, relative string) err
 		_, _ = m.run(ctx, root, "", "rm", "--cached", "--ignore-unmatch", "--", ".gitmodules")
 	}
 	return nil
+}
+
+func pruneEmptyParents(current, stop string) {
+	for {
+		entries, err := os.ReadDir(current)
+		if err != nil || len(entries) != 0 {
+			return
+		}
+		_ = os.Remove(current)
+		if filepath.Clean(current) == filepath.Clean(stop) {
+			return
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return
+		}
+		current = parent
+	}
 }
 
 func (m Manager) applyCopy(ctx context.Context, root string, dep manifest.Dependency, locked manifest.LockedDependency, relative string) (string, error) {

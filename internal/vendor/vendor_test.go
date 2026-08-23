@@ -54,6 +54,7 @@ func TestSubmoduleRoundTripDriftAndResidueCleanup(t *testing.T) {
 	if _, err = os.Stat(filepath.Join(consumer, ".git", "modules", "deps", "acme-lib")); !os.IsNotExist(err) {
 		t.Fatalf(".git/modules residue remains: %v", err)
 	}
+	assertModulesAbsentOrEmpty(t, consumer)
 }
 
 func TestCopyUsesIndexTreeExcludingStampAndPreservesEntries(t *testing.T) {
@@ -135,8 +136,24 @@ func TestFailedSubmoduleAddRollsBackGitmodulesAndModuleStore(t *testing.T) {
 			t.Fatalf("rollback residue %s: %v", path, err)
 		}
 	}
+	assertModulesAbsentOrEmpty(t, consumer)
 	if got := strings.TrimSpace(git(t, consumer, "ls-files", "-s", "--", "deps/acme-lib")); got != "" {
 		t.Fatalf("rollback left gitlink: %q", got)
+	}
+}
+
+func assertModulesAbsentOrEmpty(t *testing.T, root string) {
+	t.Helper()
+	modules := filepath.Join(root, ".git", "modules")
+	entries, err := os.ReadDir(modules)
+	if os.IsNotExist(err) {
+		return
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf(".git/modules contains residue: %v", entries)
 	}
 }
 
