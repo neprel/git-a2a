@@ -28,6 +28,8 @@ evidence, never merely because a fixture parses.
 
 The compiled integration test runs with `adapters/` as its working directory, matching `go test`
 package semantics so `../testdata/` fixtures resolve identically inside and outside containers.
+Images that do not bundle Git install it only inside their disposable CI container; the Zig job
+downloads the official versioned archive and verifies the SHA-256 published by ziglang.org.
 
 # decision Not wired is policy, not an adapter success
 

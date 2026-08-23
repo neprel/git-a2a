@@ -35,7 +35,7 @@ func TestRealToolchainAdapterLifecycle(t *testing.T) {
 		t.Skip("set GITA2A_IT=1 to exercise installed ecosystem tools")
 	}
 	library, libraryPath, commit := integrationLibrary(t)
-	dep := adapter.Dependency{Git: library, Ref: "main", Track: "locked"}
+	dep := adapter.Dependency{ID: "acme-lib-utils", Git: library, Ref: "main", Track: "locked"}
 	locked := adapter.Locked{Git: dep.Git, Ref: "refs/heads/main", Commit: commit}
 	filter := os.Getenv("GITA2A_IT_ECOSYSTEM")
 	cases := []struct {
@@ -198,6 +198,9 @@ func copyTree(t *testing.T, source, destination string) {
 }
 
 func copyTreeError(source, destination string) error {
+	if err := os.MkdirAll(destination, 0o755); err != nil {
+		return err
+	}
 	return filepath.WalkDir(source, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
