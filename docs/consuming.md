@@ -19,6 +19,24 @@ ecosystem to that same commit. Use `--wire npm,pypi`, `--no-wire`, or `--no-refr
 repository policy calls for those narrower operations. A missing package-manager executable is
 reported with an install hint; git-a2a never installs a toolchain.
 
+## Keep source in the consumer repository
+
+Vendoring is opt-in and consumer-owned. Use a submodule when the Git relationship should remain
+visible, or a verified copy when the consumer must contain ordinary files:
+
+```sh
+git-a2a add https://github.com/acme/lib-utils.git --vendor submodule
+git-a2a set acme-lib-utils --vendor copy
+git-a2a set acme-lib-utils --no-vendor
+```
+
+The default location is `deps/<id>`; override it with `--vendor-path`. Native package managers
+then use local path dependencies, while CMake, Gradle, MSBuild, Maven, and Meson receive their
+generated integration. Meson projects use `--vendor-path subprojects/<id>`. Dirty or drifted
+vendored content blocks update, replacement, and removal unless `--force` explicitly authorizes
+data loss. Commit `.gitmodules` and the gitlink for submodule mode, or the copied tree for copy
+mode, together with the manifest, lock, and native wiring.
+
 ## Restore disposable state after clone
 
 `.git-a2a/` is ignored and recoverable. A fresh clone reconstructs its locked manifests and,
@@ -117,7 +135,9 @@ another repository's legitimate progress does not make the consumer's build nond
   run: git-a2a update --check
 ```
 
-Then run the repository's native builds and tests. Do not commit `.git-a2a/`; commit
+For submodule consumers, clone with `--recurse-submodules`; `git-a2a fetch` also initializes the
+locked submodule when an ordinary clone omitted it. Then run the repository's native builds and
+tests. Do not commit `.git-a2a/`; commit
 `a2amodule.yml`, `a2amodule.lock`, the managed `AGENTS.md` block, and native manifest/lock files.
 
 The public [`consumer-app`](https://github.com/neprel/git-a2a-demo-acme-app) repository is a

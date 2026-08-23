@@ -35,3 +35,6 @@ passes the explicit force choice.
 Use local bare repositories. Assert submodule gitlink identity, update, dirty refusal, recursive
 file-protocol scoping, complete removal of `.gitmodules` and `.git/modules` residue, copy modes and
 symlinks, copy tree drift, stamp exclusion, idempotence, unsafe/symlink path rejection, and rollback.
+Run the lifecycle on Windows with `core.autocrlf=true`: lock hashes come from Git blobs, never
+translated checkout bytes. After every mode change or removal, prune empty parents below
+`.git/modules` so the directory is absent or empty.

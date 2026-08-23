@@ -45,6 +45,23 @@ required field.
 Unknown vocabulary values—roles, intents, contact kinds, and ecosystems—are valid.
 Unknown object keys are invalid unless they start with `x-`.
 
+## Vendored dependencies
+
+Vendoring is an explicit consumer choice under `dependencies[].vendor`; it never changes the
+owner module. `mode: submodule` (the CLI default when `--vendor` is requested) records a Git
+submodule at the locked commit, while `mode: copy` records and verifies a deterministic tree
+copy. `path` defaults to `settings.vendor-dir` plus the dependency id (`deps/<id>` by default),
+and `recursive` controls nested submodules. The lock records the realised mode, path, commit,
+and tree identity; dirty or drifted materialisation is unhealthy and is never overwritten or
+removed without explicit `--force`.
+
+Integration-only build systems consume the local tree through generated CMake, Gradle, MSBuild,
+Maven, or Meson wiring. Native ecosystems use their local path form—npm `file:`, Cargo `path`,
+Go `replace`, uv/Pub/Mix `path`, and Composer `type: path`—instead of a Git selector. Meson
+requires an explicit `vendor.path: subprojects/<id>` because Meson rejects traversal in wrap
+directories. `fetch` restores the exact vendored state from the lock after clone; `status`
+shows `VENDOR` only when at least one dependency declares it.
+
 ## Consumer lifecycle
 
 `add` resolves a dependency and writes one lock commit for every ecosystem. `fetch` reconstructs
@@ -111,4 +128,6 @@ the whole manifest canonically.
 
 See the [library](./examples/acme-lib-utils.a2amodule.yml),
 [consumer](./examples/acme-app-cli.a2amodule.yml), and
-[monorepo](./examples/acme-monorepo-consumer.a2amodule.yml) examples.
+[monorepo](./examples/acme-monorepo-consumer.a2amodule.yml) examples. Vendored build-system
+examples cover [CMake](./examples/acme-cmake-consumer.a2amodule.yml) and
+[Gradle](./examples/acme-gradle-consumer.a2amodule.yml).

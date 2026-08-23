@@ -198,6 +198,23 @@ required field.
 Unknown vocabulary values—roles, intents, contact kinds, and ecosystems—are valid.
 Unknown object keys are invalid unless they start with `x-`.
 
+## Vendored dependencies
+
+Vendoring is an explicit consumer choice under `dependencies[].vendor`; it never changes the
+owner module. `mode: submodule` (the CLI default when `--vendor` is requested) records a Git
+submodule at the locked commit, while `mode: copy` records and verifies a deterministic tree
+copy. `path` defaults to `settings.vendor-dir` plus the dependency id (`deps/<id>` by default),
+and `recursive` controls nested submodules. The lock records the realised mode, path, commit,
+and tree identity; dirty or drifted materialisation is unhealthy and is never overwritten or
+removed without explicit `--force`.
+
+Integration-only build systems consume the local tree through generated CMake, Gradle, MSBuild,
+Maven, or Meson wiring. Native ecosystems use their local path form—npm `file:`, Cargo `path`,
+Go `replace`, uv/Pub/Mix `path`, and Composer `type: path`—instead of a Git selector. Meson
+requires an explicit `vendor.path: subprojects/<id>` because Meson rejects traversal in wrap
+directories. `fetch` restores the exact vendored state from the lock after clone; `status`
+shows `VENDOR` only when at least one dependency declares it.
+
 ## Consumer lifecycle
 
 `add` resolves a dependency and writes one lock commit for every ecosystem. `fetch` reconstructs
@@ -264,7 +281,9 @@ the whole manifest canonically.
 
 See the [library](./examples/acme-lib-utils.a2amodule.yml),
 [consumer](./examples/acme-app-cli.a2amodule.yml), and
-[monorepo](./examples/acme-monorepo-consumer.a2amodule.yml) examples.
+[monorepo](./examples/acme-monorepo-consumer.a2amodule.yml) examples. Vendored build-system
+examples cover [CMake](./examples/acme-cmake-consumer.a2amodule.yml) and
+[Gradle](./examples/acme-gradle-consumer.a2amodule.yml).
 
 ---
 
@@ -450,6 +469,24 @@ ecosystem to that same commit. Use `--wire npm,pypi`, `--no-wire`, or `--no-refr
 repository policy calls for those narrower operations. A missing package-manager executable is
 reported with an install hint; git-a2a never installs a toolchain.
 
+## Keep source in the consumer repository
+
+Vendoring is opt-in and consumer-owned. Use a submodule when the Git relationship should remain
+visible, or a verified copy when the consumer must contain ordinary files:
+
+```sh
+git-a2a add https://github.com/acme/lib-utils.git --vendor submodule
+git-a2a set acme-lib-utils --vendor copy
+git-a2a set acme-lib-utils --no-vendor
+```
+
+The default location is `deps/<id>`; override it with `--vendor-path`. Native package managers
+then use local path dependencies, while CMake, Gradle, MSBuild, Maven, and Meson receive their
+generated integration. Meson projects use `--vendor-path subprojects/<id>`. Dirty or drifted
+vendored content blocks update, replacement, and removal unless `--force` explicitly authorizes
+data loss. Commit `.gitmodules` and the gitlink for submodule mode, or the copied tree for copy
+mode, together with the manifest, lock, and native wiring.
+
 ## Restore disposable state after clone
 
 `.git-a2a/` is ignored and recoverable. A fresh clone reconstructs its locked manifests and,
@@ -548,7 +585,9 @@ another repository's legitimate progress does not make the consumer's build nond
   run: git-a2a update --check
 ```
 
-Then run the repository's native builds and tests. Do not commit `.git-a2a/`; commit
+For submodule consumers, clone with `--recurse-submodules`; `git-a2a fetch` also initializes the
+locked submodule when an ordinary clone omitted it. Then run the repository's native builds and
+tests. Do not commit `.git-a2a/`; commit
 `a2amodule.yml`, `a2amodule.lock`, the managed `AGENTS.md` block, and native manifest/lock files.
 
 The public [`consumer-app`](https://github.com/neprel/git-a2a-demo-acme-app) repository is a
@@ -708,6 +747,9 @@ fetches the remote manifest, resolves one commit, wires detected ecosystems, wri
 and snapshots cards. `--vendor` explicitly materialises the locked source as a submodule or copy;
 its default path is `deps/<id>`, overridden by `--vendor-path`. `--no-refresh` edits project
 manifests but skips package-manager Refresh.
+Vendored native exports use local path forms (npm `file:`, Cargo `path`, Go `replace`, uv/Pub/Mix
+`path`, Composer `type: path`); build-system adapters generate owned local integration files.
+Meson requires `--vendor-path subprojects/<id>`.
 Missing optional toolchains warn but do not prevent the manifest edit.
 Exit `1` covers fetch/wiring failure and `2` invalid arguments.
 
@@ -801,6 +843,8 @@ removed acme-lib (cache deleted; it can be recreated by add)
 `.git-a2a/cache` content from the exact commits and hashes in `a2amodule.lock`. Without IDs it
 fetches every dependency; `--surface` also restores a declared surface whose tree hash is already
 recorded in the lock. A declared vendored checkout is also restored and verified from the lock.
+For submodule mode this is equivalent to an exact locked `git submodule update --init`; copy mode
+is reconstructed from locked Git tree bytes.
 It never resolves a moving ref and never changes the manifest, lock, or package-manager files.
 Missing/incomplete lock entries and hash mismatches exit `1`; invalid
 options or an empty dependency set exit `2`.

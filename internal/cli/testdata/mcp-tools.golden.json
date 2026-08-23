@@ -38,6 +38,14 @@
           "description": "Git repository URL",
           "type": "string"
         },
+        "vendor": {
+          "description": "materialise locally as submodule or copy",
+          "type": "string"
+        },
+        "vendorPath": {
+          "description": "consumer-root-relative vendor path",
+          "type": "string"
+        },
         "wire": {
           "description": "ecosystems to wire",
           "items": {
@@ -367,6 +375,10 @@
           "description": "print the proposed change without writing",
           "type": "boolean"
         },
+        "force": {
+          "description": "allow replacement of dirty or drifted vendored content",
+          "type": "boolean"
+        },
         "git": {
           "description": "replacement Git URL",
           "type": "string"
@@ -383,6 +395,10 @@
           "description": "skip package-manager Refresh",
           "type": "boolean"
         },
+        "noVendor": {
+          "description": "remove local materialisation and restore Git wiring",
+          "type": "boolean"
+        },
         "path": {
           "description": "replacement module path",
           "type": "string"
@@ -397,6 +413,14 @@
         },
         "track": {
           "description": "locked or floating",
+          "type": "string"
+        },
+        "vendor": {
+          "description": "materialise locally as submodule or copy",
+          "type": "string"
+        },
+        "vendorPath": {
+          "description": "replacement consumer-root-relative vendor path",
           "type": "string"
         }
       },

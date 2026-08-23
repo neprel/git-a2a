@@ -21,3 +21,5 @@ export subpath because copy already materialises the dependency module root.
 
 Fixture tests cover Wire, byte-identical second Wire, clean Drift, a changed generated block,
 Unwire restoring the original root bytes, multiple sorted blocks, and the missing-vendor result.
+Foreign bytes outside valid generated blocks are a drift finding; Wire discards them with a
+warning and Unwire removes them without an ownership error.

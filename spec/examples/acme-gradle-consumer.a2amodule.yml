@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://git-a2a.com/schema/a2amodule.v1.json
+schema: 1
+module:
+  id: acme-gradle-consumer
+  languages: [java]
+dependencies:
+  - id: acme-lib-utils
+    git: https://github.com/acme/lib-utils.git
+    ref: main
+    track: locked
+    vendor:
+      mode: copy

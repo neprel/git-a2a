@@ -15,6 +15,7 @@ Eight commands agents use:
     Describe this repository as a module.
   git-a2a add https://github.com/acme/lib.git
     Import a module, lock one commit, and wire detected package managers.
+    Add --vendor submodule|copy to wire every supported ecosystem to a local path.
   git-a2a fetch
     Restore disposable .git-a2a/cache from the exact lock without changing project files.
   git-a2a sync
@@ -41,7 +42,7 @@ Fresh-agent workflow:
 2. If cache is absent after clone, run git-a2a fetch; do not commit .git-a2a/.
 3. Use git-a2a show ID --surface to materialize only owner-published knowledge.
 4. Use git-a2a who ID --intent INTENT before asking or changing another module.
-5. Use add/update/set/pin/unpin/wire/remove for durable dependency changes.
+5. Use add/update/set/pin/unpin/wire/remove for durable dependency changes; --vendor is consumer-owned.
 6. Run git-a2a sync after adopting a roster; never hand-edit its managed block.
 7. Validate and review manifest, lock, ecosystem files, and AGENTS.md together.
 

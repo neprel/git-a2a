@@ -18,6 +18,8 @@ Start with `git-a2a usage`. Use `--json` on read commands when structured output
 
 1. Run `git-a2a doctor` and inspect the current `git-a2a status -v`.
 2. Add the owner's Git URL with `git-a2a add URL`; one resolved commit must drive every ecosystem.
+   Add `--vendor submodule|copy` only when the consumer deliberately owns a local materialisation;
+   use `--vendor-path` for a non-default location.
 3. Run `git-a2a sync` to opt into the managed AGENTS.md roster.
 4. Inspect public knowledge with `git-a2a show ID --surface`.
 5. Before committing, run `git-a2a status`, the repository tests, and review the manifest, lock,
@@ -49,6 +51,7 @@ consequences. Do not guess an open-vocabulary token's behavior.
 - `git-a2a update --check`: report upstream movement; exit 1 means an update exists.
 - `git-a2a update`: move the lock and every supported ecosystem together.
 - `git-a2a set ID --ref REF`: deliberately change source/ref policy.
+- `git-a2a set ID --vendor submodule|copy` / `--no-vendor`: change consumer-owned local source mode.
 - `git-a2a pin ID` / `git-a2a unpin ID --ref REF`: freeze or resume tracking.
 - `git-a2a wire ID`: repair native dependency entries from manifest and lock.
 

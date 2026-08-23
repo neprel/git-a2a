@@ -648,6 +648,12 @@ path, so its export path is relative to `<vendor.path>`); (2) otherwise use its 
 the dependency module path. Verbose status names the selected branch, such as `npm path`, `golang
 native`, or `maven integration`.
 
+Meson is the one integration with a native directory constraint: its subprojects must be direct
+children of `subprojects/`, and Meson rejects path traversal in a wrap `directory`. A Meson
+consumer therefore declares `vendor.path: subprojects/<dependency-id>` with no dependency or
+export subpath. The adapter rejects other layouts with the corrective `set --vendor-path`
+command; it never creates a symlink as an implicit workaround.
+
 # entity .git-a2a/ local state {#cache}
 
 Never committed (`init` appends `.git-a2a/` to `.gitignore`). Layout:

@@ -139,3 +139,6 @@ meaning mid-session.
 recreates disposable cache through Git access. `contact` is non-idempotent because every call
 delivers. A tool `root` may reach any path allowed by the process; with `--allow-write` the host
 is the trust boundary. A `--roots` allow-list is explicitly deferred.
+Write-enabled MCP `add` and `set` expose the same `vendor`, `vendorPath`, `noVendor`, and `force`
+choices as the CLI and delegate them as ordinary command flags; MCP does not invent a separate
+materialisation model.

@@ -24,7 +24,7 @@ func TestUsageIsDeterministicCompactAndComplete(t *testing.T) {
 			t.Errorf("usage omits %s example", command)
 		}
 	}
-	for _, required := range []string{"Exit 0:", "Exit 1:", "Exit 2:", "--json", "manifest-reference.md"} {
+	for _, required := range []string{"Exit 0:", "Exit 1:", "Exit 2:", "--json", "--vendor submodule|copy", "manifest-reference.md"} {
 		if !strings.Contains(first.String(), required) {
 			t.Errorf("usage omits %q", required)
 		}

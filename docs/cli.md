@@ -46,6 +46,9 @@ fetches the remote manifest, resolves one commit, wires detected ecosystems, wri
 and snapshots cards. `--vendor` explicitly materialises the locked source as a submodule or copy;
 its default path is `deps/<id>`, overridden by `--vendor-path`. `--no-refresh` edits project
 manifests but skips package-manager Refresh.
+Vendored native exports use local path forms (npm `file:`, Cargo `path`, Go `replace`, uv/Pub/Mix
+`path`, Composer `type: path`); build-system adapters generate owned local integration files.
+Meson requires `--vendor-path subprojects/<id>`.
 Missing optional toolchains warn but do not prevent the manifest edit.
 Exit `1` covers fetch/wiring failure and `2` invalid arguments.
 
@@ -139,6 +142,8 @@ removed acme-lib (cache deleted; it can be recreated by add)
 `.git-a2a/cache` content from the exact commits and hashes in `a2amodule.lock`. Without IDs it
 fetches every dependency; `--surface` also restores a declared surface whose tree hash is already
 recorded in the lock. A declared vendored checkout is also restored and verified from the lock.
+For submodule mode this is equivalent to an exact locked `git submodule update --init`; copy mode
+is reconstructed from locked Git tree bytes.
 It never resolves a moving ref and never changes the manifest, lock, or package-manager files.
 Missing/incomplete lock entries and hash mismatches exit `1`; invalid
 options or an empty dependency set exit `2`.

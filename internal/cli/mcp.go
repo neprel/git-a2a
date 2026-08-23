@@ -61,14 +61,16 @@ type mcpUsageInput struct {
 }
 
 type mcpAddInput struct {
-	Root      string   `json:"root,omitempty" jsonschema:"repository root; defaults to the server startup directory"`
-	URL       string   `json:"url" jsonschema:"Git repository URL"`
-	ID        string   `json:"id,omitempty" jsonschema:"override the dependency module id"`
-	Path      string   `json:"path,omitempty" jsonschema:"module path inside a monorepo"`
-	Track     string   `json:"track,omitempty" jsonschema:"locked or floating"`
-	Wire      []string `json:"wire,omitempty" jsonschema:"ecosystems to wire"`
-	NoWire    bool     `json:"noWire,omitempty" jsonschema:"record the dependency without ecosystem wiring"`
-	NoRefresh bool     `json:"noRefresh,omitempty" jsonschema:"skip package-manager Refresh"`
+	Root       string   `json:"root,omitempty" jsonschema:"repository root; defaults to the server startup directory"`
+	URL        string   `json:"url" jsonschema:"Git repository URL"`
+	ID         string   `json:"id,omitempty" jsonschema:"override the dependency module id"`
+	Path       string   `json:"path,omitempty" jsonschema:"module path inside a monorepo"`
+	Track      string   `json:"track,omitempty" jsonschema:"locked or floating"`
+	Wire       []string `json:"wire,omitempty" jsonschema:"ecosystems to wire"`
+	NoWire     bool     `json:"noWire,omitempty" jsonschema:"record the dependency without ecosystem wiring"`
+	Vendor     string   `json:"vendor,omitempty" jsonschema:"materialise locally as submodule or copy"`
+	VendorPath string   `json:"vendorPath,omitempty" jsonschema:"consumer-root-relative vendor path"`
+	NoRefresh  bool     `json:"noRefresh,omitempty" jsonschema:"skip package-manager Refresh"`
 }
 type mcpUpdateInput struct {
 	Root        string   `json:"root,omitempty" jsonschema:"repository root; defaults to the server startup directory"`
@@ -79,15 +81,19 @@ type mcpUpdateInput struct {
 	NoRefresh   bool     `json:"noRefresh,omitempty" jsonschema:"skip package-manager Refresh"`
 }
 type mcpSetInput struct {
-	Root      string `json:"root,omitempty" jsonschema:"repository root; defaults to the server startup directory"`
-	ID        string `json:"id" jsonschema:"dependency id to change"`
-	Git       string `json:"git,omitempty" jsonschema:"replacement Git URL"`
-	Ref       string `json:"ref,omitempty" jsonschema:"replacement branch, tag, or commit"`
-	Path      string `json:"path,omitempty" jsonschema:"replacement module path"`
-	Track     string `json:"track,omitempty" jsonschema:"locked or floating"`
-	NewID     string `json:"newId,omitempty" jsonschema:"replacement dependency id"`
-	DryRun    bool   `json:"dryRun,omitempty" jsonschema:"print the proposed change without writing"`
-	NoRefresh bool   `json:"noRefresh,omitempty" jsonschema:"skip package-manager Refresh"`
+	Root       string `json:"root,omitempty" jsonschema:"repository root; defaults to the server startup directory"`
+	ID         string `json:"id" jsonschema:"dependency id to change"`
+	Git        string `json:"git,omitempty" jsonschema:"replacement Git URL"`
+	Ref        string `json:"ref,omitempty" jsonschema:"replacement branch, tag, or commit"`
+	Path       string `json:"path,omitempty" jsonschema:"replacement module path"`
+	Track      string `json:"track,omitempty" jsonschema:"locked or floating"`
+	NewID      string `json:"newId,omitempty" jsonschema:"replacement dependency id"`
+	Vendor     string `json:"vendor,omitempty" jsonschema:"materialise locally as submodule or copy"`
+	VendorPath string `json:"vendorPath,omitempty" jsonschema:"replacement consumer-root-relative vendor path"`
+	NoVendor   bool   `json:"noVendor,omitempty" jsonschema:"remove local materialisation and restore Git wiring"`
+	Force      bool   `json:"force,omitempty" jsonschema:"allow replacement of dirty or drifted vendored content"`
+	DryRun     bool   `json:"dryRun,omitempty" jsonschema:"print the proposed change without writing"`
+	NoRefresh  bool   `json:"noRefresh,omitempty" jsonschema:"skip package-manager Refresh"`
 }
 type mcpWireInput struct {
 	Root      string `json:"root,omitempty" jsonschema:"repository root; defaults to the server startup directory"`
@@ -245,6 +251,12 @@ func (a *App) addMCPWriteTools(server *mcp.Server) {
 		if in.NoWire {
 			args = append(args, "--no-wire")
 		}
+		if in.Vendor != "" {
+			args = append(args, "--vendor", in.Vendor)
+		}
+		if in.VendorPath != "" {
+			args = append(args, "--vendor-path", in.VendorPath)
+		}
 		if in.NoRefresh {
 			args = append(args, "--no-refresh")
 		}
@@ -276,13 +288,19 @@ func (a *App) addMCPWriteTools(server *mcp.Server) {
 	register(tool)
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpSetInput) (*mcp.CallToolResult, mcpCommandResult, error) {
 		args := []string{"set", in.ID}
-		for _, pair := range [][2]string{{"--git", in.Git}, {"--ref", in.Ref}, {"--path", in.Path}, {"--track", in.Track}, {"--id", in.NewID}} {
+		for _, pair := range [][2]string{{"--git", in.Git}, {"--ref", in.Ref}, {"--path", in.Path}, {"--track", in.Track}, {"--id", in.NewID}, {"--vendor", in.Vendor}, {"--vendor-path", in.VendorPath}} {
 			if pair[1] != "" {
 				args = append(args, pair[0], pair[1])
 			}
 		}
 		if in.DryRun {
 			args = append(args, "--dry-run")
+		}
+		if in.NoVendor {
+			args = append(args, "--no-vendor")
+		}
+		if in.Force {
+			args = append(args, "--force")
 		}
 		if in.NoRefresh {
 			args = append(args, "--no-refresh")
