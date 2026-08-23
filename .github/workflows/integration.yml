@@ -42,5 +42,5 @@ jobs:
         run: |
           docker run --rm --entrypoint /bin/sh \
             -e GITA2A_IT=1 -e GITA2A_IT_ECOSYSTEM='${{ matrix.ecosystem }}' \
-            -v "$PWD:/workspace" -w /workspace '${{ matrix.image }}' \
-            -c '${{ matrix.prepare }} && ./build/adapter-it -test.run TestRealToolchainAdapterLifecycle -test.v'
+            -v "$PWD:/workspace" -w /workspace/adapters '${{ matrix.image }}' \
+            -c '${{ matrix.prepare }} && ../build/adapter-it -test.run TestRealToolchainAdapterLifecycle -test.v'

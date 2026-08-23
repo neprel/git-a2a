@@ -26,6 +26,9 @@ tested, but their `Refresh` paths have not yet passed the opt-in real-toolchain 
 `status -v` exposes the weaker label; it changes to `verified` only with recorded integration
 evidence, never merely because a fixture parses.
 
+The compiled integration test runs with `adapters/` as its working directory, matching `go test`
+package semantics so `../testdata/` fixtures resolve identically inside and outside containers.
+
 # decision Not wired is policy, not an adapter success
 
 An adapter may return the typed not-wirable result with a concrete reason when the ecosystem
