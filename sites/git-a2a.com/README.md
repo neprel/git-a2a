@@ -20,9 +20,13 @@ and route directory paths to their `index.html`.
 | `/install.sh` | `install.sh`, byte-identical to the repository-root installer |
 | `/install.ps1` | `install.ps1` |
 
+The published `.htaccess` makes `.sh` and `.ps1` responses `text/plain` with UTF-8 so shell and
+PowerShell download-and-run commands receive text rather than an opaque byte response. It is a
+server configuration artifact, not a public documentation route.
+
 The optional project catalog, when published, belongs at `/.well-known/ai-catalog.json`.
 `scripts/site-package.sh` builds the upload directory from the explicitly listed top-level public
-files plus `assets/`, `fonts/`, `ext/`, and `schema/`. It excludes `tools/`, this README, and
+files, `.htaccess`, plus `assets/`, `fonts/`, `ext/`, and `schema/`. It excludes `tools/`, this README, and
 `sites/design/`; those are reproducibility and operator material, not public routes.
 
 ## Deployment

@@ -153,6 +153,7 @@ def main() -> None:
             stdout=subprocess.DEVNULL,
         )
         expected_top_level = {
+            ".htaccess",
             "index.html", "404.html", "robots.txt", "sitemap.xml", "llms.txt", "llms-full.txt",
             "install.sh", "install.ps1",
             "assets", "fonts", "ext", "schema",
@@ -160,6 +161,9 @@ def main() -> None:
         packaged_top_level = {path.name for path in package.iterdir()}
         if packaged_top_level != expected_top_level:
             fail(f"publication allowlist differs: {sorted(packaged_top_level)}")
+        htaccess = (package / ".htaccess").read_text()
+        if htaccess != "AddType text/plain .ps1 .sh\nAddDefaultCharset utf-8\n":
+            fail("publication .htaccess does not set installer MIME types and UTF-8")
         for excluded in ("README.md", "tools", "CNAME", ".nojekyll"):
             if (package / excluded).exists():
                 fail(f"operator-only path was packaged: {excluded}")

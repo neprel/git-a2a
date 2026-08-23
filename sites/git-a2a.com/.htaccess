@@ -1,0 +1,2 @@
+AddType text/plain .ps1 .sh
+AddDefaultCharset utf-8

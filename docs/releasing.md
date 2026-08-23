@@ -52,6 +52,14 @@ the `scoop-live` job installs from the public bucket on `windows-latest` and ass
 version, target, and `channel=scoop`. Wine under amd64 QEMU on Apple Silicon is not an equivalent
 gate: the container runtime can abort before the Windows executable starts.
 
+The manually published site includes an Apache `.htaccess` that serves `.sh` and `.ps1` as
+UTF-8 `text/plain`. After every change to that file or either installer, publish with
+`make site-publish`, then run `gh workflow run installers.yml -f live_site=true`. The
+`site-live` job checks the live `Content-Type`, downloads `install.ps1` with
+`Invoke-RestMethod`, compiles the returned text, and runs the installer with `--dry-run` on
+`windows-latest`. Do not infer this result from a local server: only the production host proves
+that its `.htaccess` is enabled.
+
 Before a stable release, manually exercise replacement of an installed binary on Windows:
 
 ```powershell

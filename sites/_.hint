@@ -19,6 +19,13 @@ Manual publication uses `make site-publish`, the same allowlist, and local OpenS
 account, document root, and optional SSH paths come from the gitignored root `.env`; only an empty
 `.env.example` is tracked. Manual publication must pass `site-check` before contacting the host.
 
+The allowlist includes `.htaccess` because it is runtime configuration for the public surface:
+Apache serves `.ps1` and `.sh` as `text/plain` with UTF-8 so PowerShell `Invoke-RestMethod` and
+shell downloads receive text. Treat it as a deploy artifact, not a navigable route. Verify the
+live PowerShell path only after manual publication, on `windows-latest`, by checking the response
+Content-Type and compiling the exact `Invoke-RestMethod` response into a script block for a
+`--dry-run`; a repository-only test cannot prove the host applied `.htaccess`.
+
 # invariant Canonical files stay byte-identical {#canonical_files}
 
 The public `install.sh` is byte-identical to the repository-root `install.sh` used by release
