@@ -24,6 +24,13 @@ state belongs in the manifest, lock, or `.git-a2a/`; command delivery history is
 `--dry-run`, `--check`, offline inspection, help, and validation paths do not change tracked files,
 the lock, or `.git-a2a/`.
 
+# invariant Version checks never recommend a downgrade
+
+`version --check` compares canonical versions by numeric SemVer core components. When a release
+candidate or source build embeds a version newer than GitHub's latest stable release, the check
+exits successfully, reports that stable version for context, and never prints an update command
+or an “available” verdict that would ask the operator to downgrade.
+
 # decision Dependency status and roster refresh are distinct
 
 The status table contains dependencies only; the consumer module is reported once in a footer,

@@ -29,6 +29,10 @@ def required_checksum(checksums: dict[str, str], filename: str) -> str:
         raise SystemExit(f"release checksum missing for {filename}") from error
 
 
+def canonical_version(version: str) -> str:
+    return version.split("-", 1)[0]
+
+
 def render_formula(version: str, checksums: dict[str, str]) -> str:
     amd64_name = f"git-a2a_brew_{version}_darwin_amd64.tar.gz"
     arm64_name = f"git-a2a_brew_{version}_darwin_arm64.tar.gz"
@@ -54,7 +58,7 @@ def render_formula(version: str, checksums: dict[str, str]) -> str:
   end
 
   test do
-    assert_match "git-a2a {version}", shell_output("#{{bin}}/git-a2a --version")
+    assert_match "git-a2a {canonical_version(version)}", shell_output("#{{bin}}/git-a2a --version")
   end
 end
 '''

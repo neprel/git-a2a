@@ -138,6 +138,30 @@ func TestReleaseChannelManifestsUseImmutableChecksums(t *testing.T) {
 	if scoopManifest.Architecture["64bit"].Hash != strings.Repeat("c", 64) || scoopManifest.Architecture["arm64"].Hash != strings.Repeat("d", 64) {
 		t.Fatal("Scoop manifest did not retain immutable release checksums")
 	}
+	rcChecksums := filepath.Join(temp, "rc-checksums.txt")
+	rcBody := strings.Join([]string{
+		strings.Repeat("a", 64) + "  git-a2a_brew_1.2.3-rc.2_darwin_amd64.tar.gz",
+		strings.Repeat("b", 64) + "  git-a2a_brew_1.2.3-rc.2_darwin_arm64.tar.gz",
+		strings.Repeat("c", 64) + "  git-a2a_scoop_1.2.3-rc.2_windows_amd64.zip",
+		strings.Repeat("d", 64) + "  git-a2a_scoop_1.2.3-rc.2_windows_arm64.zip",
+	}, "\n") + "\n"
+	if err := os.WriteFile(rcChecksums, []byte(rcBody), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	command = exec.Command("python3", filepath.Join(root, "tools", "release-channels.py"),
+		"--tag", "v1.2.3-rc.2", "--checksums", rcChecksums, "--homebrew", formula, "--scoop", scoop)
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("render prerelease channels: %v: %s", err, output)
+	}
+	formulaBody, err = os.ReadFile(formula)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(formulaBody), `version "1.2.3-rc.2"`) ||
+		!strings.Contains(string(formulaBody), `assert_match "git-a2a 1.2.3"`) ||
+		strings.Contains(string(formulaBody), `assert_match "git-a2a 1.2.3-rc.2"`) {
+		t.Fatalf("Homebrew prerelease formula must test the canonical embedded version:\n%s", formulaBody)
+	}
 	missing := filepath.Join(temp, "missing-checksums.txt")
 	if err := os.WriteFile(missing, []byte(strings.Repeat("a", 64)+"  git-a2a_brew_1.2.3_darwin_amd64.tar.gz\n"), 0o600); err != nil {
 		t.Fatal(err)

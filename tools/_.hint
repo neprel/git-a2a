@@ -23,7 +23,9 @@ successful, idempotent installation.
 
 Given the same tag and `checksums.txt`, the renderer writes identical bytes. Formula URLs and
 Scoop URLs name the tag-specific archives; every emitted hash is looked up by that exact archive
-name. The formula test must execute the installed binary and the Scoop manifest must preserve
+name. The formula's package version and URLs retain the full release tag, including an RC suffix,
+while its runtime assertion uses the canonical version embedded from `internal/version/VERSION`;
+an RC package such as `1.2.0-rc.2` therefore must print `git-a2a 1.2.0`. The formula test must execute the installed binary and the Scoop manifest must preserve
 separate amd64 and arm64 hashes.
 
 # decision Package-manager repositories are shared collections

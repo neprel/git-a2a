@@ -57,6 +57,33 @@ func TestVersionCheckDoesNotTreatPrereleaseAsLatest(t *testing.T) {
 	}
 }
 
+func TestVersionCheckNeverOffersStableDowngrade(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"tag_name":"v1.1.0"}`))
+	}))
+	defer server.Close()
+	oldVersion, oldChannel, oldAPI := Version, Channel, releaseAPI
+	defer func() { Version, Channel, releaseAPI = oldVersion, oldChannel, oldAPI }()
+	Version, Channel, releaseAPI = "1.2.0", "binary", server.URL
+	var out, errOut bytes.Buffer
+	code := New(&out, &errOut).Run([]string{"version", "--check"})
+	if code != 0 || !strings.Contains(errOut.String(), "latest stable: 1.1.0") {
+		t.Fatalf("exit %d out=%q err=%q", code, out.String(), errOut.String())
+	}
+	if strings.Contains(out.String(), "update:") || strings.Contains(errOut.String(), "available") {
+		t.Fatalf("version check offered a downgrade: out=%q err=%q", out.String(), errOut.String())
+	}
+}
+
+func TestCompareCoreVersionsUsesNumericSemVerOrder(t *testing.T) {
+	if comparison, ok := compareCoreVersions("1.10.0", "1.9.9"); !ok || comparison <= 0 {
+		t.Fatalf("comparison=%d comparable=%t", comparison, ok)
+	}
+	if _, ok := compareCoreVersions("1.2.0-rc.1", "1.1.0"); ok {
+		t.Fatal("prerelease text unexpectedly parsed as a canonical core version")
+	}
+}
+
 func TestUpgradeArchiveChecksumAndExtraction(t *testing.T) {
 	var archive bytes.Buffer
 	gz := gzip.NewWriter(&archive)

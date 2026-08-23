@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -53,7 +54,12 @@ func (a *App) version(args []string) int {
 		return 1
 	}
 	latest := strings.TrimPrefix(release.TagName, "v")
-	if latest == Version {
+	comparison, comparable := compareCoreVersions(Version, latest)
+	if comparable && comparison >= 0 {
+		if comparison > 0 {
+			fmt.Fprintf(a.Err, "git-a2a %s is current (latest stable: %s)\n", Version, latest)
+			return 0
+		}
 		fmt.Fprintf(a.Err, "git-a2a %s is current\n", Version)
 		return 0
 	}
@@ -61,6 +67,42 @@ func (a *App) version(args []string) int {
 	fmt.Fprintf(a.Err, "git-a2a %s is available\n", latest)
 	return 1
 }
+
+func compareCoreVersions(left, right string) (int, bool) {
+	parse := func(value string) ([3]int, bool) {
+		var result [3]int
+		parts := strings.Split(value, ".")
+		if len(parts) != len(result) {
+			return result, false
+		}
+		for index, part := range parts {
+			if part == "" {
+				return result, false
+			}
+			number, err := strconv.Atoi(part)
+			if err != nil || number < 0 {
+				return result, false
+			}
+			result[index] = number
+		}
+		return result, true
+	}
+	leftParts, leftOK := parse(left)
+	rightParts, rightOK := parse(right)
+	if !leftOK || !rightOK {
+		return 0, false
+	}
+	for index := range leftParts {
+		if leftParts[index] < rightParts[index] {
+			return -1, true
+		}
+		if leftParts[index] > rightParts[index] {
+			return 1, true
+		}
+	}
+	return 0, true
+}
+
 func updateCommand(channel string) string {
 	switch channel {
 	case "brew":
