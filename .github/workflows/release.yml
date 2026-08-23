@@ -68,6 +68,7 @@ jobs:
           args: ${{ steps.release_args.outputs.args }}
         env:
           GORELEASER_CURRENT_TAG: ${{ env.RELEASE_TAG }}
+          GORELEASER_RECOVERY: ${{ github.event_name == 'workflow_dispatch' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}

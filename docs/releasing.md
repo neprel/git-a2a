@@ -29,6 +29,10 @@ Job permissions are intentionally local: tests have read-only contents; GoReleas
 package includes repository metadata matching `https://github.com/neprel/git-a2a`, which npm
 requires when authenticating its trusted publisher.
 
+A `workflow_dispatch` recovery rebuilds the immutable tag with the GoReleaser SCM release
+publisher disabled. It therefore leaves existing GitHub release assets untouched while retrying
+the downstream package channels. Tag-triggered releases keep the SCM publisher enabled.
+
 ## macOS and Windows status
 
 The Homebrew cask artifacts are currently not Apple-signed or notarized. This is an explicit

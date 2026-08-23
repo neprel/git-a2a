@@ -116,6 +116,7 @@ changelog:
       - '^test(\([[:word:]-]+\))??!?:'
       - '^[[:word:]-]+\(ci\)!?:'
 release:
+  disable: '{{ .Env.GORELEASER_RECOVERY }}'
   prerelease: auto
   name_template: 'git-a2a {{ .Version }}'
   header: |
