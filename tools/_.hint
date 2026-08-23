@@ -45,6 +45,9 @@ stale. Python standard library only; do not add a documentation generator depend
 The compiled stream is XML-like but normative prose may contain literal angle-bracket placeholders
 inside backticks, so parse only the compiler-owned `data_structure` and `field` tag boundaries;
 feeding the entire stream to a general XML parser would reject valid HINT prose.
+On Windows, npm exposes the compiler through a `hint.cmd` shim; Python `CreateProcess` cannot
+execute that shim by the bare name. Invoke it through `cmd.exe /d /s /c hint spec` on Windows
+only. POSIX invokes `hint spec` directly and never adds a shell.
 
 # test Release channels
 

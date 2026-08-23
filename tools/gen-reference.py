@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import os
 import pathlib
 import re
 import subprocess
@@ -54,7 +55,12 @@ def fail(message: str) -> None:
 
 
 def compiled_hint() -> str:
-    result = subprocess.run(["hint", "spec"], cwd=ROOT, check=True, capture_output=True, text=True)
+    command = ["hint", "spec"]
+    if os.name == "nt":
+        # npm exposes global executables as .cmd shims on Windows. CreateProcess cannot resolve
+        # that shim directly, so let the platform command processor perform PATHEXT lookup.
+        command = ["cmd.exe", "/d", "/s", "/c", "hint", "spec"]
+    result = subprocess.run(command, cwd=ROOT, check=True, capture_output=True, text=True)
     return result.stdout
 
 
