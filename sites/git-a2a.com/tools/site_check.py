@@ -84,7 +84,11 @@ class VisibleText(html.parser.HTMLParser):
                 allowed = routes[condition] == self.route
         dynamic = tag == "sc-for"
         if not self.prototype:
-            dynamic = "data-copy" in values or values.get("id") in {"terminal-body", "transcript-data"}
+            dynamic = (
+                "data-copy" in values
+                or "data-plan17-demo" in values
+                or values.get("id") in {"terminal-body", "transcript-data"}
+            )
         self.stack.append((ignored, allowed, dynamic))
 
     def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
@@ -156,7 +160,7 @@ def main() -> None:
             ".htaccess",
             "index.html", "404.html", "robots.txt", "sitemap.xml", "llms.txt", "llms-full.txt",
             "install.sh", "install.ps1",
-            "assets", "fonts", "ext", "schema",
+            ".well-known", "assets", "demo", "fonts", "ext", "schema",
         }
         packaged_top_level = {path.name for path in package.iterdir()}
         if packaged_top_level != expected_top_level:
@@ -167,6 +171,27 @@ def main() -> None:
         for excluded in ("README.md", "tools", "CNAME", ".nojekyll"):
             if (package / excluded).exists():
                 fail(f"operator-only path was packaged: {excluded}")
+        card_paths = [
+            package / "demo/agents/acme-lib-utils/.well-known/agent-card.json",
+            package / "demo/agents/acme-pm/.well-known/agent-card.json",
+        ]
+        cards = []
+        for card_path in card_paths:
+            try:
+                card = json.loads(card_path.read_text())
+            except (OSError, json.JSONDecodeError) as error:
+                fail(f"invalid packaged demo card {card_path}: {error}")
+            if card.get("version") != "1.0.0" or not card.get("supportedInterfaces"):
+                fail(f"demo card lacks A2A v1.0 interface: {card_path}")
+            cards.append(card)
+        catalog = json.loads((package / ".well-known/ai-catalog.json").read_text())
+        catalog_urls = {entry.get("url") for entry in catalog.get("entries", [])}
+        expected_card_urls = {
+            "https://git-a2a.com/demo/agents/acme-lib-utils/.well-known/agent-card.json",
+            "https://git-a2a.com/demo/agents/acme-pm/.well-known/agent-card.json",
+        }
+        if catalog.get("specVersion") != "1.0" or catalog_urls != expected_card_urls:
+            fail("packaged demo catalog does not list exactly the two public cards")
 
     with tempfile.TemporaryDirectory() as temporary:
         test_root = pathlib.Path(temporary)
@@ -262,6 +287,13 @@ def main() -> None:
         values = [block(body, name) for body in bodies]
         if len(set(values)) != 1:
             fail(f"{name} differs across the three pages")
+    demo_lib = "https://github.com/neprel/git-a2a-demo-acme-lib"
+    demo_app = "https://github.com/neprel/git-a2a-demo-acme-app"
+    if bodies[0].count(demo_app) < 1:
+        fail("landing page lacks the consumer demo link")
+    for body in bodies:
+        if body.count(demo_lib) < 1:
+            fail("site footer lacks the library demo link")
 
     documents: list[Document] = []
     for page, body in zip(PAGES + [SITE / "404.html"], bodies + [(SITE / "404.html").read_text()]):
@@ -336,7 +368,7 @@ def main() -> None:
     print("site-check: visible text on 3 pages matches the design prototype")
     print(f"site-check: 3 pages valid, links resolved, canonical files synchronized")
     print("site-check: canonical metadata, structured data, sitemap, and LLM guides valid")
-    print("site-check: publication package contains only allowlisted files")
+    print("site-check: publication package contains only allowlisted files, two valid demo cards, and their catalog")
     print("site-check: manual publication uses ignored environment settings and staged files")
     print(f"site-check: header/footer identical; above-fold budget {size} bytes (< 256000)")
 

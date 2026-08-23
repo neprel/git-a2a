@@ -215,6 +215,23 @@ git-a2a enforces the boundary by construction: it fetches the manifest and the s
 nothing else. The owner is free to make the surface rich (generated from its own spec tooling)
 precisely so that cheap questions never become paid agent turns.
 
+# decision Public polyglot demo is the adoption proof {#public_demo}
+
+`neprel/git-a2a-demo-acme-lib` is the public owner module and
+`neprel/git-a2a-demo-acme-app` is its public consumer. They use only `acme-*` identities and
+demonstrate one resolved commit across npm, uv, and Go, a managed AGENTS.md roster, static A2A
+cards, an ARD catalog, and a deliverable GitHub Issue contact. The library keeps annotated
+`v1.0.0` and `v1.1.0` tags for ref-change exercises while `main` advances past the latest tag so
+Go records a commit-bearing pseudo-version and offline drift checks can prove the exact commit.
+The consumer CI runs `status --offline`, `update --check`, and all three language builds. These
+repositories are examples and future screenshot/transcript sources, never a registry service.
+On a fresh CI checkout, run `update --no-refresh` followed by `git diff --exit-code` before
+`status --offline`: update restores the intentionally untracked `.git-a2a/cache`, the diff proves
+that restoration did not change durable state, and offline status then checks the cached manifest,
+wiring, and roster without another fetch. Run `update --check` after that proof. It cannot prime a
+missing cache because its truthful result is `restore cache`, exit 1. Committing `.git-a2a/` to
+make the offline command pass would violate the local-state boundary.
+
 # decision CLI discipline follows HINT {#cli_discipline}
 
 stdout carries the requested data (human text by default, `--json` for machines); stderr carries

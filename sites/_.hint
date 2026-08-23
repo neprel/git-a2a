@@ -48,14 +48,23 @@ size-specific favicons by ImageMagick, and social cards by the committed headles
 
 # invariant The transcript is real and accessible {#transcript}
 
-`assets/transcript.json` contains real 1.0.0 CLI stdout and stderr bytes from local acme bare
-repositories, including line endings and alignment spaces. The displayed add command is exactly
-the design command with no hidden flag; npm, uv, and Go resolve and refresh against the local bare
-repository through process-scoped Git URL rewrites. The landing embeds identical completed data
+`assets/transcript.json` contains real 1.0.1 CLI stdout and stderr bytes from the public demo or
+its byte-equivalent local bare fixture, including line endings and alignment spaces. The displayed
+add command is exactly the public HTTPS demo command with no hidden flag; npm, uv, and Go resolve
+and refresh against the local bare repository through process-scoped Git URL rewrites. The landing
+embeds identical completed data
 as its no-JavaScript and `file://` fallback. Output lines use `white-space: pre` and JetBrains Mono.
 Reduced motion skips typing, replay clears every timer, and the terminal copy action returns only
 the four commands. The site gate reruns `tools/transcript-generate.sh --check` and permits only the
 resolved fixture commit hash to vary.
+
+The public demo source is `neprel/git-a2a-demo-acme-lib` and its consumer is
+`neprel/git-a2a-demo-acme-app`. `SITE_NET=1` reruns the transcript against those public GitHub
+repositories without URL rewrites; the default site gate remains the byte-equivalent local bare
+fixture so offline checks are deterministic. Static A2A v1.0 cards live under
+`/demo/agents/<name>/.well-known/agent-card.json`, and `/.well-known/ai-catalog.json` lists exactly
+those cards. Both path trees are explicit publication-allowlist entries. The cards demonstrate
+discovery only and must say that their interface URLs do not run agent services.
 
 # decision Search and machine discovery are static and canonical {#discovery}
 

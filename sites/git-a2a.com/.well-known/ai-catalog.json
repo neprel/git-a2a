@@ -1,0 +1,21 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "Acme library utilities",
+    "identifier": "github.com"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:github.com:neprel-git-a2a-demo-acme-lib:acme-lib-utils",
+      "displayName": "acme-lib-utils",
+      "type": "application/a2a-agent-card+json",
+      "url": "https://git-a2a.com/demo/agents/acme-lib-utils/.well-known/agent-card.json"
+    },
+    {
+      "identifier": "urn:air:github.com:neprel-git-a2a-demo-acme-lib:acme-pm",
+      "displayName": "acme-pm",
+      "type": "application/a2a-agent-card+json",
+      "url": "https://git-a2a.com/demo/agents/acme-pm/.well-known/agent-card.json"
+    }
+  ]
+}

@@ -22,9 +22,9 @@
       ]
     },
     {
-      "command": "git-a2a add ssh://git@github.com/acme/lib-utils.git",
+      "command": "git-a2a add https://github.com/neprel/git-a2a-demo-acme-lib",
       "stdout": "",
-      "stderr": "added acme-lib-utils at ff5a09e01e280a4aede8138cd094beed0d25a954\nusing declared release channel main\n",
+      "stderr": "added acme-lib-utils at 3f96bacfa27d1abcf6e4ff99fb4fd8fa178fc21d\nusing declared release channel main\n",
       "render": [
         {
           "stream": "stderr",
@@ -37,7 +37,7 @@
     },
     {
       "command": "git-a2a who acme-lib-utils --intent change",
-      "stdout": "acme-pm (spec)\n- github-issue acme/lib-utils labels=change-request\n",
+      "stdout": "acme-pm (spec)\n- github-issue neprel/git-a2a-demo-acme-lib labels=change-request,from-agent\n",
       "stderr": "1 agent(s) declared for change\n",
       "render": [
         {

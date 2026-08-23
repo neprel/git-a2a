@@ -17,7 +17,8 @@ import urllib.request
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 SITE = ROOT / "sites/git-a2a.com"
 FIXTURE = SITE / "tools/transcript-fixture"
-PUBLIC_URL = "ssh://git@github.com/acme/lib-utils.git"
+PUBLIC_URL = "https://github.com/neprel/git-a2a-demo-acme-lib"
+NPM_URL = "ssh://git@github.com/neprel/git-a2a-demo-acme-lib.git"
 CARD_PORT = 18765
 
 
@@ -103,6 +104,7 @@ def main() -> None:
     check = len(sys.argv) == 2 and sys.argv[1] == "--check"
     if len(sys.argv) > 2 or (len(sys.argv) == 2 and not check):
         raise SystemExit("usage: generate-transcript.py [--check]")
+    network = os.environ.get("SITE_NET") == "1"
     port = CARD_PORT
     card_url = f"http://127.0.0.1:{port}/acme-lib-utils/.well-known/agent-card.json"
     server = subprocess.Popen(
@@ -136,32 +138,31 @@ def main() -> None:
                 "GIT_AUTHOR_DATE": "2026-08-22T12:00:00Z",
                 "GIT_COMMITTER_DATE": "2026-08-22T12:00:00Z",
                 "GIT_CONFIG_GLOBAL": os.devnull,
-                "GONOSUMDB": "github.com/acme/*",
-                "GOPRIVATE": "github.com/acme/*",
+                "GONOSUMDB": "github.com/neprel/*",
+                "GOPRIVATE": "github.com/neprel/*",
                 "GOPROXY": "direct",
                 "GOSUMDB": "off",
             })
-            run(["git", "init", "-b", "main"], source, environment)
-            run(["git", "config", "user.name", "Transcript Fixture"], source, environment)
-            run(["git", "config", "user.email", "fixture@example.invalid"], source, environment)
-            run(["git", "add", "."], source, environment)
-            run(["git", "commit", "-m", "fixture"], source, environment)
-            run(["git", "clone", "--bare", str(source), str(bare)], work, environment)
-
             run(["git", "init", "-b", "main"], consumer, environment)
-            local_url = "file://" + str(bare)
-            run(["git", "config", f"url.{local_url}.insteadOf", PUBLIC_URL], consumer, environment)
-            run(["git", "config", "--add", f"url.{local_url}.insteadOf", "https://github.com/acme/lib-utils"], consumer, environment)
-            # Go invokes Git from its module cache, outside the consumer repository.
-            # Repeat the same local rewrites through Git's process-scoped config so
-            # those child processes resolve the fixture without network access.
-            environment.update({
-                "GIT_CONFIG_COUNT": "2",
-                "GIT_CONFIG_KEY_0": f"url.{local_url}.insteadOf",
-                "GIT_CONFIG_VALUE_0": PUBLIC_URL,
-                "GIT_CONFIG_KEY_1": f"url.{local_url}.insteadOf",
-                "GIT_CONFIG_VALUE_1": "https://github.com/acme/lib-utils",
-            })
+            if not network:
+                run(["git", "init", "-b", "main"], source, environment)
+                run(["git", "config", "user.name", "Transcript Fixture"], source, environment)
+                run(["git", "config", "user.email", "fixture@example.invalid"], source, environment)
+                run(["git", "add", "."], source, environment)
+                run(["git", "commit", "-m", "fixture"], source, environment)
+                run(["git", "clone", "--bare", str(source), str(bare)], work, environment)
+                local_url = "file://" + str(bare)
+                run(["git", "config", f"url.{local_url}.insteadOf", PUBLIC_URL], consumer, environment)
+                run(["git", "config", "--add", f"url.{local_url}.insteadOf", NPM_URL], consumer, environment)
+                # Go invokes Git from its module cache, outside the consumer repository.
+                # Repeat the rewrite through process-scoped config for those child processes.
+                environment.update({
+                    "GIT_CONFIG_COUNT": "2",
+                    "GIT_CONFIG_KEY_0": f"url.{local_url}.insteadOf",
+                    "GIT_CONFIG_VALUE_0": PUBLIC_URL,
+                    "GIT_CONFIG_KEY_1": f"url.{local_url}.insteadOf",
+                    "GIT_CONFIG_VALUE_1": NPM_URL,
+                })
 
             binary = work / "git-a2a"
             commit = run(["git", "rev-parse", "HEAD"], ROOT, environment).strip()
@@ -195,7 +196,7 @@ def main() -> None:
             lock_expectations = {
                 "package-lock.json": "@acme/lib-utils",
                 "uv.lock": "acme-lib-utils",
-                "go.sum": "github.com/acme/lib-utils",
+                "go.sum": "github.com/neprel/git-a2a-demo-acme-lib",
             }
             for name, marker in lock_expectations.items():
                 lock_path = consumer / name
@@ -238,7 +239,10 @@ def main() -> None:
                 flags=re.S,
             )
             page_path.write_text(page)
-            print("transcript: generated from local bare repository and two live local A2A cards")
+            if network:
+                print("transcript: generated from the public demo repository and public A2A cards")
+            else:
+                print("transcript: generated from the byte-equivalent local bare fixture and two live local A2A cards")
             print("\n".join(lines[3]))
     finally:
         server.terminate()

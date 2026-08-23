@@ -1,0 +1,16 @@
+{
+  "name": "acme-lib-utils",
+  "description": "Static public demo card for the agent that owns the Acme polyglot utility implementations. This card demonstrates discovery; its interface URL does not run an agent service.",
+  "version": "1.0.0",
+  "supportedInterfaces": [
+    {
+      "url": "https://git-a2a.com/demo/agents/acme-lib-utils/",
+      "protocolBinding": "JSONRPC",
+      "protocolVersion": "1.0"
+    }
+  ],
+  "capabilities": {},
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain"],
+  "skills": []
+}

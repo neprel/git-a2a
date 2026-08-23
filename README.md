@@ -9,8 +9,13 @@ publishes one `a2amodule.yml`: what the module exports, which agents own it, how
 and which other modules it consumes. The CLI resolves one Git commit, wires every detected
 ecosystem, maintains `a2amodule.lock`, and projects the useful ownership context into agent tools.
 
-Status: **1.0.0 — first release.** Read the [human specification](spec/README.md), the
+Status: **1.0.1 — stable.** Read the [human specification](spec/README.md), the
 [command reference](docs/cli.md), or the normative [`spec/_.hint`](spec/_.hint) with `hint spec`.
+
+See the feature end to end in the public
+[`acme-lib-utils`](https://github.com/neprel/git-a2a-demo-acme-lib) library and
+[`consumer-app`](https://github.com/neprel/git-a2a-demo-acme-app) consumer repositories. The
+[demo walkthrough](docs/demo.md) explains what to inspect and which commands to run.
 
 ## What you can do
 

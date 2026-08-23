@@ -17,6 +17,9 @@ and route directory paths to their `index.html`.
 | `/robots.txt` | `robots.txt` |
 | `/llms.txt` | `llms.txt` |
 | `/llms-full.txt` | `llms-full.txt` |
+| `/.well-known/ai-catalog.json` | `.well-known/ai-catalog.json` |
+| `/demo/agents/acme-lib-utils/.well-known/agent-card.json` | static A2A v1.0 owner demo card |
+| `/demo/agents/acme-pm/.well-known/agent-card.json` | static A2A v1.0 spec demo card |
 | `/install.sh` | `install.sh`, byte-identical to the repository-root installer |
 | `/install.ps1` | `install.ps1` |
 
@@ -24,10 +27,10 @@ The published `.htaccess` makes `.sh` and `.ps1` responses `text/plain` with UTF
 PowerShell download-and-run commands receive text rather than an opaque byte response. It is a
 server configuration artifact, not a public documentation route.
 
-The optional project catalog, when published, belongs at `/.well-known/ai-catalog.json`.
 `scripts/site-package.sh` builds the upload directory from the explicitly listed top-level public
-files, `.htaccess`, plus `assets/`, `fonts/`, `ext/`, and `schema/`. It excludes `tools/`, this README, and
-`sites/design/`; those are reproducibility and operator material, not public routes.
+files, `.htaccess`, plus `.well-known/`, `assets/`, `demo/`, `fonts/`, `ext/`, and `schema/`. It
+excludes `tools/`, this README, and `sites/design/`; those are reproducibility and operator
+material, not public routes.
 
 ## Deployment
 
@@ -81,7 +84,7 @@ python3 -m http.server --directory sites/git-a2a.com 8080
 `site-check` verifies installer and schema byte identity, strict HTML nesting and unique ids,
 internal links, allowed prose, command documentation, identical header/footer blocks, canonical
 SEO metadata, JSON-LD, sitemap/robots, LLM discovery files, the outlined wordmark, transcript
-synchronization, and the 250 KB above-the-fold budget. Set `SITE_BROWSER=1` to add the pinned
+synchronization, the two demo cards and their catalog, and the 250 KB above-the-fold budget. Set `SITE_BROWSER=1` to add the pinned
 Playwright and axe browser suite; CI does this for every `sites/**` change.
 
 The automated browser checks cover:
@@ -113,19 +116,19 @@ The design bundle is committed at `sites/design/` and is not part of the documen
 
 ## Terminal transcript provenance
 
-`assets/transcript.json` contains real output from a locally built 1.0.0 binary. It was produced
+`assets/transcript.json` contains real output from a locally built 1.0.1 binary. It was produced
 against a fresh bare repository from `tools/transcript-fixture/library/` and a fresh
 `consumer-app` from `tools/transcript-fixture/consumer/` with these four displayed commands:
 
 ```sh
 git-a2a init
-git-a2a add ssh://git@github.com/acme/lib-utils.git
+git-a2a add https://github.com/neprel/git-a2a-demo-acme-lib
 git-a2a who acme-lib-utils --intent change
 git-a2a status
 ```
 
 `tools/transcript-generate.sh` creates the bare repository and uses process-scoped Git
-`insteadOf` settings for the displayed SSH URL and Go's HTTPS module URL. npm, uv, and Go resolve
+`insteadOf` settings for npm's SSH form and the displayed HTTPS module URL. npm, uv, and Go resolve
 the dependency from that local bare repository: npm and uv refresh their lock files, and an
 offline `go mod tidy` verifies the Go module path. No machine path reaches the output. During the
 run, `python3 -m http.server` serves the two committed v1.0 cards under
@@ -139,6 +142,10 @@ no-JavaScript and `file://` operation. `site-check` runs the fixture afresh and 
 captured line, normalizing only the dependency commit hash; it also rejects warnings or an
 unhealthy result.
 
+Set `SITE_NET=1` when running the transcript generator to reproduce the same four-command session
+against the public demo repositories. The default remains the byte-equivalent local bare fixture
+so ordinary CI does not depend on the network.
+
 ## External links
 
 The site links only to `https://git-a2a.com` and these GitHub project locations:
@@ -147,3 +154,5 @@ The site links only to `https://git-a2a.com` and these GitHub project locations:
 - `https://github.com/neprel/git-a2a/blob/main/spec/README.md`
 - `https://github.com/neprel/git-a2a/blob/main/docs/cli.md`
 - `https://github.com/neprel/git-a2a/releases`
+- `https://github.com/neprel/git-a2a-demo-acme-lib`
+- `https://github.com/neprel/git-a2a-demo-acme-app`

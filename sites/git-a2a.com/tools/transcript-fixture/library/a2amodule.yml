@@ -1,24 +1,24 @@
 schema: 1
 module:
   id: acme-lib-utils
-  repository: ssh://git@github.com/acme/lib-utils.git
-  description: Shared string utilities for Acme.
+  repository: https://github.com/neprel/git-a2a-demo-acme-lib
+  description: Shared formatting utilities with the same contract in TypeScript, Python, and Go.
   release:
     channel: main
   exports:
     - { ecosystem: npm, name: "@acme/lib-utils" }
-    - { ecosystem: pypi, name: acme_lib_utils }
-    - { ecosystem: golang, name: github.com/acme/lib-utils }
+    - { ecosystem: pypi, name: acme-lib-utils }
+    - { ecosystem: golang, name: github.com/neprel/git-a2a-demo-acme-lib }
 agents:
   - name: acme-lib-utils
     role: owner
     card: http://127.0.0.1:__CARD_PORT__/acme-lib-utils/.well-known/agent-card.json
     contacts:
-      - { intents: [question, bug], kind: github-issue, repo: acme/lib-utils }
+      - { intents: [question, bug], kind: github-issue, repo: neprel/git-a2a-demo-acme-lib, labels: [from-agent] }
   - name: acme-pm
     role: spec
     card: http://127.0.0.1:__CARD_PORT__/acme-pm/.well-known/agent-card.json
     contacts:
-      - { intents: [change], kind: github-issue, repo: acme/lib-utils, labels: [change-request] }
+      - { intents: [change], kind: github-issue, repo: neprel/git-a2a-demo-acme-lib, labels: [change-request, from-agent] }
 policy:
   intents: { change: spec }
