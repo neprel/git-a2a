@@ -1,0 +1,23 @@
+# module CMake vendored integration adapter
+
+Detect a consumer root `CMakeLists.txt`. This adapter applies only to a `cmake` export whose
+dependency has a locked vendor; CMake has no native Git dependency form owned by this adapter.
+
+# decision One generated include and one owned root line
+
+Write dependency blocks to `deps/git-a2a.cmake`, sorted by module id. Each block calls
+`add_subdirectory` for the locked vendored export path and uses the export name only as published
+target identity. The root file gets exactly `include("deps/git-a2a.cmake") # git-a2a`; remove only
+that marked line and only when the generated file has no dependency blocks. Never edit any other
+CMake content.
+
+# invariant Wiring requires explicit locked vendoring
+
+Without both `dependencies[].vendor` and lock `vendor`, return a typed not-wirable reason. For a
+submodule the source path includes dependency and export subpaths; for copy it includes only the
+export subpath because copy already materialises the dependency module root.
+
+# test Golden lifecycle
+
+Fixture tests cover Wire, byte-identical second Wire, clean Drift, a changed generated block,
+Unwire restoring the original root bytes, multiple sorted blocks, and the missing-vendor result.

@@ -164,19 +164,19 @@ func VersionAtLeast(versionText, minimum string) bool {
 
 func installHint(command string) string {
 	if runtime.GOOS == "darwin" {
-		packages := map[string]string{"git": "git", "npm": "node", "yarn": "yarn", "pnpm": "pnpm", "bun": "oven-sh/bun/bun", "uv": "uv", "pip": "python", "poetry": "poetry", "pdm": "pdm", "go": "go", "cargo": "rust", "swift": "swift", "dart": "dart", "bundle": "ruby", "composer": "composer", "mix": "elixir", "cabal": "cabal-install", "stack": "haskell-stack", "zig": "zig", "clj": "clojure/tools/clojure", "nix": "nix"}
+		packages := map[string]string{"git": "git", "npm": "node", "yarn": "yarn", "pnpm": "pnpm", "bun": "oven-sh/bun/bun", "uv": "uv", "pip": "python", "poetry": "poetry", "pdm": "pdm", "go": "go", "cargo": "rust", "swift": "swift", "dart": "dart", "bundle": "ruby", "composer": "composer", "mix": "elixir", "cabal": "cabal-install", "stack": "haskell-stack", "zig": "zig", "clj": "clojure/tools/clojure", "nix": "nix", "cmake": "cmake"}
 		if name := packages[command]; name != "" {
 			return "brew install " + name
 		}
 	}
 	if runtime.GOOS == "windows" {
-		ids := map[string]string{"git": "Git.Git", "npm": "OpenJS.NodeJS.LTS", "go": "GoLang.Go", "cargo": "Rustlang.Rustup", "dart": "Google.DartSDK", "composer": "Composer.Composer", "zig": "zig.zig"}
+		ids := map[string]string{"git": "Git.Git", "npm": "OpenJS.NodeJS.LTS", "go": "GoLang.Go", "cargo": "Rustlang.Rustup", "dart": "Google.DartSDK", "composer": "Composer.Composer", "zig": "zig.zig", "cmake": "Kitware.CMake"}
 		if id := ids[command]; id != "" {
 			return "winget install --id " + id
 		}
 	}
 	if runtime.GOOS == "linux" {
-		packages := map[string]string{"git": "git", "npm": "nodejs npm", "go": "golang-go", "cargo": "cargo", "ruby": "ruby", "bundle": "ruby-bundler", "composer": "composer", "mix": "elixir", "cabal": "cabal-install", "clj": "clojure"}
+		packages := map[string]string{"git": "git", "npm": "nodejs npm", "go": "golang-go", "cargo": "cargo", "ruby": "ruby", "bundle": "ruby-bundler", "composer": "composer", "mix": "elixir", "cabal": "cabal-install", "clj": "clojure", "cmake": "cmake"}
 		if name := packages[command]; name != "" {
 			return "sudo apt-get install " + name
 		}

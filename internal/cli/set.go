@@ -303,6 +303,7 @@ func (a *App) applySet(o setOptions) int {
 	}
 	sum := sha256.Sum256(res.Manifest)
 	locked := manifest.LockedDependency{Git: next.Git, Ref: next.Ref, Path: defaultPath(next.Path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:])}
+	seedVendorLock(own, next, &locked)
 	validated := *own
 	validated.Dependencies = append([]manifest.Dependency(nil), own.Dependencies...)
 	validated.Dependencies[idx] = next
@@ -513,12 +514,13 @@ func appendUnique(values []string, value string) []string {
 	return append(values, value)
 }
 
-var adapterFiles = []string{"package.json", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "bun.lockb", "pyproject.toml", "uv.lock", "poetry.lock", "pdm.lock", "go.mod", "go.sum", ".yarnrc.yml", "Cargo.toml", "Cargo.lock", "Package.swift", "Package.resolved", "pubspec.yaml", "pubspec.lock"}
+var adapterFiles = []string{"package.json", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "bun.lockb", "pyproject.toml", "uv.lock", "poetry.lock", "pdm.lock", "go.mod", "go.sum", ".yarnrc.yml", "Cargo.toml", "Cargo.lock", "Package.swift", "Package.resolved", "pubspec.yaml", "pubspec.lock", "CMakeLists.txt", "deps/git-a2a.cmake"}
 
 func copyAdapterFiles(from, to string) {
 	_ = os.MkdirAll(to, 0o755)
 	for _, name := range adapterFiles {
 		if b, err := os.ReadFile(filepath.Join(from, name)); err == nil {
+			_ = os.MkdirAll(filepath.Dir(filepath.Join(to, name)), 0o755)
 			_ = os.WriteFile(filepath.Join(to, name), b, 0o644)
 		}
 	}
@@ -540,6 +542,7 @@ func restoreAdapterFiles(root string, snapshots map[string][]byte) {
 		if b == nil {
 			_ = os.Remove(p)
 		} else {
+			_ = os.MkdirAll(filepath.Dir(p), 0o755)
 			_ = os.WriteFile(p, b, 0o644)
 		}
 	}

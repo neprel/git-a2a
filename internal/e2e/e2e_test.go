@@ -105,9 +105,10 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	git(t, source, "init", "-b", "main")
 	git(t, source, "config", "user.email", "acme@example.test")
 	git(t, source, "config", "user.name", "Acme")
-	manifestBody := []byte("schema: 1\nmodule:\n  id: acme-native\n  release: {channel: main}\n")
+	manifestBody := []byte("schema: 1\nmodule:\n  id: acme-native\n  release: {channel: main}\n  exports:\n    - ecosystem: cmake\n      name: acme::native\n")
 	mustWrite(t, filepath.Join(source, "a2amodule.yml"), manifestBody)
 	mustWrite(t, filepath.Join(source, "acme.h"), []byte("#define ACME_VERSION 1\n"))
+	mustWrite(t, filepath.Join(source, "CMakeLists.txt"), []byte("add_library(acme-native INTERFACE)\nadd_library(acme::native ALIAS acme-native)\ntarget_include_directories(acme-native INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})\n"))
 	git(t, source, "add", ".")
 	git(t, source, "commit", "-m", "feat: add acme native library")
 	git(t, tmp, "clone", "--bare", source, bare)
@@ -117,6 +118,7 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	git(t, consumer, "config", "user.email", "consumer@example.test")
 	git(t, consumer, "config", "user.name", "Consumer")
 	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte("schema: 1\nmodule: {id: consumer-app}\n"))
+	mustWrite(t, filepath.Join(consumer, "CMakeLists.txt"), []byte("cmake_minimum_required(VERSION 3.20)\nproject(consumer)\n"))
 	git(t, consumer, "add", ".")
 	git(t, consumer, "commit", "-m", "chore: initialize consumer")
 
@@ -133,7 +135,7 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 		}
 	}
 
-	run("add", url, "--no-wire", "--vendor", "submodule")
+	run("add", url, "--wire", "cmake", "--vendor", "submodule", "--no-refresh")
 	locked, err := manifest.LoadLock(filepath.Join(consumer, "a2amodule.lock"))
 	if err != nil {
 		t.Fatal(err)
@@ -144,6 +146,10 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	}
 	if got := gitOutput(t, consumer, "ls-files", "-s", "--", "deps/acme-native"); !strings.HasPrefix(got, "160000 "+first.Commit) {
 		t.Fatalf("gitlink = %q", got)
+	}
+	generated, err := os.ReadFile(filepath.Join(consumer, "deps", "git-a2a.cmake"))
+	if err != nil || !strings.Contains(string(generated), `add_subdirectory("deps/acme-native")`) {
+		t.Fatalf("cmake integration = %q, %v", generated, err)
 	}
 	run("status", "acme-native", "--offline")
 	if !strings.Contains(out.String(), "submodule @"+first.Commit[:7]) {

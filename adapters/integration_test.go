@@ -14,6 +14,7 @@ import (
 
 	"github.com/neprel/git-a2a/adapters/cargo"
 	"github.com/neprel/git-a2a/adapters/clojure"
+	"github.com/neprel/git-a2a/adapters/cmake"
 	"github.com/neprel/git-a2a/adapters/composer"
 	"github.com/neprel/git-a2a/adapters/gem"
 	"github.com/neprel/git-a2a/adapters/golang"
@@ -26,6 +27,7 @@ import (
 	"github.com/neprel/git-a2a/adapters/swift"
 	"github.com/neprel/git-a2a/adapters/zig"
 	"github.com/neprel/git-a2a/internal/adapter"
+	"github.com/neprel/git-a2a/internal/manifest"
 )
 
 func TestRealToolchainAdapterLifecycle(t *testing.T) {
@@ -59,6 +61,9 @@ func TestRealToolchainAdapterLifecycle(t *testing.T) {
 		{"zig", "consumer-zig", zig.Adapter{}, adapter.Export{Ecosystem: "zig", Name: "acme_lib_utils", Extensions: map[string]any{"x-zig-hash": "1220" + strings.Repeat("b", 64)}}, nil},
 		{"clojure", "consumer-clojure", clojure.Adapter{}, adapter.Export{Ecosystem: "clojure", Name: "acme/lib-utils"}, nil},
 		{"nix", "consumer-nix", nix.Adapter{}, adapter.Export{Ecosystem: "nix", Name: "acme-lib-utils"}, nil},
+		{"cmake", "consumer-cmake", cmake.Adapter{}, adapter.Export{Ecosystem: "cmake", Name: "acme::lib-utils"}, func(root string) error {
+			return copyTreeError(libraryPath, filepath.Join(root, "deps", "acme-lib-utils"))
+		}},
 	}
 	for _, test := range cases {
 		if filter != "" && filter != test.name {
@@ -67,6 +72,10 @@ func TestRealToolchainAdapterLifecycle(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			caseDep, caseLocked := dep, locked
 			caseExport := test.export
+			if test.name == "cmake" {
+				caseDep.Vendor = &manifest.Vendor{Mode: "copy"}
+				caseLocked.Vendor = &manifest.LockedVendor{Mode: "copy", Path: "deps/acme-lib-utils", Tree: "tree:" + strings.Repeat("b", 40)}
+			}
 			if test.name == "pypi" {
 				caseDep.Git = "file://" + filepath.ToSlash(libraryPath)
 				caseLocked.Git = caseDep.Git
@@ -119,6 +128,8 @@ func integrationLibrary(t *testing.T) (string, string, string) {
 		"package.json":   `{"name":"@acme/lib-utils","version":"1.0.0"}` + "\n",
 		"pyproject.toml": "[project]\nname = \"acme-lib-utils\"\nversion = \"1.0.0\"\n",
 		"go.mod":         "module acme.dev/lib-utils\n\ngo 1.24\n",
+		"CMakeLists.txt": "cmake_minimum_required(VERSION 3.20)\nproject(acme_lib_utils LANGUAGES CXX)\nadd_library(acme-lib-utils INTERFACE)\nadd_library(acme::lib-utils ALIAS acme-lib-utils)\ntarget_include_directories(acme-lib-utils INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})\n",
+		"acme.hpp":       "#pragma once\ninline int acme_answer() { return 42; }\n",
 	}
 	for name, body := range files {
 		if err := os.WriteFile(filepath.Join(root, name), []byte(body), 0o644); err != nil {
@@ -168,6 +179,9 @@ func copyTree(t *testing.T, source, destination string) {
 		if err != nil || rel == "." {
 			return err
 		}
+		if rel == ".git" {
+			return filepath.SkipDir
+		}
 		target := filepath.Join(destination, rel)
 		if entry.IsDir() {
 			return os.MkdirAll(target, 0o755)
@@ -181,6 +195,30 @@ func copyTree(t *testing.T, source, destination string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func copyTreeError(source, destination string) error {
+	return filepath.WalkDir(source, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		rel, err := filepath.Rel(source, path)
+		if err != nil || rel == "." {
+			return err
+		}
+		if rel == ".git" {
+			return filepath.SkipDir
+		}
+		target := filepath.Join(destination, rel)
+		if entry.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		body, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(target, body, 0o644)
+	})
 }
 
 func runGit(t *testing.T, dir string, args ...string) string {

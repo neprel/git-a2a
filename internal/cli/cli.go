@@ -675,6 +675,7 @@ func (a *App) add(args []string) int {
 	}
 	sum := sha256.Sum256(res.Manifest)
 	locked := manifest.LockedDependency{Git: o.url, Ref: o.ref, Path: defaultPath(o.path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:])}
+	seedVendorLock(own, dep, &locked)
 	validated := *own
 	validated.Dependencies = append(append([]manifest.Dependency(nil), own.Dependencies...), dep)
 	if err = validated.Validate(); err != nil {
@@ -979,6 +980,7 @@ func (a *App) update(args []string) int {
 			}
 		}
 		entry = manifest.LockedDependency{Git: d.Git, Ref: d.Ref, Path: defaultPath(d.Path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:]), Cards: cards, Surface: surfaceTree}
+		seedVendorLock(own, d, &entry)
 		preflight := filepath.Join(work, "preflight")
 		copyAdapterFiles(root, preflight)
 		if _, e = wireAll(a.context(), preflight, d, depManifest, entry, false); e != nil {

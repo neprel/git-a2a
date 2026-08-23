@@ -7,6 +7,17 @@ import (
 	vendortransport "github.com/neprel/git-a2a/internal/vendor"
 )
 
+func seedVendorLock(own *manifest.Manifest, dep manifest.Dependency, locked *manifest.LockedDependency) {
+	if dep.Vendor == nil {
+		locked.Vendor = nil
+		return
+	}
+	locked.Vendor = &manifest.LockedVendor{
+		Mode: vendortransport.Mode(dep),
+		Path: vendortransport.Path(own, dep),
+	}
+}
+
 func (a *App) applyVendorTransition(root string, own *manifest.Manifest, oldDep *manifest.Dependency, nextDep manifest.Dependency, oldEntry *manifest.LockedDependency, nextEntry *manifest.LockedDependency, force bool) (func() error, error) {
 	manager := vendortransport.Manager{Runner: a.runner()}
 	oldVendored := oldDep != nil && oldDep.Vendor != nil && oldEntry != nil && oldEntry.Vendor != nil

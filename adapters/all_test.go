@@ -3,7 +3,7 @@ package adapters
 import "testing"
 
 func TestVerificationLabels(t *testing.T) {
-	for _, ecosystem := range []string{"gem", "composer", "hex", "hackage", "zig", "clojure", "nix"} {
+	for _, ecosystem := range []string{"gem", "composer", "hex", "hackage", "zig", "clojure", "nix", "cmake"} {
 		if got := Verification(ecosystem); got != "form-verified" {
 			t.Errorf("Verification(%q) = %q", ecosystem, got)
 		}

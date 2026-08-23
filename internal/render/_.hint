@@ -37,3 +37,10 @@ a second block.
 The last content line before the managed end delimiter is exactly “Run `git-a2a usage` to learn
 the tool.” It points a newly arrived agent to task instructions without copying a long CLI manual
 into every AGENTS.md. Dependency-controlled data always appears before this trusted local line.
+
+# decision Vendored rosters state clone and repair duty
+
+A dependency with lock `vendor` names its repository-relative path and mode in trusted generated
+text. Submodules additionally say to clone with `--recurse-submodules` and repair an existing clone
+with `git submodule update --init` or `git-a2a wire`; copies need no Git clone instruction. This
+state comes from the consumer lock, never from dependency-controlled prose.
