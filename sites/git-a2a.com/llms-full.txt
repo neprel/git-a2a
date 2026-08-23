@@ -57,21 +57,22 @@ git-a2a update --review
 
 ## Installation
 
-Go-native channels are the simplest and come first. Every checked channel below was exercised
-against the public 1.0.1 artifact on its native platform. Pin versions in CI.
+Go-native channels are the simplest and come first. Every checkmark means the channel was
+exercised against a public stable artifact on its native platform. These commands follow the
+latest stable release; pin an explicit version in CI.
 
 | Verified | Channel | Command |
 | --- | --- | --- |
-| ✔ | Go | `go install github.com/neprel/git-a2a/cmd/git-a2a@v1.0.1` |
-| ✔ | Go zero-install | `go run github.com/neprel/git-a2a/cmd/git-a2a@v1.0.1 --version` |
+| ✔ | Go | `go install github.com/neprel/git-a2a/cmd/git-a2a@latest` |
+| ✔ | Go zero-install | `go run github.com/neprel/git-a2a/cmd/git-a2a@latest --version` |
 | ✔ | macOS/Linux installer | `curl -fsSL https://git-a2a.com/install.sh \| bash` |
 | ✔ | Windows installer | `irm https://git-a2a.com/install.ps1 \| iex` |
 | ✔ | Homebrew | `brew install neprel/tap/git-a2a` |
 | ✔ | Scoop | `scoop bucket add git-a2a https://github.com/neprel/scoop-bucket; scoop install git-a2a` |
-| ✔ | npm | `npx git-a2a@1.0.1 --version` |
-| ✔ | PyPI with uv | `uvx git-a2a@1.0.1 --version` |
-| ✔ | PyPI with pipx | `pipx run git-a2a==1.0.1 --version` |
-| ✔ | Container | `docker run --rm ghcr.io/neprel/git-a2a:1.0.1 --version` |
+| ✔ | npm | `npx git-a2a@latest --version` |
+| ✔ | PyPI with uv | `uvx git-a2a --version` |
+| ✔ | PyPI with pipx | `pipx run git-a2a --version` |
+| ✔ | Container | `docker run --rm ghcr.io/neprel/git-a2a:latest --version` |
 
 The checksum-verifying standalone installers support `GIT_A2A_VERSION`, `--version`, `--dir`,
 and `--dry-run`. The macOS binaries are not yet Apple-notarized; use the Homebrew formula for a
@@ -88,7 +89,7 @@ sudo apk add --allow-untrusted git-a2a_*.apk
 The scratch container contains only the binary:
 
 ```sh
-docker run --rm ghcr.io/neprel/git-a2a:1.0.1 version
+docker run --rm ghcr.io/neprel/git-a2a:latest version
 ```
 
 Every channel executes the same Go binary. `git-a2a version --check` is the only automatic

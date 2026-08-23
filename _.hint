@@ -129,6 +129,11 @@ type before executing the downloaded text in dry-run mode.
 Live channel workflows derive their expected stable version from `internal/version/VERSION` after
 checkout. A literal release number in a public-channel assertion makes the first patch release
 look like a failed installation even when the package, checksum, and binary are all correct.
+README installation commands likewise use each channel's stable alias rather than a literal
+release number: Go's built-in SemVer query `@latest`, npm's `latest` dist-tag, the GHCR `latest`
+tag, and unversioned PyPI resolution. Stable releases move the npm/GHCR aliases and channel
+manifests; never create or move a non-SemVer Git tag named `latest`, because Go ignores it as a
+module version and release tags are immutable. Explicit versions remain the recommendation for CI.
 GitHub currently annotates the pinned `actions/checkout` v4 line because the action declares
 Node 20 while hosted runners force it onto Node 24. This is a maintenance warning, not an
 installer failure: replace the full SHA only with a reviewed official checkout release that
