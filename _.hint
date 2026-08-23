@@ -122,6 +122,10 @@ verifies the release SHA-256 first, then the formula removes `com.apple.quaranti
 installed `git-a2a` binary, and `brew test` proves the first launch. The Scoop channel is verified
 on `windows-latest`; Wine under amd64 QEMU on Apple Silicon can abort in its memory-mapping layer
 before the Windows executable starts and is not a substitute for that gate.
+The README distribution matrix uses a check mark only after the public artifact has been invoked
+through that exact channel on its native platform; a generated manifest or a local rebuild is not
+channel verification. A live site installer check must additionally assert its production MIME
+type before executing the downloaded text in dry-run mode.
 npm uses token-less trusted publishing from `release.yml` on Node 24 with npm 11.5.1 or newer,
 one publisher binding per launcher/platform package, `id-token: write`, and repository metadata
 matching `neprel/git-a2a`; npm prereleases use dist-tag `next` and stable releases use `latest`.

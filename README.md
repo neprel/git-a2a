@@ -38,33 +38,25 @@ git-a2a update --review
 
 ## Installation
 
-Go-native channels are the simplest and come first. Pin `@v1.0.0` rather than `@latest` in CI:
+Go-native channels are the simplest and come first. Every checked channel below was exercised
+against the public 1.0.0 artifact on its native platform. Pin versions in CI.
 
-```sh
-go install github.com/neprel/git-a2a/cmd/git-a2a@v1.0.0
-go run github.com/neprel/git-a2a/cmd/git-a2a@v1.0.0 --version
-```
+| Verified | Channel | Command |
+| --- | --- | --- |
+| ✔ | Go | `go install github.com/neprel/git-a2a/cmd/git-a2a@v1.0.0` |
+| ✔ | Go zero-install | `go run github.com/neprel/git-a2a/cmd/git-a2a@v1.0.0 --version` |
+| ✔ | macOS/Linux installer | `curl -fsSL https://git-a2a.com/install.sh \| bash` |
+| ✔ | Windows installer | `irm https://git-a2a.com/install.ps1 \| iex` |
+| ✔ | Homebrew | `brew install neprel/tap/git-a2a` |
+| ✔ | Scoop | `scoop bucket add git-a2a https://github.com/neprel/scoop-bucket; scoop install git-a2a` |
+| ✔ | npm | `npx git-a2a@1.0.0 --version` |
+| ✔ | PyPI with uv | `uvx git-a2a@1.0.0 --version` |
+| ✔ | PyPI with pipx | `pipx run git-a2a==1.0.0 --version` |
+| ✔ | Container | `docker run --rm ghcr.io/neprel/git-a2a:1.0.0 --version` |
 
 The checksum-verifying standalone installers support `GIT_A2A_VERSION`, `--version`, `--dir`,
-and `--dry-run`:
-
-```sh
-curl -fsSL https://git-a2a.com/install.sh | bash
-```
-
-```powershell
-irm https://git-a2a.com/install.ps1 | iex
-```
-
-Package-manager and zero-install channels:
-
-```sh
-brew install neprel/tap/git-a2a
-scoop bucket add git-a2a https://github.com/neprel/scoop-bucket
-scoop install git-a2a
-npx git-a2a --version
-uvx git-a2a --version
-```
+and `--dry-run`. The macOS binaries are not yet Apple-notarized; use the Homebrew formula for a
+checksum-verified first launch without a Gatekeeper quarantine prompt.
 
 Linux `.deb`, `.rpm`, and `.apk` packages are attached to every GitHub Release:
 

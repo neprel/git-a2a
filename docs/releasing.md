@@ -60,6 +60,16 @@ UTF-8 `text/plain`. After every change to that file or either installer, publish
 `windows-latest`. Do not infer this result from a local server: only the production host proves
 that its `.htaccess` is enabled.
 
+The v1.0.0 acceptance run is [Installer checks #32626028405](https://github.com/neprel/git-a2a/actions/runs/32626028405).
+Its live Windows output was:
+
+```text
+text/plain; charset=utf-8
+dry-run: resolve v1.0.0 from https://github.com/neprel/git-a2a/releases
+dry-run: download and SHA-256 verify git-a2a_1.0.0_windows_amd64.zip
+dry-run: install git-a2a.exe to the runner temporary directory
+```
+
 Before a stable release, manually exercise replacement of an installed binary on Windows:
 
 ```powershell
