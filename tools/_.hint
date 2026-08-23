@@ -34,6 +34,18 @@ many unrelated tools. git-a2a release automation owns only `Formula/git-a2a.rb` 
 formula or manifest, and the stable user-facing repository names; never reposition either
 repository as dedicated to git-a2a.
 
+# decision Manifest reference is compiled from HINT and schema {#manifest_reference}
+
+`gen-reference.py` invokes `hint spec`, reads the `spec` data-structure/field blocks, and joins
+them with `spec/schema/a2amodule.schema.json` in schema order. Its fixed route table maps schema
+objects to their normative HINT entity ids; it contains no independent field descriptions.
+Generation fails when either source has a field the other lacks. The committed
+`docs/manifest-reference.md` is deterministic, and `make docs-check` plus CI fail when it is
+stale. Python standard library only; do not add a documentation generator dependency.
+The compiled stream is XML-like but normative prose may contain literal angle-bracket placeholders
+inside backticks, so parse only the compiler-owned `data_structure` and `field` tag boundaries;
+feeding the entire stream to a general XML parser would reject valid HINT prose.
+
 # test Release channels
 
 - A fixture `checksums.txt` drives both manifests and all four hashes appear in their correct

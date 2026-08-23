@@ -1,4 +1,4 @@
-.PHONY: build test snapshot pilot installers-check site-check site-publish
+.PHONY: build test snapshot pilot docs-check installers-check site-check site-publish
 
 build:
 	CGO_ENABLED=0 go build -trimpath -o bin/git-a2a ./cmd/git-a2a
@@ -11,6 +11,9 @@ snapshot:
 
 pilot:
 	./scripts/pilot.sh
+
+docs-check:
+	python3 tools/gen-reference.py --check
 
 installers-check:
 	bash -n install.sh

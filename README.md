@@ -83,6 +83,13 @@ available only to the standalone binary channel; it never overwrites a package-m
 Release archives cover Darwin, Linux, and Windows on amd64/arm64 and include checksums and SBOMs.
 Maintainer setup is in [docs/releasing.md](docs/releasing.md).
 
+## Documentation
+
+- [Manifest field reference](docs/manifest-reference.md): generated types, defaults, values, and consequences for every field.
+- [Authoring guide](docs/authoring.md): create and publish a module, its surface, agents, contacts, policy, and cards.
+- [Consumer demo](docs/demo.md): inspect the public polyglot library and app end to end.
+- [CLI reference](docs/cli.md): exact commands, flags, outputs, and exit codes.
+
 ## A2A, AGENTS.md, and Agent Skills
 
 - **A2A** is the agent-to-agent protocol. Agent Cards remain native A2A v1.0; the

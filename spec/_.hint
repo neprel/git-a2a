@@ -129,6 +129,70 @@ ecosystem's own manifest, default the module directory), `notes` (string, option
 wiring tool or agent must know, e.g. "vanity import path, needs replace", "prepare script builds
 dist"). Ecosystem-specific keys are allowed under `x-<ecosystem>-*`.
 
+# entity moved-to {#moved_to}
+
+The relocation notice stored at `module.moved-to`. It announces a destination but never grants
+the tool permission to rewrite consumer sources automatically.
+
+## field git
+
+string, required. New canonical Git URL. Changing it changes the destination offered to users;
+consumers remain on the current source until an explicit `set --git`.
+
+## field path
+
+string, optional relative path, default `.`. Subdirectory containing the moved module. Changing
+it changes the destination module root offered with the new Git URL.
+
+## field notes
+
+string, optional. Human migration context printed with the move notice. Changing it changes only
+the guidance, never the source automatically.
+
+# entity release {#release}
+
+The owner's default Git release policy under `module.release`.
+
+## field channel
+
+string, optional. Default ref used by `add` when the consumer supplies no ref, commonly `main`.
+Changing it affects future adds; existing consumers retain their declared ref until `set`.
+
+## field tags
+
+boolean, optional, default `false`. Declares whether the owner publishes semantic-version tags.
+Changing it changes what consumers may reasonably select with `set --ref`; it does not create tags.
+
+## field notes
+
+string, optional. Free release-channel guidance shown to consumers. Changing it changes guidance
+only and does not resolve or move a dependency.
+
+# entity export {#export}
+
+One importable ecosystem representation in `module.exports`.
+
+## field ecosystem
+
+string, required, open vocabulary. Known adapters include `npm`, `pypi`, `golang`, `cargo`,
+`swift`, `pub`, `gem`, `composer`, `hex`, `hackage`, `zig`, `clojure`, and `nix`. Changing it
+selects a different adapter and therefore a different native manifest.
+
+## field name
+
+string, required. Native package/import name in the named ecosystem. Changing it rewires the
+consumer from the old native entry to the new one on the next mutation or `wire`.
+
+## field path
+
+string, optional relative path, default `.`. Subdirectory containing the ecosystem package.
+Changing it changes the Git subdirectory expression; unsupported adapters report `not wired`.
+
+## field notes
+
+string, optional. Export-specific facts shown to tools and agents. Changing it changes published
+guidance but does not itself alter adapter behavior.
+
 # entity agent binding {#agent}
 
 One entry in `agents`. Binds an existing agent to this module; does not define the agent.
@@ -183,6 +247,100 @@ identifies the algorithm, key id, and JWKS URL. An unsigned card, an invalid sig
 unavailable key with no local cache makes `status` fail; `update` retains the dependency update
 but prints a trust warning. JWKS responses are timeout-bounded and cached only in `.git-a2a/`.
 
+# entity contact {#contact}
+
+One ordered delivery or instruction route in `agents[].contacts`. `intents` and `kind` are common;
+the remaining keys are valid only for the kinds listed in [#contact_kinds](#contact_kinds).
+
+## field intents
+
+list of strings, required and non-empty, open vocabulary; `"*"` is the fallback. Changing the
+list changes which requests may select this contact.
+
+## field kind
+
+string, required, open vocabulary. Changing it selects another delivery driver or instruction
+renderer and changes which kind-specific fields are valid.
+
+## field note
+
+string, optional. Instructions printed verbatim after the route. Changing it changes the asker's
+guidance, not routing priority or delivery mechanics.
+
+## field url
+
+string, optional for `a2a`, `jira`, and `url`. Changing it changes the service or instruction
+destination; for A2A it is the JSON-RPC endpoint.
+
+## field skill
+
+string, optional for `a2a`. Skill identifier requested from the remote agent. Changing it changes
+the A2A target skill without changing the endpoint.
+
+## field address
+
+string, optional for `email`. Destination email address. Changing it changes the printed email
+instruction; the reference CLI does not send email.
+
+## field subject-prefix
+
+string, optional for `email`. Prefix suggested for the email subject. Changing it changes only
+the printed instruction.
+
+## field repo
+
+string, optional for `github-issue` and `gitlab-issue`, in `owner/name` form. Changing it changes
+the repository where the issue driver delivers the request.
+
+## field labels
+
+list of strings, optional for issue kinds. Changing it changes labels requested when an issue is
+created; a missing label is a delivery error from the host.
+
+## field template
+
+string, optional for issue kinds. Issue form/template name. Changing it changes the requested
+host template without changing routing.
+
+## field project
+
+string, optional for `jira`. Project key. Changing it changes the Jira project named in the
+instruction.
+
+## field issue-type
+
+string, optional for `jira`. Issue type. Changing it changes the Jira issue kind named in the
+instruction.
+
+## field channel
+
+string, optional for chat kinds. Channel name or id. Changing it changes the printed chat
+destination; chat contacts are instruction-only.
+
+## field handle
+
+string, optional for chat kinds. Agent mention or handle. Changing it changes whom the asker is
+told to address.
+
+## field server
+
+string, optional for chat kinds. Workspace or server URL/name. Changing it disambiguates the
+printed chat destination.
+
+# entity trust {#trust}
+
+Verification and request-origin expectations for one agent binding.
+
+## field signatures
+
+boolean, optional, default `false`. When changed to `true`, unsigned, invalid, or unverifiable
+cards make `status` fail and make `update` warn while retaining the dependency update.
+
+## field accepts-external
+
+boolean, optional, default unstated. Declares whether outside agents are welcome. Changing it
+changes published contact policy only; the reference CLI does not enforce organisation identity.
+
 # decision ARD catalogs index native Agent Cards
 
 `git-a2a catalog export` projects the module's agents into an ARD 1.0 `ai-catalog.json`.
@@ -228,6 +386,21 @@ consumer's roster block so an agent sees the boundary before it acts. Defaults w
 ## field notes
 
 string. Anything else consumers must know, verbatim.
+
+# entity consumers {#consumers}
+
+The open-vocabulary consumer boundary under `policy.consumers`.
+
+## field may
+
+list of strings, optional, default `[read-surface, ask]`. Changing it changes the allowed actions
+rendered into consumer AGENTS.md rosters; the CLI reports the boundary but does not become an
+authorization service.
+
+## field may-not
+
+list of strings, optional, default `[commit]`. Changing it changes the prohibited actions rendered
+into consumer rosters; downstream agents remain responsible for obeying the declaration.
 
 # entity dependency {#dependency}
 

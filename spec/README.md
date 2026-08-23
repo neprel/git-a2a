@@ -13,6 +13,10 @@ are the machine-readable form and are published at
 [`/schema/a2amodule-lock.v1.json`](https://git-a2a.com/schema/a2amodule-lock.v1.json).
 Complete manifests live in [`examples/`](./examples/).
 
+Use the generated [manifest field reference](../docs/manifest-reference.md) for every field's
+type, default, allowed values, behavior, and consequence. The [authoring guide](../docs/authoring.md)
+walks from an empty repository to a published module using the public demo.
+
 ## Manifest
 
 Top-level keys use this canonical order: `schema`, `module`, `agents`, `policy`,
