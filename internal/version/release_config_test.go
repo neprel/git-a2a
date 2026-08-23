@@ -26,7 +26,7 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	if attributes := read(".gitattributes"); !strings.Contains(attributes, "* text=auto eol=lf") {
 		t.Error("repository text files must retain LF line endings on every runner")
 	}
-	for _, required := range []string{"needs: test", "permissions: {}", "contents: write", "packages: write", "id-token: write", "--skip=homebrew", "--skip=scoop", "node-version: '24'", "npm@11.5.1", "npm_tag=latest", "npm_tag=next", `npm publish "./$package" --access public --tag "$npm_tag"`, `npm publish ./npm-packages/git-a2a --access public --tag "$npm_tag"`, "docker/setup-buildx-action@", "docker logout ghcr.io", "workflow_dispatch:", "GORELEASER_CURRENT_TAG", "GORELEASER_RECOVERY: ${{ github.event_name == 'workflow_dispatch' }}", "RELEASE_TAG: ${{ inputs.tag || github.ref_name }}"} {
+	for _, required := range []string{"needs: test", "permissions: {}", "contents: write", "packages: write", "id-token: write", "--skip=homebrew", "--skip=scoop", "node-version: '24'", "npm@11.5.1", "npm_tag=latest", "npm_tag=next", `npm publish "./$package" --access public --tag "$npm_tag"`, `npm publish ./npm-packages/git-a2a --access public --tag "$npm_tag"`, "docker/setup-buildx-action@", "docker logout ghcr.io", "workflow_dispatch:", "Disable immutable GitHub release upload during recovery", "sed -i '/^release:$/a\\  disable: true' .goreleaser.yaml", "GORELEASER_CURRENT_TAG", "RELEASE_TAG: ${{ inputs.tag || github.ref_name }}"} {
 		if !strings.Contains(workflow, required) {
 			t.Errorf("release workflow missing %q", required)
 		}
@@ -58,7 +58,7 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 		t.Error("GoReleaser prerelease or clean-tree gate is missing")
 	}
 	config := read(".goreleaser.yaml")
-	for _, required := range []string{"title: Features", "title: Bug fixes", "title: Documentation", "release:", "disable: '{{ .Env.GORELEASER_RECOVERY }}'", "header: |", "footer: |", "org.opencontainers.image.source", "if not .Prerelease"} {
+	for _, required := range []string{"title: Features", "title: Bug fixes", "title: Documentation", "release:", "header: |", "footer: |", "org.opencontainers.image.source", "if not .Prerelease"} {
 		if !strings.Contains(config, required) {
 			t.Errorf("GoReleaser release presentation missing %q", required)
 		}

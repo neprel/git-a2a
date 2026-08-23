@@ -29,9 +29,10 @@ Job permissions are intentionally local: tests have read-only contents; GoReleas
 package includes repository metadata matching `https://github.com/neprel/git-a2a`, which npm
 requires when authenticating its trusted publisher.
 
-A `workflow_dispatch` recovery rebuilds the immutable tag with the GoReleaser SCM release
-publisher disabled. It therefore leaves existing GitHub release assets untouched while retrying
-the downstream package channels. Tag-triggered releases keep the SCM publisher enabled.
+A `workflow_dispatch` recovery checks out the immutable tag and injects `release.disable: true`
+into that tag's GoReleaser config before rebuilding it. It therefore leaves existing GitHub
+release assets untouched while retrying the downstream package channels. Tag-triggered releases
+skip that injection and keep the SCM publisher enabled.
 
 ## macOS and Windows status
 
