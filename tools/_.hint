@@ -26,6 +26,14 @@ Scoop URLs name the tag-specific archives; every emitted hash is looked up by th
 name. The formula test must execute the installed binary and the Scoop manifest must preserve
 separate amd64 and arm64 hashes.
 
+# decision Package-manager repositories are shared collections
+
+`neprel/homebrew-tap` and `neprel/scoop-bucket` are author-level repositories that may publish
+many unrelated tools. git-a2a release automation owns only `Formula/git-a2a.rb` in the tap and
+`git-a2a.json` in the bucket. It must preserve their general README, metadata, every other
+formula or manifest, and the stable user-facing repository names; never reposition either
+repository as dedicated to git-a2a.
+
 # test Release channels
 
 - A fixture `checksums.txt` drives both manifests and all four hashes appear in their correct
