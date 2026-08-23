@@ -63,6 +63,7 @@ def main() -> None:
     (root / "package.json").write_text(json.dumps({
         "name": "git-a2a", "version": args.version,
         "description": "Import git modules together with their owning agents",
+        "mcpName": "io.github.neprel/git-a2a",
         "license": "MIT", "repository": REPOSITORY,
         "bin": {"git-a2a": "bin/git-a2a.js"},
         "engines": {"node": ">=18"}, "files": ["bin/", "skills/"],

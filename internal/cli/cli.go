@@ -131,6 +131,8 @@ func (a *App) Run(args []string) int {
 		return a.explain(args[1:])
 	case "setup":
 		return a.setup(args[1:])
+	case "mcp":
+		return a.mcp(args[1:])
 	case "help", "-h", "--help":
 		a.usage()
 		return 0
@@ -149,7 +151,7 @@ func (a *App) usage() {
 	fmt.Fprintln(a.Out, "  git-a2a usage --prompt")
 	fmt.Fprintln(a.Out, "\nCommands:")
 	fmt.Fprintln(a.Out, "  init validate add set pin unpin wire update remove fetch show sync who contact")
-	fmt.Fprintln(a.Out, "  status card catalog agent export policy explain fmt doctor usage setup version upgrade")
+	fmt.Fprintln(a.Out, "  status card catalog agent export policy explain fmt doctor usage setup mcp version upgrade")
 	fmt.Fprintln(a.Out, "\nExit codes:")
 	fmt.Fprintln(a.Out, "  0 success or clean check; 1 operational failure or drift; 2 invalid or unresolved input")
 }
@@ -184,6 +186,7 @@ func (a *App) commandUsage(command string) {
 		"policy":   {"git-a2a policy set INTENT=ROLE [INTENT=ROLE ...]", "git-a2a policy set change=owner"},
 		"explain":  {"git-a2a explain PATH [--json]", "git-a2a explain agents.contacts.kind --json"},
 		"setup":    {"git-a2a setup [--check|--dry-run]", "git-a2a setup --dry-run"},
+		"mcp":      {"git-a2a mcp [--allow-write]", "git-a2a mcp"},
 	}
 	if h, ok := helpByCommand[command]; ok {
 		fmt.Fprintln(a.Out, "usage: "+h.usage)

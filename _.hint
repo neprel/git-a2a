@@ -149,10 +149,19 @@ refactoring, and documentation while omitting chore, CI, and test-only commits; 
 and footer explain the release, installation, checksums, and CLI reference. The GHCR image is
 linked with `org.opencontainers.image.source`, becomes public after publication, and receives
 `latest` only for a stable release.
+MCP releases add a deterministic cross-platform `.mcpb` assembled from the same six npm-channel
+binaries, plus generated `server.json` metadata for `io.github.neprel/git-a2a`. The metadata
+lists npm, GHCR OCI, and MCPB stdio packages and hashes the actual bundle; the npm launcher's
+`mcpName` and OCI `io.modelcontextprotocol.server.name` label prove ownership. The release
+workflow validates with checksum-pinned `mcp-publisher` v1.8.1, uploads byte-identical recovery
+assets without replacement, and publishes stable (never prerelease) metadata through GitHub
+OIDC, with no registry secret.
 
 # dep Reference CLI runtime dependencies
 
 - `gopkg.in/yaml.v3` for YAML parsing and emission.
+- `github.com/modelcontextprotocol/go-sdk` v1.7.x for the stdio MCP protocol surface; MCP tools
+  delegate to the same internal command implementation as the CLI and do not duplicate domain logic.
 
 Everything else in the CLI uses the Go standard library or executes the user's installed
 ecosystem tools. Add no other runtime dependency without recording and reviewing it here.
@@ -326,7 +335,8 @@ reserved for extensions and preserved byte-for-byte.
 
 * A second description of an agent that can disagree with its card. The manifest binds; the
   card describes.
-* A git-a2a runtime process, daemon, registry or database. It is a CLI over files in git.
+* A persistent git-a2a runtime, network listener, daemon, registry or database. The optional MCP
+  command is a harness-owned stdio subprocess over the same CLI/files and exits with its connection.
 * Cloning a dependency to read one file.
 * A default that is specific to one fleet tool, chat platform or coding harness. Those are
   examples under `spec/examples/`.

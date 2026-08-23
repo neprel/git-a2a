@@ -1,7 +1,11 @@
 package version
 
 import (
+	"archive/zip"
+	"bytes"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +14,82 @@ import (
 	"strings"
 	"testing"
 )
+
+func TestMCPDiscoveryBundleIsDeterministicAndHasRealHash(t *testing.T) {
+	_, file, _, _ := runtime.Caller(0)
+	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+	temp := t.TempDir()
+	packages := filepath.Join(temp, "packages")
+	for _, target := range []string{"darwin-amd64", "darwin-arm64", "linux-amd64", "linux-arm64", "windows-amd64", "windows-arm64"} {
+		executable := "git-a2a"
+		if strings.HasPrefix(target, "windows-") {
+			executable += ".exe"
+		}
+		path := filepath.Join(packages, target, "bin", executable)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("binary-"+target), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	build := func(out string) {
+		t.Helper()
+		command := exec.Command("python3", filepath.Join(root, "dist", "mcpb", "build.py"),
+			"--packages", packages, "--version", "1.2.3", "--out", out)
+		if output, err := command.CombinedOutput(); err != nil {
+			t.Fatalf("build MCP discovery: %v: %s", err, output)
+		}
+	}
+	first, second := filepath.Join(temp, "first"), filepath.Join(temp, "second")
+	build(first)
+	build(second)
+	bundleName := "git-a2a_1.2.3.mcpb"
+	firstBundle, err := os.ReadFile(filepath.Join(first, bundleName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondBundle, _ := os.ReadFile(filepath.Join(second, bundleName))
+	if !bytes.Equal(firstBundle, secondBundle) {
+		t.Fatal("MCPB differs for identical inputs")
+	}
+	archive, err := zip.OpenReader(filepath.Join(first, bundleName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer archive.Close()
+	if len(archive.File) != 8 {
+		t.Fatalf("MCPB entries = %d, want manifest + launcher + 6 binaries", len(archive.File))
+	}
+	for _, entry := range archive.File {
+		if entry.Name == "server/launcher.js" && entry.Mode().Perm()&0o111 == 0 {
+			t.Fatal("MCPB launcher is not executable")
+		}
+	}
+	serverBody, err := os.ReadFile(filepath.Join(first, "server.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var server struct {
+		Name     string `json:"name"`
+		Packages []struct {
+			RegistryType string `json:"registryType"`
+			Identifier   string `json:"identifier"`
+			FileSHA256   string `json:"fileSha256"`
+		} `json:"packages"`
+	}
+	if err := json.Unmarshal(serverBody, &server); err != nil {
+		t.Fatal(err)
+	}
+	digest := fmt.Sprintf("%x", sha256.Sum256(firstBundle))
+	if server.Name != "io.github.neprel/git-a2a" || len(server.Packages) != 3 || server.Packages[2].RegistryType != "mcpb" || server.Packages[2].FileSHA256 != digest || !strings.HasSuffix(server.Packages[2].Identifier, "/"+bundleName) {
+		t.Fatalf("server.json discovery metadata = %#v", server)
+	}
+	secondServer, _ := os.ReadFile(filepath.Join(second, "server.json"))
+	if !bytes.Equal(serverBody, secondServer) {
+		t.Fatal("server.json differs for identical inputs")
+	}
+}
 
 func TestReleaseChannelManifestsUseImmutableChecksums(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
@@ -86,7 +166,7 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	if attributes := read(".gitattributes"); !strings.Contains(attributes, "* text=auto eol=lf") {
 		t.Error("repository text files must retain LF line endings on every runner")
 	}
-	for _, required := range []string{"needs: test", "permissions: {}", "contents: write", "packages: write", "id-token: write", "--skip=homebrew", "--skip=scoop", "node-version: '24'", "npm@11.5.1", "npm_tag=latest", "npm_tag=next", "publish_if_missing()", `npm view "${package_name}@${package_version}" version`, `npm publish "./${package_dir}" --access public --tag "$npm_tag"`, "docker/setup-buildx-action@", "docker logout ghcr.io", "workflow_dispatch:", "Select GoReleaser configuration", `config_file="$RUNNER_TEMP/goreleaser-recovery.yaml"`, "sed -i '/^release:$/a\\  skip_upload: true' \"$config_file\"", "--config ${{ steps.release_config.outputs.path }}", "GORELEASER_CURRENT_TAG", "RELEASE_TAG: ${{ inputs.tag || github.ref_name }}", "tools/release-channels.py", "--pattern checksums.txt", "Formula/git-a2a.rb", "Casks/git-a2a.rb", "HOMEBREW_TAP_TOKEN", "SCOOP_BUCKET_TOKEN"} {
+	for _, required := range []string{"needs: test", "permissions: {}", "contents: write", "packages: write", "id-token: write", "--skip=homebrew", "--skip=scoop", "node-version: '24'", "npm@11.5.1", "npm_tag=latest", "npm_tag=next", "publish_if_missing()", `npm view "${package_name}@${package_version}" version`, `npm publish "./${package_dir}" --access public --tag "$npm_tag"`, "docker/setup-buildx-action@", "docker logout ghcr.io", "workflow_dispatch:", "Select GoReleaser configuration", `config_file="$RUNNER_TEMP/goreleaser-recovery.yaml"`, "sed -i '/^release:$/a\\  skip_upload: true' \"$config_file\"", "--config ${{ steps.release_config.outputs.path }}", "GORELEASER_CURRENT_TAG", "RELEASE_TAG: ${{ inputs.tag || github.ref_name }}", "tools/release-channels.py", "--pattern checksums.txt", "Formula/git-a2a.rb", "Casks/git-a2a.rb", "HOMEBREW_TAP_TOKEN", "SCOOP_BUCKET_TOKEN", "dist/mcpb/build.py", "mcp-publisher_linux_amd64.tar.gz", "github-oidc", "mcp-publisher publish mcp-dist/server.json"} {
 		if !strings.Contains(workflow, required) {
 			t.Errorf("release workflow missing %q", required)
 		}
@@ -126,7 +206,7 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 		t.Error("GoReleaser prerelease or clean-tree gate is missing")
 	}
 	config := read(".goreleaser.yaml")
-	for _, required := range []string{"title: Features", "title: Bug fixes", "title: Documentation", "release:", "header: |", "footer: |", "org.opencontainers.image.source", "if not .Prerelease"} {
+	for _, required := range []string{"title: Features", "title: Bug fixes", "title: Documentation", "release:", "header: |", "footer: |", "org.opencontainers.image.source", "io.modelcontextprotocol.server.name: io.github.neprel/git-a2a", "if not .Prerelease"} {
 		if !strings.Contains(config, required) {
 			t.Errorf("GoReleaser release presentation missing %q", required)
 		}
@@ -149,6 +229,9 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	npmBuilder := read("dist/npm/build_packages.py")
 	if strings.Count(npmBuilder, `"repository": REPOSITORY`) != 2 || !strings.Contains(npmBuilder, `"url": "git+https://github.com/neprel/git-a2a.git"`) {
 		t.Error("every npm package must carry repository metadata matching the trusted publisher")
+	}
+	if !strings.Contains(npmBuilder, `"mcpName": "io.github.neprel/git-a2a"`) || !strings.Contains(read("dist/npm/package.json"), `"mcpName": "io.github.neprel/git-a2a"`) {
+		t.Error("npm launcher metadata must prove MCP Registry ownership")
 	}
 	launcher := read("dist/pypi/git_a2a.py")
 	if !strings.Contains(launcher, "os.execv") {

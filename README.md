@@ -89,6 +89,8 @@ Maintainer setup is in [docs/releasing.md](docs/releasing.md).
 - [Authoring guide](docs/authoring.md): create and publish a module, its surface, agents, contacts, policy, and cards.
 - [Consumer demo](docs/demo.md): inspect the public polyglot library and app end to end.
 - [CLI reference](docs/cli.md): exact commands, flags, outputs, and exit codes.
+- [MCP server](docs/mcp.md): attach the stdio server to Claude Code, Codex, Cursor, Copilot,
+  Gemini CLI, or OpenCode.
 
 ## A2A, AGENTS.md, and Agent Skills
 
@@ -105,7 +107,8 @@ Maintainer setup is in [docs/releasing.md](docs/releasing.md).
   git-a2a --pin main`. From 1.1.0 onward the stable command is `gh skill install neprel/git-a2a
   git-a2a`; detailed references ship with the skill and in the npm launcher package. Run
   `git-a2a setup --dry-run` to preview repository-scoped skill, AGENTS.md, and MCP configuration
-  for detected Claude Code, Codex, Cursor, Copilot, Gemini CLI, and OpenCode environments.
+  for detected Claude Code, Codex, Cursor, Copilot, Gemini CLI, OpenCode, Hermes Agent, and
+  OpenClaw environments.
 
 git-a2a does not run agents, host endpoints, or choose a chat platform. Unknown contact kinds,
 roles, intents, and ecosystems remain valid open vocabulary.

@@ -323,12 +323,15 @@ Exit 0: request completed or check clean.
 ## setup
 
 `git-a2a setup [--check|--dry-run]` detects Claude Code, Codex, Cursor, GitHub Copilot,
-Gemini CLI, and OpenCode from repository and user markers. It always installs the bundled skill
+Gemini CLI, OpenCode, Hermes Agent, and OpenClaw from repository and user markers. It always installs the bundled skill
 under `.agents/skills/git-a2a/`, also installs `.claude/skills/git-a2a/` when Claude Code is
 present, and adds a bounded pointer block to `AGENTS.md`. For detected harnesses it writes only
 the project-scoped `git-a2a` MCP entry in `.mcp.json`, `.codex/config.toml`,
 `.cursor/mcp.json`, `.vscode/mcp.json`, `.gemini/settings.json`, or `opencode.json`, preserving
 unrelated configuration. It never installs or upgrades the `git-a2a` executable.
+Hermes Agent and OpenClaw only expose user-scoped MCP registries, so setup does not edit their
+home-directory files; it prints the exact `hermes mcp add` or `openclaw mcp set` command for the
+operator to run explicitly.
 
 `--dry-run` prints the files that would change and exits `0`; `--check` writes nothing and exits
 `1` if any installed file or entry is missing/stale. An invalid existing config exits `1`; bad
@@ -339,6 +342,28 @@ $ git-a2a setup --dry-run
 would write .agents/skills/git-a2a/SKILL.md (cross-agent skill)
 would write AGENTS.md (skill pointer)
 setup: dry run; 5 file(s) would change
+```
+
+## mcp
+
+`git-a2a mcp [--allow-write]` runs a stateless MCP server over stdio. By default it exposes
+seven read-only tools (`who`, `show`, `status`, `validate`, `doctor`, `explain`, `usage`) and
+four repository resources (`a2amodule://manifest`, `a2amodule://lock`,
+`a2amodule://roster`, `a2amodule://reference`). `--allow-write` additionally exposes `add`,
+`update`, `set`, `wire`, `sync`, and `contact`; `remove` remains CLI-only. The process opens no
+network listener and stores no server state. Protocol or command failures exit `1`; invalid
+options exit `2`.
+
+Repository-dependent tools accept an optional `root` path, defaulting to the server startup
+directory. One MCP client can use that field to work across repositories, or launch one stdio
+server per repository; instances have no listener or shared mutable server state. Fixed resources
+refer to the startup repository.
+
+Run `git-a2a setup` to write project-scoped configuration for detected harnesses, including
+Claude Code's `.mcp.json`, or copy an exact configuration from the [MCP guide](mcp.md).
+
+```text
+$ git-a2a mcp
 ```
 
 ## version

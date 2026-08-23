@@ -79,13 +79,17 @@ source. Authors may omit `[]` from array paths (`agents.contacts.kind` resolves 
 
 # decision Setup installs repository-scoped agent guidance only
 
-`git-a2a setup` detects Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI, and OpenCode from
+`git-a2a setup` detects Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI, OpenCode, Hermes
+Agent, and OpenClaw from
 repository and user markers, but writes only inside the current repository. It always installs
 the embedded cross-agent skill at `.agents/skills/git-a2a/`, mirrors it to `.claude/skills/`
 when Claude Code is present, ensures a separately delimited AGENTS.md pointer, and adds the
 project-scoped `git-a2a mcp` entry supported by each detected harness. Unrelated configuration
 and guidance survive. `--dry-run` and `--check` are non-mutating; check exits 1 on drift. Setup
 never downloads or installs the executable, a harness, a toolchain, or any dependency.
+Hermes Agent and OpenClaw expose only user-scoped MCP registries; setup must not mutate those
+home-directory files. When detected it prints their exact `hermes mcp add` / `openclaw mcp set`
+command instead, leaving the operator to authorize that wider scope.
 
 # decision CLI help and automation are uniform
 
@@ -94,3 +98,19 @@ with the shared `Exit codes:` legend. `--timeout` and no-op `--yes` are accepted
 agent can pass them to any command without discovering command-specific exceptions. Commands do
 not prompt. Read commands `who`, `show`, `status`, `doctor`, `validate`, `explain`, and `usage`
 offer JSON; output written to a non-TTY contains no ANSI escapes.
+
+# decision MCP is a thin command-scoped projection of the CLI
+
+`git-a2a mcp` is a stateless stdio server built on the official Go SDK v1.7.x. It opens no
+listener and exits with its harness connection. Its seven read tools delegate to the existing
+JSON CLI paths; six write-capable tools are absent unless the operator starts it with
+`--allow-write`. `remove` remains CLI-only. The fixed resources expose the current manifest,
+lock, freshly rendered roster, and embedded generated field reference. Tool schemas are typed,
+tool order is golden-tested, and every tool plus the spawned stdio transport has a protocol
+round-trip test. `setup` writes the default read-only command for every harness, including
+Claude Code's project `.mcp.json`; it never silently grants write access.
+Every repository-dependent tool accepts `root`, resolved relative to the server startup root when
+not absolute. An omitted root preserves the startup repository. Multiple stdio instances share no
+listener or mutable server state and may run concurrently; one instance may also switch roots per
+tool call. Fixed resources remain bound to the startup root so their stable URIs do not change
+meaning mid-session.

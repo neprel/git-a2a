@@ -1,0 +1,920 @@
+[
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Import a Git module, resolve one commit, and wire declared ecosystems.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "override the dependency module id",
+          "type": "string"
+        },
+        "noRefresh": {
+          "description": "skip package-manager Refresh",
+          "type": "boolean"
+        },
+        "noWire": {
+          "description": "record the dependency without ecosystem wiring",
+          "type": "boolean"
+        },
+        "path": {
+          "description": "module path inside a monorepo",
+          "type": "string"
+        },
+        "root": {
+          "description": "repository root; defaults to the server startup directory",
+          "type": "string"
+        },
+        "track": {
+          "description": "locked or floating",
+          "type": "string"
+        },
+        "url": {
+          "description": "Git repository URL",
+          "type": "string"
+        },
+        "wire": {
+          "description": "ecosystems to wire",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "type": "object"
+    },
+    "name": "add",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "description": "structured command result for read tools"
+        },
+        "diagnostics": {
+          "description": "ordered stderr verdict and advisory lines",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "exitCode": {
+          "description": "git-a2a exit code: 0 success, 1 failure or drift, 2 invalid or unresolved input",
+          "type": "integer"
+        },
+        "records": {
+          "description": "ordered stdout records for write tools",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "exitCode"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": false
+    },
+    "description": "Deliver a request through the owner's first supported declared contact.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "dependency id",
+          "type": "string"
+        },
+        "intent": {
+          "description": "routing intent",
+          "type": "string"
+        },
+        "message": {
+          "description": "complete request body to deliver",
+          "type": "string"
+        },
+        "root": {
+          "description": "repository root; defaults to the server startup directory",
+          "type": "string"
+        },
+        "wait": {
+          "description": "wait for an A2A task terminal state",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "intent",
+        "message"
+      ],
+      "type": "object"
+    },
+    "name": "contact",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "description": "structured command result for read tools"
+        },
+        "diagnostics": {
+          "description": "ordered stderr verdict and advisory lines",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "exitCode": {
+          "description": "git-a2a exit code: 0 success, 1 failure or drift, 2 invalid or unresolved input",
+          "type": "integer"
+        },
+        "records": {
+          "description": "ordered stdout records for write tools",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "exitCode"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Report Git and ecosystem tool prerequisites without installing anything.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "description": "repository root; defaults to the server startup directory",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "doctor",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "description": "structured command result for read tools"
+        },
+        "diagnostics": {
+          "description": "ordered stderr verdict and advisory lines",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "exitCode": {
+          "description": "git-a2a exit code: 0 success, 1 failure or drift, 2 invalid or unresolved input",
+          "type": "integer"
+        },
+        "records": {
+          "description": "ordered stdout records for write tools",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "exitCode"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Read the normative generated reference entry for one manifest field.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "description": "manifest field path such as agents.contacts.kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "name": "explain",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "description": "structured command result for read tools"
+        },
+        "diagnostics": {
+          "description": "ordered stderr verdict and advisory lines",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "exitCode": {
+          "description": "git-a2a exit code: 0 success, 1 failure or drift, 2 invalid or unresolved input",
+          "type": "integer"
+        },
+        "records": {
+          "description": "ordered stdout records for write tools",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "exitCode"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Transactionally change a dependency source, ref, path, tracking, or id.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "dryRun": {
+          "description": "print the proposed change without writing",
+          "type": "boolean"
+        },
+        "git": {
+          "description": "replacement Git URL",
+          "type": "string"
+        },
+        "id": {
+          "description": "dependency id to change",
+          "type": "string"
+        },
+        "newId": {
+          "description": "replacement dependency id",
+          "type": "string"
+        },
+        "noRefresh": {
+          "description": "skip package-manager Refresh",
+          "type": "boolean"
+        },
+        "path": {
+          "description": "replacement module path",
+          "type": "string"
+        },
+        "ref": {
+          "description": "replacement branch, tag, or commit",
+          "type": "string"
+        },
+        "root": {
+          "description": "repository root; defaults to the server startup directory",
+          "type": "string"
+        },
+        "track": {
+          "description": "locked or floating",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "name": "set",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "description": "structured command result for read tools"
+        },
+        "diagnostics": {
+          "description": "ordered stderr verdict and advisory lines",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "exitCode": {
+          "description": "git-a2a exit code: 0 success, 1 failure or drift, 2 invalid or unresolved input",
+          "type": "integer"
+        },
+        "records": {
+          "description": "ordered stdout records for write tools",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "exitCode"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Read this module or a locked dependency and optionally its published surface.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "module dependency id; omit for this module",
+          "type": "string"
+        },
+        "root": {
+          "description": "repository root; defaults to the server startup directory",
+          "type": "string"
+        },
+        "surface": {
+          "description": "fetch and list the owner-published surface",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "name": "show",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "description": "structured command result for read tools"
+        },
+        "diagnostics": {
+          "description": "ordered stderr verdict and advisory lines",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "exitCode": {
+          "description": "git-a2a exit code: 0 success, 1 failure or drift, 2 invalid or unresolved input",
+          "type": "integer"
+        },
+        "records": {
+          "description": "ordered stdout records for write tools",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "exitCode"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Check dependency, wiring, card, trust, and roster health.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "ids": {
+          "description": "dependency ids; omit for all",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "offline": {
+          "description": "do not contact remotes or card URLs",
+          "type": "boolean"
+        },
+        "root": {
+          "description": "repository root; defaults to the server startup directory",
+          "type": "string"
+        },
+        "verbose": {
+          "description": "include detailed findings",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "name": "status",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "description": "structured command result for read tools"
+        },
+        "diagnostics": {
+          "description": "ordered stderr verdict and advisory lines",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "exitCode": {
+          "description": "git-a2a exit code: 0 success, 1 failure or drift, 2 invalid or unresolved input",
+          "type": "integer"
+        },
+        "records": {
+          "description": "ordered stdout records for write tools",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "exitCode"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Render or check the bounded git-a2a roster in instruction files.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "brief": {
+          "description": "render one contact per route",
+          "type": "boolean"
+        },
+        "check": {
+          "description": "report stale blocks without writing",
+          "type": "boolean"
+        },
+        "root": {
+          "description": "repository root; defaults to the server startup directory",
+          "type": "string"
+        },
+        "target": {
+          "description": "additional instruction file to update",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "sync",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "description": "structured command result for read tools"
+        },
+        "diagnostics": {
+          "description": "ordered stderr verdict and advisory lines",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "exitCode": {
+          "description": "git-a2a exit code: 0 success, 1 failure or drift, 2 invalid or unresolved input",
+          "type": "integer"
+        },
+        "records": {
+          "description": "ordered stdout records for write tools",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "exitCode"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Resolve tracked refs and transactionally update selected dependencies.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "check": {
+          "description": "report updates without changing files",
+          "type": "boolean"
+        },
+        "followMoves": {
+          "description": "follow a declared moved-to source",
+          "type": "boolean"
+        },
+        "ids": {
+          "description": "dependency ids; omit for all",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "noRefresh": {
+          "description": "skip package-manager Refresh",
+          "type": "boolean"
+        },
+        "review": {
+          "description": "show or suppress manifest and surface diffs",
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
+        "root": {
+          "description": "repository root; defaults to the server startup directory",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "update",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "description": "structured command result for read tools"
+        },
+        "diagnostics": {
+          "description": "ordered stderr verdict and advisory lines",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "exitCode": {
+          "description": "git-a2a exit code: 0 success, 1 failure or drift, 2 invalid or unresolved input",
+          "type": "integer"
+        },
+        "records": {
+          "description": "ordered stdout records for write tools",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "exitCode"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Read the compact or full deterministic briefing for a coding agent.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "prompt": {
+          "description": "include the full fresh-agent briefing",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "name": "usage",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "description": "structured command result for read tools"
+        },
+        "diagnostics": {
+          "description": "ordered stderr verdict and advisory lines",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "exitCode": {
+          "description": "git-a2a exit code: 0 success, 1 failure or drift, 2 invalid or unresolved input",
+          "type": "integer"
+        },
+        "records": {
+          "description": "ordered stdout records for write tools",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "exitCode"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Validate manifest and lock files against the git-a2a standard.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "files": {
+          "description": "manifest or lock paths; omit for current module files",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "root": {
+          "description": "repository root; defaults to the server startup directory",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "validate",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "description": "structured command result for read tools"
+        },
+        "diagnostics": {
+          "description": "ordered stderr verdict and advisory lines",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "exitCode": {
+          "description": "git-a2a exit code: 0 success, 1 failure or drift, 2 invalid or unresolved input",
+          "type": "integer"
+        },
+        "records": {
+          "description": "ordered stdout records for write tools",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "exitCode"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Resolve an intent to the owning agents and their declared contacts.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "module dependency id; omit for this module",
+          "type": "string"
+        },
+        "intent": {
+          "description": "routing intent; defaults to question",
+          "type": "string"
+        },
+        "path": {
+          "description": "optional repository path for scope matching",
+          "type": "string"
+        },
+        "root": {
+          "description": "repository root; defaults to the server startup directory",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "who",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "description": "structured command result for read tools"
+        },
+        "diagnostics": {
+          "description": "ordered stderr verdict and advisory lines",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "exitCode": {
+          "description": "git-a2a exit code: 0 success, 1 failure or drift, 2 invalid or unresolved input",
+          "type": "integer"
+        },
+        "records": {
+          "description": "ordered stdout records for write tools",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "exitCode"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Repair native ecosystem dependency entries from manifest and lock.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "ecosystem": {
+          "description": "require one ecosystem adapter",
+          "type": "string"
+        },
+        "id": {
+          "description": "dependency id; omit for all",
+          "type": "string"
+        },
+        "noRefresh": {
+          "description": "skip package-manager Refresh",
+          "type": "boolean"
+        },
+        "root": {
+          "description": "repository root; defaults to the server startup directory",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "wire",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "description": "structured command result for read tools"
+        },
+        "diagnostics": {
+          "description": "ordered stderr verdict and advisory lines",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "exitCode": {
+          "description": "git-a2a exit code: 0 success, 1 failure or drift, 2 invalid or unresolved input",
+          "type": "integer"
+        },
+        "records": {
+          "description": "ordered stdout records for write tools",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "exitCode"
+      ],
+      "type": "object"
+    }
+  }
+]

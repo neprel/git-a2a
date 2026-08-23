@@ -60,6 +60,9 @@ func (a *App) setup(args []string) int {
 	} else {
 		fmt.Fprintf(a.Err, "setup: detected %s\n", strings.Join(harnesses, ", "))
 	}
+	for _, instruction := range externalMCPInstructions(harnesses) {
+		fmt.Fprintf(a.Err, "setup: %s\n", instruction)
+	}
 	drift := 0
 	for _, file := range files {
 		current, err := os.ReadFile(file.path)
@@ -210,6 +213,8 @@ func detectHarnesses(root, home string) []string {
 		{"GitHub Copilot", []string{filepath.Join(root, ".github", "copilot-instructions.md"), filepath.Join(root, ".github", "agents"), filepath.Join(home, ".copilot"), filepath.Join(home, ".config", "github-copilot")}},
 		{"Gemini CLI", []string{filepath.Join(root, ".gemini"), filepath.Join(root, "GEMINI.md"), filepath.Join(home, ".gemini")}},
 		{"OpenCode", []string{filepath.Join(root, ".opencode"), filepath.Join(root, "opencode.json"), filepath.Join(root, "opencode.jsonc"), filepath.Join(home, ".config", "opencode")}},
+		{"Hermes Agent", []string{filepath.Join(root, ".hermes"), filepath.Join(root, "HERMES.md"), filepath.Join(home, ".hermes")}},
+		{"OpenClaw", []string{filepath.Join(root, ".openclaw"), filepath.Join(root, "openclaw.json"), filepath.Join(home, ".openclaw")}},
 	}
 	var found []string
 	for _, candidate := range candidates {
@@ -221,6 +226,17 @@ func detectHarnesses(root, home string) []string {
 		}
 	}
 	return found
+}
+
+func externalMCPInstructions(harnesses []string) []string {
+	var instructions []string
+	if contains(harnesses, "Hermes Agent") {
+		instructions = append(instructions, "Hermes Agent keeps MCP config in user scope; run: hermes mcp add git-a2a --command git-a2a --args mcp")
+	}
+	if contains(harnesses, "OpenClaw") {
+		instructions = append(instructions, `OpenClaw keeps MCP config in user scope; run: openclaw mcp set git-a2a '{"command":"git-a2a","args":["mcp"]}'`)
+	}
+	return instructions
 }
 
 func mergeJSONConfig(path string, parents []string, server map[string]any) ([]byte, error) {
