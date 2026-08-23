@@ -77,6 +77,10 @@ canonical HTML pages and `robots.txt` points to it; the 404 response is `noindex
 a concise map to the canonical specification, CLI reference, schemas and extension, while
 `llms-full.txt` is a self-contained factual overview for retrieval systems. Both are guidance,
 not alternative specifications, and must not invent capabilities or override `spec/README.md`.
+The Stripe-compatible `/.well-known/skills/index.json` lists the git-a2a Agent Skill and every
+file needed to install it; `/.well-known/skills/git-a2a/` is byte-identical to
+`skills/git-a2a/`. Markdown and JSON receive explicit MIME types. The site is a distribution copy,
+not a second source: `tools/sync-skill.py` owns both the tree and index.
 
 # build Site and installer checks
 

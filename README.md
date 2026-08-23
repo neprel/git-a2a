@@ -100,7 +100,9 @@ Maintainer setup is in [docs/releasing.md](docs/releasing.md).
   instructions or private implementation knowledge.
 - **Agent Skills** teach a harness how to perform a task. They complement git-a2a: a Skill may
   call this CLI, while `a2amodule.yml` remains the durable, harness-neutral ownership and
-  dependency contract shared by every agent environment.
+  dependency contract shared by every agent environment. Install this repository's skill with
+  `npx skills add neprel/git-a2a` or `gh skill install neprel/git-a2a git-a2a`; its detailed
+  references are shipped with the skill and in the npm launcher package.
 
 git-a2a does not run agents, host endpoints, or choose a chat platform. Unknown contact kinds,
 roles, intents, and ecosystems remain valid open vocabulary.

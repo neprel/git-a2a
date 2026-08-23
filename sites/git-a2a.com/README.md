@@ -18,13 +18,16 @@ and route directory paths to their `index.html`.
 | `/llms.txt` | `llms.txt` |
 | `/llms-full.txt` | `llms-full.txt` |
 | `/.well-known/ai-catalog.json` | `.well-known/ai-catalog.json` |
+| `/.well-known/skills/index.json` | Agent Skill discovery index |
+| `/.well-known/skills/git-a2a/` | byte-identical copy of `skills/git-a2a/` |
 | `/demo/agents/acme-lib-utils/.well-known/agent-card.json` | static A2A v1.0 owner demo card |
 | `/demo/agents/acme-pm/.well-known/agent-card.json` | static A2A v1.0 spec demo card |
 | `/install.sh` | `install.sh`, byte-identical to the repository-root installer |
 | `/install.ps1` | `install.ps1` |
 
-The published `.htaccess` makes `.sh` and `.ps1` responses `text/plain` with UTF-8 so shell and
-PowerShell download-and-run commands receive text rather than an opaque byte response. It is a
+The published `.htaccess` makes `.sh` and `.ps1` responses `text/plain`, `.md` responses
+`text/markdown`, and `.json` responses `application/json`, all with UTF-8 so shell and PowerShell
+download-and-run commands receive text rather than an opaque byte response. It is a
 server configuration artifact, not a public documentation route.
 
 `scripts/site-package.sh` builds the upload directory from the explicitly listed top-level public

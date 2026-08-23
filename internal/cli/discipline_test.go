@@ -28,7 +28,7 @@ func TestValidatePrintsVerdictFirst(t *testing.T) {
 }
 
 func TestEveryCommandHasCommandSpecificHelp(t *testing.T) {
-	commands := []string{"init", "validate", "add", "set", "pin", "unpin", "wire", "update", "remove", "fetch", "show", "sync", "who", "contact", "status", "card", "catalog", "fmt", "doctor", "version", "upgrade"}
+	commands := []string{"init", "validate", "add", "set", "pin", "unpin", "wire", "update", "remove", "fetch", "show", "sync", "who", "contact", "status", "card", "catalog", "fmt", "doctor", "usage", "version", "upgrade"}
 	for _, command := range commands {
 		t.Run(command, func(t *testing.T) {
 			var out, errOut bytes.Buffer
@@ -47,7 +47,7 @@ func TestCLIReferenceTracksCommandHelp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	commands := []string{"init", "validate", "add", "set", "pin", "unpin", "wire", "update", "remove", "fetch", "show", "sync", "who", "contact", "status", "card", "catalog", "fmt", "doctor", "version", "upgrade"}
+	commands := []string{"init", "validate", "add", "set", "pin", "unpin", "wire", "update", "remove", "fetch", "show", "sync", "who", "contact", "status", "card", "catalog", "fmt", "doctor", "usage", "version", "upgrade"}
 	flagPattern := regexp.MustCompile(`--[a-z][a-z-]*`)
 	for _, command := range commands {
 		t.Run(command, func(t *testing.T) {

@@ -50,3 +50,10 @@ It fetches each manifest at the exact lock commit, validates the manifest SHA-25
 cache, and atomically replaces only that dependency's cache. `--surface` also verifies the locked
 tree id. It never resolves the manifest ref, rewrites manifest/lock, snapshots cards, or invokes
 adapters; missing lock coordinates or hash mismatches exit 1 and preserve the old cache.
+
+# decision Usage is a deterministic agent briefing
+
+`git-a2a usage` prints at most 60 lines with exactly eight routine commands, one example each,
+exit classes, structured-output guidance, and the canonical reference. `--prompt` appends the
+complete fresh-agent workflow and `--json` returns the same ordered lines. Both forms are embedded
+constants: they do not inspect the repository, network, terminal, clock, or environment.

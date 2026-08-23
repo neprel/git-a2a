@@ -18,3 +18,4 @@ Use this file as a map to the canonical specification and documentation. The web
 - [Releases](https://github.com/neprel/git-a2a/releases): binaries, packages, checksums, and SBOMs.
 - [Install](https://git-a2a.com/#install): checksum-verifying installers and supported distribution channels.
 - [Full machine-readable overview](https://git-a2a.com/llms-full.txt): self-contained terminology, lifecycle, commands, and invariants.
+- [Agent Skill index](https://git-a2a.com/.well-known/skills/index.json): installable git-a2a task guidance and its reference files.

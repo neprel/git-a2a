@@ -118,6 +118,8 @@ func (a *App) Run(args []string) int {
 		return a.format(args[1:])
 	case "doctor":
 		return a.doctor(args[1:])
+	case "usage":
+		return a.agentUsage(args[1:])
 	case "help", "-h", "--help":
 		a.usage()
 		return 0
@@ -129,7 +131,7 @@ func (a *App) Run(args []string) int {
 }
 
 func (a *App) usage() {
-	fmt.Fprintln(a.Out, "usage: git-a2a <init|validate|add|set|pin|unpin|wire|update|remove|fetch|show|sync|who|contact|status|card|catalog|fmt|doctor|version|upgrade> [options]")
+	fmt.Fprintln(a.Out, "usage: git-a2a <init|validate|add|set|pin|unpin|wire|update|remove|fetch|show|sync|who|contact|status|card|catalog|fmt|doctor|usage|version|upgrade> [options]")
 }
 func (a *App) commandUsage(command string) {
 	usage := map[string]string{
@@ -146,6 +148,7 @@ func (a *App) commandUsage(command string) {
 		"catalog": "git-a2a catalog export [--out FILE]",
 		"fmt":     "git-a2a fmt [--check] [PATH...]", "version": "git-a2a version [--check]", "upgrade": "git-a2a upgrade [--to VERSION]",
 		"doctor": "git-a2a doctor [--json]",
+		"usage":  "git-a2a usage [--prompt] [--json]",
 	}
 	if line := usage[command]; line != "" {
 		fmt.Fprintln(a.Out, "usage: "+line)

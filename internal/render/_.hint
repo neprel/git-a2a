@@ -31,3 +31,9 @@ a second block.
 - Control characters, Markdown pipes, over-limit Unicode text, and hostile dependency fields
   remain inert and bounded.
 - Re-rendering the same inputs produces identical bytes.
+
+# decision Managed rosters point to the compact agent briefing
+
+The last content line before the managed end delimiter is exactly “Run `git-a2a usage` to learn
+the tool.” It points a newly arrived agent to task instructions without copying a long CLI manual
+into every AGENTS.md. Dependency-controlled data always appears before this trusted local line.

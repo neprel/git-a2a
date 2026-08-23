@@ -147,6 +147,7 @@ def main() -> None:
     for source, public in pairs:
         if source.read_bytes() != public.read_bytes():
             fail(f"schema copy differs: {public.name}")
+    subprocess.run(["python3", str(ROOT / "tools/sync-skill.py"), "--check"], cwd=ROOT, check=True)
 
     with tempfile.TemporaryDirectory() as temporary:
         package = pathlib.Path(temporary) / "public"
@@ -166,8 +167,8 @@ def main() -> None:
         if packaged_top_level != expected_top_level:
             fail(f"publication allowlist differs: {sorted(packaged_top_level)}")
         htaccess = (package / ".htaccess").read_text()
-        if htaccess != "AddType text/plain .ps1 .sh\nAddDefaultCharset utf-8\n":
-            fail("publication .htaccess does not set installer MIME types and UTF-8")
+        if htaccess != "AddType text/plain .ps1 .sh\nAddType text/markdown .md\nAddType application/json .json\nAddDefaultCharset utf-8\n":
+            fail("publication .htaccess does not set installer/skill MIME types and UTF-8")
         for excluded in ("README.md", "tools", "CNAME", ".nojekyll"):
             if (package / excluded).exists():
                 fail(f"operator-only path was packaged: {excluded}")
@@ -192,6 +193,15 @@ def main() -> None:
         }
         if catalog.get("specVersion") != "1.0" or catalog_urls != expected_card_urls:
             fail("packaged demo catalog does not list exactly the two public cards")
+        skill_index = json.loads((package / ".well-known/skills/index.json").read_text())
+        if [entry.get("name") for entry in skill_index.get("skills", [])] != ["git-a2a"]:
+            fail("packaged skill index does not list exactly git-a2a")
+        public_skill = package / ".well-known/skills/git-a2a"
+        source_skill = ROOT / "skills/git-a2a"
+        source_files = {path.relative_to(source_skill) for path in source_skill.rglob("*") if path.is_file()}
+        public_files = {path.relative_to(public_skill) for path in public_skill.rglob("*") if path.is_file()}
+        if source_files != public_files or any((source_skill / path).read_bytes() != (public_skill / path).read_bytes() for path in source_files):
+            fail("packaged skill differs from skills/git-a2a")
 
     with tempfile.TemporaryDirectory() as temporary:
         test_root = pathlib.Path(temporary)
