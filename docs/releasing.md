@@ -18,7 +18,8 @@ The workflow uses the repository `GITHUB_TOKEN` for GitHub Releases and
   `neprel/scoop-bucket`. If absent, GoReleaser skips Scoop publishing.
 - npm: `git-a2a` and every `@git-a2a/*` platform package register `neprel/git-a2a` and
   `release.yml` as their GitHub Actions trusted publisher with `npm publish` permission. The
-  job uses Node 24, npm 11.5.1 and OIDC; it has no long-lived npm token.
+  job uses Node 24, npm 11.5.1 and OIDC; it has no long-lived npm token. Prereleases receive
+  npm dist-tag `next`; stable releases receive `latest`.
 - PyPI: create the GitHub environment named `pypi`, register this repository and workflow as a
   trusted publisher for the `git-a2a` project, and keep its approval rules in that environment.
   PyPI uses OIDC and has no long-lived token.
