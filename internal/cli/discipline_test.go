@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -28,7 +29,7 @@ func TestValidatePrintsVerdictFirst(t *testing.T) {
 }
 
 func TestEveryCommandHasCommandSpecificHelp(t *testing.T) {
-	commands := []string{"init", "validate", "add", "set", "pin", "unpin", "wire", "update", "remove", "fetch", "show", "sync", "who", "contact", "status", "card", "catalog", "agent", "export", "policy", "explain", "fmt", "doctor", "usage", "version", "upgrade"}
+	commands := []string{"init", "validate", "add", "set", "pin", "unpin", "wire", "update", "remove", "fetch", "show", "sync", "who", "contact", "status", "card", "catalog", "agent", "export", "policy", "explain", "fmt", "doctor", "usage", "setup", "version", "upgrade"}
 	for _, command := range commands {
 		t.Run(command, func(t *testing.T) {
 			var out, errOut bytes.Buffer
@@ -38,7 +39,29 @@ func TestEveryCommandHasCommandSpecificHelp(t *testing.T) {
 			if !strings.HasPrefix(out.String(), "usage: git-a2a "+command) {
 				t.Fatalf("help = %q", out.String())
 			}
+			if !strings.Contains(out.String(), "Examples:") || !strings.Contains(out.String(), "Exit codes:") {
+				t.Fatalf("help lacks examples or exit codes:\n%s", out.String())
+			}
+			if strings.Contains(out.String(), "\x1b[") {
+				t.Fatalf("non-TTY help contains ANSI escapes: %q", out.String())
+			}
+			out.Reset()
+			if code := New(&out, &errOut).Run([]string{command, "--yes", "--help"}); code != 0 {
+				t.Fatalf("--yes help exit %d: %s", code, errOut.String())
+			}
 		})
+	}
+}
+
+func TestEveryRequiredReadCommandDocumentsJSON(t *testing.T) {
+	for _, command := range []string{"who", "show", "status", "doctor", "validate", "explain", "usage"} {
+		var out, errOut bytes.Buffer
+		if code := New(&out, &errOut).Run([]string{command, "--help"}); code != 0 {
+			t.Fatalf("%s exit %d: %s", command, code, errOut.String())
+		}
+		if !strings.Contains(strings.SplitN(out.String(), "\n", 2)[0], "--json") {
+			t.Errorf("%s help does not expose --json", command)
+		}
 	}
 }
 
@@ -47,7 +70,7 @@ func TestCLIReferenceTracksCommandHelp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	commands := []string{"init", "validate", "add", "set", "pin", "unpin", "wire", "update", "remove", "fetch", "show", "sync", "who", "contact", "status", "card", "catalog", "agent", "export", "policy", "explain", "fmt", "doctor", "usage", "version", "upgrade"}
+	commands := []string{"init", "validate", "add", "set", "pin", "unpin", "wire", "update", "remove", "fetch", "show", "sync", "who", "contact", "status", "card", "catalog", "agent", "export", "policy", "explain", "fmt", "doctor", "usage", "setup", "version", "upgrade"}
 	flagPattern := regexp.MustCompile(`--[a-z][a-z-]*`)
 	for _, command := range commands {
 		t.Run(command, func(t *testing.T) {
@@ -77,6 +100,30 @@ func TestCLIReferenceTracksCommandHelp(t *testing.T) {
 				t.Error("section has no example output")
 			}
 		})
+	}
+}
+
+func TestValidateJSONIsStructuredOnSuccessAndFailure(t *testing.T) {
+	root := t.TempDir()
+	valid := filepath.Join(root, "valid.yml")
+	invalid := filepath.Join(root, "invalid.yml")
+	if err := os.WriteFile(valid, []byte("schema: 1\nmodule:\n  id: demo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(invalid, []byte("schema: 2\nmodule:\n  id: INVALID\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out, errOut bytes.Buffer
+	app := New(&out, &errOut)
+	if code := app.Run([]string{"validate", valid, invalid, "--json"}); code != 1 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	var records []validateResult
+	if err := json.Unmarshal(out.Bytes(), &records); err != nil {
+		t.Fatalf("JSON: %v\n%s", err, out.String())
+	}
+	if len(records) != 2 || !records[0].Valid || records[1].Valid || records[1].Error == "" {
+		t.Fatalf("records = %#v", records)
 	}
 }
 

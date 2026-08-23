@@ -76,3 +76,21 @@ is the byte-identical generated `docs/manifest-reference.md` embedded at build t
 generator updates and drift-checks both copies, so the command cannot become a second normative
 source. Authors may omit `[]` from array paths (`agents.contacts.kind` resolves to
 `agents[].contacts[].kind`). Unknown paths exit 2.
+
+# decision Setup installs repository-scoped agent guidance only
+
+`git-a2a setup` detects Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI, and OpenCode from
+repository and user markers, but writes only inside the current repository. It always installs
+the embedded cross-agent skill at `.agents/skills/git-a2a/`, mirrors it to `.claude/skills/`
+when Claude Code is present, ensures a separately delimited AGENTS.md pointer, and adds the
+project-scoped `git-a2a mcp` entry supported by each detected harness. Unrelated configuration
+and guidance survive. `--dry-run` and `--check` are non-mutating; check exits 1 on drift. Setup
+never downloads or installs the executable, a harness, a toolchain, or any dependency.
+
+# decision CLI help and automation are uniform
+
+Every top-level command help puts a runnable `Examples:` section immediately after usage and ends
+with the shared `Exit codes:` legend. `--timeout` and no-op `--yes` are accepted globally, so an
+agent can pass them to any command without discovering command-specific exceptions. Commands do
+not prompt. Read commands `who`, `show`, `status`, `doctor`, `validate`, `explain`, and `usage`
+offer JSON; output written to a non-TTY contains no ANSI escapes.

@@ -13,6 +13,7 @@ import tempfile
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SKILL = ROOT / "skills/git-a2a"
 SITE_SKILL = ROOT / "sites/git-a2a.com/.well-known/skills/git-a2a"
+EMBEDDED_SKILL = ROOT / "internal/setupskill/files"
 INDEX = ROOT / "sites/git-a2a.com/.well-known/skills/index.json"
 REFERENCES = {
     "cli.md": ROOT / "docs/cli.md",
@@ -95,7 +96,9 @@ def main() -> None:
             references = SKILL / "references"
             if not references.exists() or not same_tree(rendered / "skill" / "references", references):
                 fail("skill references are stale; run tools/sync-skill.py")
-            print("skill-sync: references, site copy, index, and tool version are current")
+            if not EMBEDDED_SKILL.exists() or not same_tree(rendered / "skill", EMBEDDED_SKILL):
+                fail("embedded setup skill is stale; run tools/sync-skill.py")
+            print("skill-sync: references, site copy, embedded setup copy, index, and tool version are current")
             return
         references = SKILL / "references"
         if references.exists():
@@ -105,9 +108,13 @@ def main() -> None:
             shutil.rmtree(SITE_SKILL)
         SITE_SKILL.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(rendered / "skill", SITE_SKILL)
+        if EMBEDDED_SKILL.exists():
+            shutil.rmtree(EMBEDDED_SKILL)
+        EMBEDDED_SKILL.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(rendered / "skill", EMBEDDED_SKILL)
         INDEX.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(rendered / "index.json", INDEX)
-        print("skill-sync: wrote references, site skill copy, and discovery index")
+        print("skill-sync: wrote references, site and embedded setup copies, and discovery index")
 
 
 if __name__ == "__main__":

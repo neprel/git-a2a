@@ -1,0 +1,6 @@
+# decision Setup embeds the released skill
+
+`git-a2a setup` installs the exact `skills/git-a2a/` package shipped by the same tool version.
+`tools/sync-skill.py` owns this copy and drift-checks it together with the npm/site distributions;
+do not edit files below `files/` directly. The embedded copy keeps setup offline and never installs
+or upgrades the git-a2a executable.

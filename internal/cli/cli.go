@@ -39,6 +39,7 @@ type App struct {
 	In       io.Reader
 	Out, Err io.Writer
 	Root     string
+	Home     string
 	Timeout  time.Duration
 	Runner   gitx.Runner
 	ctx      context.Context
@@ -128,6 +129,8 @@ func (a *App) Run(args []string) int {
 		return a.policy(args[1:])
 	case "explain":
 		return a.explain(args[1:])
+	case "setup":
+		return a.setup(args[1:])
 	case "help", "-h", "--help":
 		a.usage()
 		return 0
@@ -139,32 +142,60 @@ func (a *App) Run(args []string) int {
 }
 
 func (a *App) usage() {
-	fmt.Fprintln(a.Out, "usage: git-a2a <init|validate|add|set|pin|unpin|wire|update|remove|fetch|show|sync|who|contact|status|card|catalog|agent|export|policy|explain|fmt|doctor|usage|version|upgrade> [options]")
+	fmt.Fprintln(a.Out, "usage: git-a2a <command> [options]")
+	fmt.Fprintln(a.Out, "\nExamples:")
+	fmt.Fprintln(a.Out, "  git-a2a status --offline")
+	fmt.Fprintln(a.Out, "  git-a2a who acme-lib --intent change --json")
+	fmt.Fprintln(a.Out, "  git-a2a usage --prompt")
+	fmt.Fprintln(a.Out, "\nCommands:")
+	fmt.Fprintln(a.Out, "  init validate add set pin unpin wire update remove fetch show sync who contact")
+	fmt.Fprintln(a.Out, "  status card catalog agent export policy explain fmt doctor usage setup version upgrade")
+	fmt.Fprintln(a.Out, "\nExit codes:")
+	fmt.Fprintln(a.Out, "  0 success or clean check; 1 operational failure or drift; 2 invalid or unresolved input")
 }
 func (a *App) commandUsage(command string) {
-	usage := map[string]string{
-		"init":     "git-a2a init [--id ID] [--description TEXT] [--surface DIR] [--export ECOSYSTEM=NAME] [--example lib|app] [--yes]",
-		"validate": "git-a2a validate [FILE ...]", "add": "git-a2a add URL [--id ID] [--path DIR] [--track locked|floating] [--wire LIST|--no-wire] [--no-refresh]",
-		"set": "git-a2a set ID [--git URL] [--ref REF] [--path DIR] [--track locked|floating] [--id NEW-ID] [--dry-run] [--no-refresh]",
-		"pin": "git-a2a pin ID [COMMIT] [--no-refresh]", "unpin": "git-a2a unpin ID --ref REF [--track locked|floating] [--no-refresh]",
-		"wire": "git-a2a wire [ID] [--ecosystem NAME] [--no-refresh]", "update": "git-a2a update [ID ...] [--check] [--review|--no-review] [--follow-moves] [--no-refresh]",
-		"remove": "git-a2a remove ID [--keep-wiring]", "show": "git-a2a show [ID] [--json] [--surface]",
-		"fetch": "git-a2a fetch [ID ...] [--surface] [--json]",
-		"sync":  "git-a2a sync [--check] [--brief] [--target FILE]", "who": "git-a2a who [ID] [--intent INTENT] [--path FILE] [--json]",
-		"contact": "git-a2a contact ID --intent INTENT --message FILE|- [--wait]", "ask": "git-a2a contact ID --intent INTENT --message FILE|- [--wait]",
-		"status": "git-a2a status [ID ...] [--offline] [--json] [-v]", "card": "git-a2a card <export|validate|verify|show> [options]",
-		"catalog": "git-a2a catalog export [--out FILE]",
-		"fmt":     "git-a2a fmt [--check] [PATH...]", "version": "git-a2a version [--check]", "upgrade": "git-a2a upgrade [--to VERSION]",
-		"doctor":  "git-a2a doctor [--json]",
-		"usage":   "git-a2a usage [--prompt] [--json]",
-		"agent":   "git-a2a agent <add|remove|list> [options]",
-		"export":  "git-a2a export add ECOSYSTEM NAME [--path PATH] [--yes]",
-		"policy":  "git-a2a policy set INTENT=ROLE [INTENT=ROLE ...] [--yes]",
-		"explain": "git-a2a explain PATH [--json] [--yes]",
+	type help struct{ usage, example string }
+	helpByCommand := map[string]help{
+		"init":     {"git-a2a init [--id ID] [--description TEXT] [--surface DIR] [--export ECOSYSTEM=NAME] [--example lib|app]", "git-a2a init --id consumer-app --yes"},
+		"validate": {"git-a2a validate [FILE ...] [--json]", "git-a2a validate a2amodule.yml --json"},
+		"add":      {"git-a2a add URL [--id ID] [--path DIR] [--track locked|floating] [--wire LIST|--no-wire] [--no-refresh]", "git-a2a add https://github.com/acme/lib.git"},
+		"set":      {"git-a2a set ID [--git URL] [--ref REF] [--path DIR] [--track locked|floating] [--id NEW-ID] [--dry-run] [--no-refresh]", "git-a2a set acme-lib --ref v1.1.0 --dry-run"},
+		"pin":      {"git-a2a pin ID [COMMIT] [--no-refresh]", "git-a2a pin acme-lib"},
+		"unpin":    {"git-a2a unpin ID --ref REF [--track locked|floating] [--no-refresh]", "git-a2a unpin acme-lib --ref main"},
+		"wire":     {"git-a2a wire [ID] [--ecosystem NAME] [--no-refresh]", "git-a2a wire acme-lib --ecosystem npm"},
+		"update":   {"git-a2a update [ID ...] [--check] [--review|--no-review] [--follow-moves] [--no-refresh]", "git-a2a update --check"},
+		"remove":   {"git-a2a remove ID [--keep-wiring]", "git-a2a remove acme-lib"},
+		"show":     {"git-a2a show [ID] [--json] [--surface]", "git-a2a show acme-lib --surface"},
+		"fetch":    {"git-a2a fetch [ID ...] [--surface] [--json]", "git-a2a fetch acme-lib --surface --json"},
+		"sync":     {"git-a2a sync [--check] [--brief] [--target FILE]", "git-a2a sync --check"},
+		"who":      {"git-a2a who [ID] [--intent INTENT] [--path FILE] [--json]", "git-a2a who acme-lib --intent change --json"},
+		"contact":  {"git-a2a contact ID --intent INTENT --message FILE|- [--wait]", "git-a2a contact acme-lib --intent change --message request.md"},
+		"ask":      {"git-a2a contact ID --intent INTENT --message FILE|- [--wait]", "git-a2a contact acme-lib --intent change --message request.md"},
+		"status":   {"git-a2a status [ID ...] [--offline] [--json] [-v]", "git-a2a status --offline --json"},
+		"card":     {"git-a2a card <export|validate|verify|show> [options]", "git-a2a card export acme-owner --out agent-card.json"},
+		"catalog":  {"git-a2a catalog export [--out FILE]", "git-a2a catalog export --out ai-catalog.json"},
+		"fmt":      {"git-a2a fmt [--check] [PATH...]", "git-a2a fmt --check"},
+		"version":  {"git-a2a version [--check]", "git-a2a version --check"},
+		"upgrade":  {"git-a2a upgrade [--to VERSION]", "git-a2a upgrade --to 1.1.0"},
+		"doctor":   {"git-a2a doctor [--json]", "git-a2a doctor --json"},
+		"usage":    {"git-a2a usage [--prompt] [--json]", "git-a2a usage --prompt"},
+		"agent":    {"git-a2a agent <add|remove|list> [options]", "git-a2a agent list --json"},
+		"export":   {"git-a2a export add ECOSYSTEM NAME [--path PATH]", "git-a2a export add npm @acme/lib"},
+		"policy":   {"git-a2a policy set INTENT=ROLE [INTENT=ROLE ...]", "git-a2a policy set change=owner"},
+		"explain":  {"git-a2a explain PATH [--json]", "git-a2a explain agents.contacts.kind --json"},
+		"setup":    {"git-a2a setup [--check|--dry-run]", "git-a2a setup --dry-run"},
 	}
-	if line := usage[command]; line != "" {
-		fmt.Fprintln(a.Out, "usage: "+line)
-		fmt.Fprintln(a.Out, "global: --timeout DURATION (default 120s)")
+	if h, ok := helpByCommand[command]; ok {
+		fmt.Fprintln(a.Out, "usage: "+h.usage)
+		fmt.Fprintln(a.Out, "\nExamples:")
+		fmt.Fprintln(a.Out, "  "+h.example)
+		fmt.Fprintln(a.Out, "\nGlobal options:")
+		fmt.Fprintln(a.Out, "  --timeout DURATION  Bound the command (default 120s).")
+		fmt.Fprintln(a.Out, "  --yes               Confirm automation intent; accepted as a non-interactive no-op.")
+		fmt.Fprintln(a.Out, "\nExit codes:")
+		fmt.Fprintln(a.Out, "  0  Success, or a check found no drift.")
+		fmt.Fprintln(a.Out, "  1  Operational failure, invalid state, or a check found drift.")
+		fmt.Fprintln(a.Out, "  2  Invalid invocation, absent input, or unresolved subject.")
 		return
 	}
 	a.usage()
@@ -201,6 +232,8 @@ func (a *App) parseGlobalOptions(args []string) ([]string, error) {
 			value = args[i]
 		} else if strings.HasPrefix(args[i], "--timeout=") {
 			value = strings.TrimPrefix(args[i], "--timeout=")
+		} else if args[i] == "--yes" {
+			continue
 		} else {
 			filtered = append(filtered, args[i])
 			continue
@@ -390,7 +423,26 @@ func ensureIgnored(root string) error {
 	return lockfile.Atomic(p, b, 0o644)
 }
 
-func (a *App) validate(paths []string) int {
+type validateResult struct {
+	Path  string `json:"path"`
+	Valid bool   `json:"valid"`
+	Error string `json:"error,omitempty"`
+}
+
+func (a *App) validate(args []string) int {
+	jsonOutput := false
+	paths := make([]string, 0, len(args))
+	for _, arg := range args {
+		if arg == "--json" {
+			jsonOutput = true
+			continue
+		}
+		if strings.HasPrefix(arg, "-") {
+			fmt.Fprintf(a.Err, "validate: unknown option %s\n", arg)
+			return 2
+		}
+		paths = append(paths, arg)
+	}
 	if len(paths) == 0 {
 		for _, name := range []string{"a2amodule.yml", "a2amodule.lock"} {
 			p := filepath.Join(a.root(), name)
@@ -405,6 +457,7 @@ func (a *App) validate(paths []string) int {
 	}
 	failed := false
 	var details []string
+	results := make([]validateResult, 0, len(paths))
 	for _, p := range paths {
 		var err error
 		if strings.HasSuffix(p, ".lock") {
@@ -415,9 +468,17 @@ func (a *App) validate(paths []string) int {
 		if err != nil {
 			failed = true
 			details = append(details, fmt.Sprintf("%s: %v", p, err))
-		} else {
+			results = append(results, validateResult{Path: p, Valid: false, Error: err.Error()})
+		} else if !jsonOutput {
 			fmt.Fprintf(a.Out, "%s: valid\n", p)
+			results = append(results, validateResult{Path: p, Valid: true})
+		} else {
+			results = append(results, validateResult{Path: p, Valid: true})
 		}
+	}
+	if jsonOutput {
+		body, _ := json.MarshalIndent(results, "", "  ")
+		fmt.Fprintf(a.Out, "%s\n", body)
 	}
 	if failed {
 		fmt.Fprintf(a.Err, "%d file(s): validation failed\n", len(paths))

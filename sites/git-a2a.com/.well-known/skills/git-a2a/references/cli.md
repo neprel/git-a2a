@@ -1,7 +1,8 @@
 # git-a2a command reference
 
-Every command accepts the global `--timeout DURATION` option (default `120s`). Requested data is
-written to stdout; verdicts and advisories go to stderr. Exit `0` means success, `1` means a
+Every command accepts the global `--timeout DURATION` option (default `120s`) and `--yes` as a
+non-interactive no-op for automation. No command prompts for input. Requested data is written to
+stdout; verdicts and advisories go to stderr. Exit `0` means success, `1` means a
 completed check found drift/failure, and `2` means invalid input or nothing resolved.
 The repository's `.hint` sources and the commands used to read them are explained in
 [Specification as source (HINT)](../README.md#specification-as-source-hint).
@@ -27,8 +28,9 @@ initialized lib example module acme-lib
 
 ## validate
 
-`git-a2a validate [FILE ...]` validates manifests and locks; without paths it checks the files
-in the current module. Invalid files exit `1`; an empty subject set exits `2`.
+`git-a2a validate [FILE ...] [--json]` validates manifests and locks; without paths it checks the
+files in the current module. `--json` emits one structured result per requested file, including
+validation errors. Invalid files exit `1`; an empty subject set exits `2`.
 
 ```text
 $ git-a2a validate
@@ -316,6 +318,27 @@ git-a2a imports Git modules together with the agents that own them.
 Read a2amodule.yml for the module contract and a2amodule.lock for exact resolved commits.
 …
 Exit 0: request completed or check clean.
+```
+
+## setup
+
+`git-a2a setup [--check|--dry-run]` detects Claude Code, Codex, Cursor, GitHub Copilot,
+Gemini CLI, and OpenCode from repository and user markers. It always installs the bundled skill
+under `.agents/skills/git-a2a/`, also installs `.claude/skills/git-a2a/` when Claude Code is
+present, and adds a bounded pointer block to `AGENTS.md`. For detected harnesses it writes only
+the project-scoped `git-a2a` MCP entry in `.mcp.json`, `.codex/config.toml`,
+`.cursor/mcp.json`, `.vscode/mcp.json`, `.gemini/settings.json`, or `opencode.json`, preserving
+unrelated configuration. It never installs or upgrades the `git-a2a` executable.
+
+`--dry-run` prints the files that would change and exits `0`; `--check` writes nothing and exits
+`1` if any installed file or entry is missing/stale. An invalid existing config exits `1`; bad
+options exit `2`.
+
+```text
+$ git-a2a setup --dry-run
+would write .agents/skills/git-a2a/SKILL.md (cross-agent skill)
+would write AGENTS.md (skill pointer)
+setup: dry run; 5 file(s) would change
 ```
 
 ## version

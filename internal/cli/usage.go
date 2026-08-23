@@ -28,7 +28,7 @@ Eight commands agents use:
   git-a2a contact acme-lib --intent change --message request.md
     Deliver through a supported driver or print the owner's instruction.
 
-Use --json on read commands (fetch, show, who, status, doctor, explain, usage) for machines.
+Use --json on read commands (fetch, show, who, status, doctor, validate, explain, usage) for machines.
 Exit 0: request completed or check clean.
 Exit 1: check found drift/failure, or an operational action failed.
 Exit 2: invalid invocation, absent input, unknown identity, or nothing resolved.
