@@ -73,6 +73,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.live_channels
     runs-on: windows-latest
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Install from the public Scoop bucket
         shell: pwsh
         run: |
@@ -82,13 +83,16 @@ jobs:
           scoop install git-a2a/git-a2a
           $version = git-a2a --version
           $version
-          if ($version -notmatch '^git-a2a 1\.0\.0 .*windows/amd64, channel=scoop\)$') {
+          $expected = (Get-Content internal/version/VERSION -Raw).Trim()
+          $pattern = '^git-a2a ' + [regex]::Escape($expected) + ' .*windows/amd64, channel=scoop\)$'
+          if ($version -notmatch $pattern) {
             throw "unexpected Scoop binary: $version"
           }
   site-live:
     if: github.event_name == 'workflow_dispatch' && inputs.live_site
     runs-on: windows-latest
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Download and dry-run the public PowerShell installer
         shell: pwsh
         run: |
@@ -99,4 +103,5 @@ jobs:
             throw "unexpected install.ps1 Content-Type: $contentType"
           }
           $installer = [scriptblock]::Create((Invoke-RestMethod -Uri https://git-a2a.com/install.ps1))
-          & $installer --version 1.0.0 --dir "$env:RUNNER_TEMP\git-a2a" --dry-run
+          $expected = (Get-Content internal/version/VERSION -Raw).Trim()
+          & $installer --version $expected --dir "$env:RUNNER_TEMP\git-a2a" --dry-run

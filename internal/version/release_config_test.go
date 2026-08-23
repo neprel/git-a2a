@@ -98,10 +98,13 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	if regexp.MustCompile(`(?m)^\s*if:\s*\$\{\{\s*secrets\.`).MatchString(workflow) {
 		t.Error("GitHub Actions does not allow the secrets context directly in an if expression")
 	}
-	for _, required := range []string{"live_channels:", "scoop-live:", "scoop install git-a2a/git-a2a", "channel=scoop"} {
+	for _, required := range []string{"live_channels:", "scoop-live:", "scoop install git-a2a/git-a2a", "channel=scoop", "Get-Content internal/version/VERSION"} {
 		if !strings.Contains(installerWorkflow, required) {
 			t.Errorf("installer workflow missing live Scoop check %q", required)
 		}
+	}
+	if strings.Contains(installerWorkflow, `'^git-a2a 1\.0\.0`) {
+		t.Error("live Scoop check must derive the expected version from internal/version/VERSION")
 	}
 	goReleaserEnv := regexp.MustCompile(`(?s)uses: goreleaser/goreleaser-action@[0-9a-f]{40}.*?env:\s+GORELEASER_CURRENT_TAG: \$\{\{ env\.RELEASE_TAG \}\}`)
 	if !goReleaserEnv.MatchString(workflow) {
