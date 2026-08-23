@@ -1,0 +1,29 @@
+# decision MCP discovery artifacts are rendered from immutable release binaries
+
+`dist/mcpb/build.py` receives the six already-extracted npm-channel binary packages and emits
+one deterministic cross-platform MCPB plus `server.json`. The MCPB uses a Node 18 launcher only
+to select and exec the matching unmodified Go binary; it contains no protocol or domain logic.
+ZIP member order, timestamps, modes, JSON indentation, and names are fixed so recovery from the
+same immutable inputs produces byte-identical output. `server.json` must hash the bytes it just
+wrote, never a rebuild guess or placeholder, and must list the npm launcher, versioned GHCR OCI
+image, and exact MCPB release URL.
+
+# invariant Registry ownership metadata agrees
+
+The registry name is `io.github.neprel/git-a2a` everywhere: generated `server.json`, the npm
+launcher's `mcpName`, and the OCI label `io.modelcontextprotocol.server.name`. Platform-only npm
+packages are binary payloads and do not claim a separate MCP server identity.
+
+# decision Stable registry publication uses GitHub OIDC
+
+The release workflow checksum-verifies a pinned official `mcp-publisher`, validates metadata for
+every release, and publishes only stable versions with `login github-oidc`. No PAT or registry
+secret is used. Recovery compares an existing MCPB/server.json byte-for-byte and never replaces
+an immutable asset.
+
+# test MCP distribution
+
+- The bundle contains one manifest, one executable launcher, and all six platform binaries.
+- Two builds from identical inputs produce identical MCPB and `server.json` bytes.
+- The MCPB SHA-256 equals `packages[mcpb].fileSha256` and its URL names that bundle.
+- Official `mcp-publisher validate` accepts generated metadata before publication.

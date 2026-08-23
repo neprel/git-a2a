@@ -13,6 +13,9 @@ dist/*
 !dist/npm/**
 !dist/pypi/
 !dist/pypi/**
+!dist/mcpb/
+!dist/mcpb/**
+!dist/_.hint
 /bin/
 /build/
 *.test
