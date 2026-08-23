@@ -158,8 +158,9 @@ assets without replacement, and publishes stable (never prerelease) metadata thr
 OIDC, with no registry secret.
 Every release candidate and stable release is exercised by the manual `Release smoke` workflow
 on native Linux, macOS, and Windows runners. It downloads the immutable GitHub Release binary,
-checks the exact version, performs MCP `tools/list` through an official-SDK stdio client, and
-runs `setup --dry-run`; a locally rebuilt binary is not evidence for this gate.
+checks the canonical `internal/version/VERSION` output (an RC suffix belongs to the package and
+asset version, not the embedded CLI version), performs MCP `tools/list` through an official-SDK
+stdio client, and runs `setup --dry-run`; a locally rebuilt binary is not evidence for this gate.
 
 # dep Reference CLI runtime dependencies
 

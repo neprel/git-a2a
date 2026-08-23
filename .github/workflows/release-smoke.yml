@@ -49,10 +49,11 @@ jobs:
           set -euo pipefail
           binary="$PWD/release-smoke/$BINARY_NAME"
           version="${RELEASE_TAG#v}"
+          binary_version="${version%%-*}"
           output="$($binary version)"
           printf '%s\n' "$output"
           case "$output" in
-            "git-a2a $version "*) ;;
+            "git-a2a $binary_version "*) ;;
             *) echo "unexpected version output" >&2; exit 1 ;;
           esac
           go run ./tools/mcp-smoke --binary "$binary"

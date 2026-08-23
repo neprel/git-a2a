@@ -188,7 +188,7 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	if strings.Contains(installerWorkflow, `'^git-a2a 1\.0\.0`) {
 		t.Error("live Scoop check must derive the expected version from internal/version/VERSION")
 	}
-	for _, required := range []string{"ubuntu-latest", "macos-latest", "windows-latest", "gh release download", "go run ./tools/mcp-smoke", "setup --harness codex --dry-run"} {
+	for _, required := range []string{"ubuntu-latest", "macos-latest", "windows-latest", "gh release download", `binary_version="${version%%-*}"`, "go run ./tools/mcp-smoke", "setup --harness codex --dry-run"} {
 		if !strings.Contains(smokeWorkflow, required) {
 			t.Errorf("release smoke workflow missing %q", required)
 		}
