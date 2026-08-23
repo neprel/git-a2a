@@ -78,6 +78,15 @@ then installed Scoop 1.0.1 on `windows-latest`; the version assertion is derived
 `internal/version/VERSION`. A native Homebrew reinstall also proved that conditional quarantine
 removal succeeds when `com.apple.quarantine` is already absent.
 
+The v1.1.0 release is the first stable publication to the official MCP Registry. The reviewed
+candidate passed [Release smoke #32643313888](https://github.com/neprel/git-a2a/actions/runs/32643313888),
+then the stable tag completed [Release #32643380116](https://github.com/neprel/git-a2a/actions/runs/32643380116).
+[Stable smoke #32643708054](https://github.com/neprel/git-a2a/actions/runs/32643708054) exercised the
+downloaded binary on Linux, macOS, and Windows, including MCP `tools/list` and `setup --dry-run`;
+[Installer checks #32643710728](https://github.com/neprel/git-a2a/actions/runs/32643710728) passed
+the POSIX, Windows, and live Scoop paths. The registry listed `io.github.neprel/git-a2a` version
+1.1.0 as active and latest with npm, OCI, and MCPB packages.
+
 Before a stable release, manually exercise replacement of an installed binary on Windows:
 
 ```powershell
