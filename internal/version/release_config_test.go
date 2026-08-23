@@ -37,7 +37,8 @@ func TestReleaseChannelManifestsUseImmutableChecksums(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, expected := range []string{strings.Repeat("a", 64), strings.Repeat("b", 64),
-		`system "/usr/bin/xattr", "-d", "com.apple.quarantine", bin/"git-a2a"`, "git-a2a_brew_1.2.3"} {
+		`xattr -p com.apple.quarantine`, `xattr -d com.apple.quarantine`,
+		`"$1" >/dev/null 2>&1`, "git-a2a_brew_1.2.3"} {
 		if !strings.Contains(string(formulaBody), expected) {
 			t.Errorf("Homebrew formula missing %q", expected)
 		}

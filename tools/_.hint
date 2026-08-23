@@ -14,6 +14,10 @@ successful checksum-verified install). The tap therefore publishes `Formula/git-
 formula installs the already checksum-verified release binary and then removes quarantine from
 that one installed file before its `test` invokes `git-a2a --version`. Do not publish a cask or
 remove this targeted step until the release pipeline signs and notarizes both macOS binaries.
+Quarantine removal is conditional: probe that exact attribute first and delete it only when
+present. `xattr -d` returns nonzero when the attribute is absent, so an unconditional call makes
+a repeat install fail even though there is nothing to clean. The absence case must remain a
+successful, idempotent installation.
 
 # invariant Channel output is deterministic and self-testing
 
@@ -30,6 +34,7 @@ separate amd64 and arm64 hashes.
 - A recovery dispatch skips GoReleaser's Homebrew/Scoop publishers, downloads the immutable
   release checksums, removes any obsolete cask, and commits only changed formula/bucket files.
 - A real Homebrew install has no quarantine attribute and prints `channel=brew` on first launch.
+- Reinstalling when the binary has no quarantine attribute succeeds and still passes `brew test`.
 - The Windows amd64 Scoop archive hash matches the manifest and its executable prints
   `channel=scoop` under Wine on an amd64 host or a Windows runner. Do not treat Wine under amd64
   QEMU on Apple Silicon as a valid gate: `scottyhardy/docker-wine` aborts in

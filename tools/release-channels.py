@@ -50,7 +50,7 @@ def render_formula(version: str, checksums: dict[str, str]) -> str:
 
   def install
     bin.install "git-a2a"
-    system "/usr/bin/xattr", "-d", "com.apple.quarantine", bin/"git-a2a"
+    system "/bin/sh", "-c", 'if /usr/bin/xattr -p com.apple.quarantine "$1" >/dev/null 2>&1; then exec /usr/bin/xattr -d com.apple.quarantine "$1"; fi', "git-a2a", bin/"git-a2a"
   end
 
   test do
