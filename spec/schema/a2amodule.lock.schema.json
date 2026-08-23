@@ -34,7 +34,19 @@
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/sha256" }
         },
-        "surface": { "type": "string", "pattern": "^tree:[0-9a-f]{40}$" }
+        "surface": { "type": "string", "pattern": "^tree:[0-9a-f]{40}$" },
+        "vendor": { "$ref": "#/$defs/lockedVendor" }
+      },
+      "patternProperties": { "^x-": {} },
+      "additionalProperties": false
+    },
+    "lockedVendor": {
+      "type": "object",
+      "required": ["mode", "path"],
+      "properties": {
+        "mode": { "enum": ["submodule", "copy"] },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "tree": { "type": "string", "pattern": "^tree:[0-9a-f]{40}$" }
       },
       "patternProperties": { "^x-": {} },
       "additionalProperties": false

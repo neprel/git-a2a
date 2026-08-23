@@ -117,7 +117,15 @@ func (m *Manifest) Validate() error {
 			validateExtensions("policy.consumers", m.Policy.Consumers.Extensions, &errs)
 		}
 	}
+	if m.Settings != nil {
+		validateExtensions("settings", m.Settings.Extensions, &errs)
+		validateVendorPath("settings.vendor-dir", m.Settings.VendorDir, &errs)
+		for i, target := range m.Settings.SyncTargets {
+			validateRelative(fmt.Sprintf("settings.sync-targets[%d]", i), target, &errs)
+		}
+	}
 	seen := map[string]bool{}
+	vendorPaths := map[string]string{}
 	for i, d := range m.Dependencies {
 		p := fmt.Sprintf("dependencies[%d]", i)
 		if d.ID != "" && !idPattern.MatchString(d.ID) {
@@ -134,6 +142,34 @@ func (m *Manifest) Validate() error {
 			errs = append(errs, fmt.Errorf("%s.track: must be locked or floating", p))
 		}
 		validateRelative(p+".path", d.Path, &errs)
+		if d.Vendor != nil {
+			if d.ID == "" {
+				errs = append(errs, fmt.Errorf("%s.id: required when vendor is set", p))
+			}
+			mode := d.Vendor.Mode
+			if mode == "" {
+				mode = "submodule"
+			}
+			if mode != "submodule" && mode != "copy" {
+				errs = append(errs, fmt.Errorf("%s.vendor.mode: must be submodule or copy", p))
+			}
+			if mode == "copy" && d.Vendor.Recursive {
+				errs = append(errs, fmt.Errorf("%s.vendor.recursive: copy mode cannot initialise nested submodules", p))
+			}
+			validateVendorPath(p+".vendor.path", d.Vendor.Path, &errs)
+			validateExtensions(p+".vendor", d.Vendor.Extensions, &errs)
+			resolved := resolvedVendorPath(m, d)
+			validateVendorPath(p+".vendor.path", resolved, &errs)
+			if overlapsPath(resolved, m.Module.Surface) {
+				errs = append(errs, fmt.Errorf("%s.vendor.path: must not overlap module.surface", p))
+			}
+			for other, otherID := range vendorPaths {
+				if overlapsPath(resolved, other) {
+					errs = append(errs, fmt.Errorf("%s.vendor.path: overlaps dependency %s vendor path %s", p, otherID, other))
+				}
+			}
+			vendorPaths[resolved] = d.ID
+		}
 		validateExtensions(p, d.Extensions, &errs)
 	}
 	return errors.Join(errs...)
@@ -214,6 +250,22 @@ func (l *Lock) Validate() error {
 		if d.Surface != "" && !treePattern.MatchString(d.Surface) {
 			errs = append(errs, fmt.Errorf("%s.surface: invalid tree id", p))
 		}
+		if d.Vendor != nil {
+			if d.Vendor.Mode != "submodule" && d.Vendor.Mode != "copy" {
+				errs = append(errs, fmt.Errorf("%s.vendor.mode: must be submodule or copy", p))
+			}
+			validateVendorPath(p+".vendor.path", d.Vendor.Path, &errs)
+			if d.Vendor.Path == "" {
+				errs = append(errs, fmt.Errorf("%s.vendor.path: required", p))
+			}
+			if d.Vendor.Mode == "copy" && !treePattern.MatchString(d.Vendor.Tree) {
+				errs = append(errs, fmt.Errorf("%s.vendor.tree: copy mode requires a tree id", p))
+			}
+			if d.Vendor.Mode == "submodule" && d.Vendor.Tree != "" {
+				errs = append(errs, fmt.Errorf("%s.vendor.tree: only copy mode records a tree id", p))
+			}
+			validateExtensions(p+".vendor", d.Vendor.Extensions, &errs)
+		}
 		validateExtensions(p, d.Extensions, &errs)
 	}
 	return errors.Join(errs...)
@@ -238,6 +290,37 @@ func validateRelative(path, value string, errs *[]error) {
 	if filepath.IsAbs(value) || strings.HasPrefix(normal, "../") || strings.Contains(normal, "/../") || normal == ".." {
 		*errs = append(*errs, fmt.Errorf("%s: must be a relative path without ..", path))
 	}
+}
+
+func validateVendorPath(field, value string, errs *[]error) {
+	if value == "" {
+		return
+	}
+	validateRelative(field, value, errs)
+	normal := strings.TrimPrefix(strings.ReplaceAll(filepath.Clean(value), `\`, "/"), "./")
+	if normal == ".git" || strings.HasPrefix(normal, ".git/") || normal == ".git-a2a" || strings.HasPrefix(normal, ".git-a2a/") {
+		*errs = append(*errs, fmt.Errorf("%s: must not be inside .git or .git-a2a", field))
+	}
+}
+
+func resolvedVendorPath(m *Manifest, d Dependency) string {
+	if d.Vendor != nil && d.Vendor.Path != "" {
+		return filepath.ToSlash(filepath.Clean(d.Vendor.Path))
+	}
+	dir := "deps"
+	if m.Settings != nil && m.Settings.VendorDir != "" {
+		dir = m.Settings.VendorDir
+	}
+	return filepath.ToSlash(filepath.Join(dir, d.ID))
+}
+
+func overlapsPath(left, right string) bool {
+	if left == "" || right == "" {
+		return false
+	}
+	left = strings.Trim(filepath.ToSlash(filepath.Clean(left)), "/")
+	right = strings.Trim(filepath.ToSlash(filepath.Clean(right)), "/")
+	return left == right || strings.HasPrefix(left, right+"/") || strings.HasPrefix(right, left+"/")
 }
 
 func Marshal(m *Manifest) ([]byte, error) {
@@ -544,9 +627,37 @@ func updateDependencyNode(node *yaml.Node, dependency Dependency) {
 			node.Content = append(node.Content,
 				&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "wire"}, &encoded)
 		} else {
-			*wireNode = encoded
+			replaceNodePreservingPresentation(wireNode, encoded)
 		}
 	}
+	vendorIndex, vendorNode := mappingEntry(node, "vendor")
+	if dependency.Vendor == nil {
+		if vendorIndex >= 0 {
+			node.Content = append(node.Content[:vendorIndex], node.Content[vendorIndex+2:]...)
+		}
+	} else {
+		style := yaml.Style(0)
+		if vendorNode != nil {
+			style = vendorNode.Style
+		}
+		var encoded yaml.Node
+		_ = encoded.Encode(dependency.Vendor)
+		encoded.Style = style
+		if vendorNode == nil {
+			node.Content = append(node.Content,
+				&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "vendor"}, &encoded)
+		} else {
+			replaceNodePreservingPresentation(vendorNode, encoded)
+		}
+	}
+}
+
+func replaceNodePreservingPresentation(current *yaml.Node, encoded yaml.Node) {
+	style := current.Style
+	head, line, foot := current.HeadComment, current.LineComment, current.FootComment
+	*current = encoded
+	current.Style = style
+	current.HeadComment, current.LineComment, current.FootComment = head, line, foot
 }
 
 func MarshalLock(l *Lock) ([]byte, error) {

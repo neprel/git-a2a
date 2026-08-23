@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestExamples(t *testing.T) {
@@ -160,5 +162,68 @@ func TestKnownContactKindRejectsAnotherKindsKeys(t *testing.T) {
 	raw := []byte("schema: 1\nmodule: {id: consumer}\nagents:\n  - name: owner\n    role: owner\n    contacts:\n      - intents: [question]\n        kind: email\n        address: owner@example.test\n        project: WRONG\n")
 	if _, err := Parse(raw); err == nil || !strings.Contains(err.Error(), "project: not valid for contact kind email") {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestVendorValidationAndLockShape(t *testing.T) {
+	valid := []byte(`schema: 1
+module:
+  id: consumer
+  surface: surface
+settings:
+  vendor-dir: third_party
+  sync-targets: [CLAUDE.md]
+dependencies:
+  - id: acme-lib
+    git: https://example.test/acme-lib.git
+    vendor:
+      mode: copy
+      path: third_party/acme-lib
+`)
+	if _, err := Parse(valid); err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range map[string]string{
+		"copy recursive":  strings.Replace(string(valid), "path: third_party/acme-lib", "path: third_party/acme-lib\n      recursive: true", 1),
+		"metadata path":   strings.Replace(string(valid), "third_party/acme-lib", ".git/modules/acme-lib", 1),
+		"surface overlap": strings.Replace(string(valid), "third_party/acme-lib", "surface/generated", 1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := Parse([]byte(body)); err == nil {
+				t.Fatal("manifest unexpectedly valid")
+			}
+		})
+	}
+
+	lock := &Lock{Schema: 1, Dependencies: map[string]LockedDependency{
+		"acme-lib": {
+			Git: "https://example.test/acme-lib.git", Ref: "main", Path: ".",
+			Commit: strings.Repeat("a", 40), Manifest: "sha256:" + strings.Repeat("b", 64),
+			Vendor: &LockedVendor{Mode: "copy", Path: "third_party/acme-lib", Tree: "tree:" + strings.Repeat("c", 40)},
+		},
+	}}
+	encoded, err := MarshalLock(lock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var roundTrip Lock
+	if err = yaml.Unmarshal(encoded, &roundTrip); err != nil {
+		t.Fatal(err)
+	}
+	if err = roundTrip.Validate(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestUpdateDependenciesPreservesVendorCollectionStyle(t *testing.T) {
+	original := []byte("schema: 1\nmodule: {id: consumer}\ndependencies:\n  - id: acme-lib\n    git: old\n    vendor: {mode: submodule, path: deps/acme-lib} # keep\n")
+	updated, err := UpdateDependencies(original, []Dependency{{
+		ID: "acme-lib", Git: "new", Vendor: &Vendor{Mode: "copy", Path: "third_party/acme-lib"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(updated), "vendor: {mode: copy, path: third_party/acme-lib} # keep") {
+		t.Fatalf("vendor style/comment lost:\n%s", updated)
 	}
 }

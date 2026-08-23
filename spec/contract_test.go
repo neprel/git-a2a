@@ -44,11 +44,24 @@ func TestHintEntityFieldsMatchSchemaAndGoTypes(t *testing.T) {
 	types := map[string]reflect.Type{
 		"manifest":   reflect.TypeOf(manifest.Manifest{}),
 		"module":     reflect.TypeOf(manifest.Module{}),
+		"moved_to":   reflect.TypeOf(manifest.MovedTo{}),
+		"release":    reflect.TypeOf(manifest.Release{}),
+		"export":     reflect.TypeOf(manifest.Export{}),
 		"agent":      reflect.TypeOf(manifest.Agent{}),
+		"contact":    reflect.TypeOf(manifest.Contact{}),
+		"trust":      reflect.TypeOf(manifest.Trust{}),
 		"policy":     reflect.TypeOf(manifest.Policy{}),
+		"consumers":  reflect.TypeOf(manifest.Consumers{}),
+		"settings":   reflect.TypeOf(manifest.Settings{}),
 		"dependency": reflect.TypeOf(manifest.Dependency{}),
+		"vendor":     reflect.TypeOf(manifest.Vendor{}),
 	}
-	definitions := map[string]string{"manifest": "", "module": "module", "agent": "agent", "policy": "policy", "dependency": "dependency"}
+	definitions := map[string]string{
+		"manifest": "", "module": "module", "moved_to": "movedTo", "release": "release",
+		"export": "export", "agent": "agent", "contact": "contact", "trust": "trust",
+		"policy": "policy", "consumers": "consumers", "settings": "settings",
+		"dependency": "dependency", "vendor": "vendor",
+	}
 	for entity, goType := range types {
 		want, ok := specFields[entity]
 		if !ok {

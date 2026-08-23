@@ -9,6 +9,7 @@
     "module": { "$ref": "#/$defs/module" },
     "agents": { "type": "array", "items": { "$ref": "#/$defs/agent" } },
     "policy": { "$ref": "#/$defs/policy" },
+    "settings": { "$ref": "#/$defs/settings" },
     "dependencies": { "type": "array", "items": { "$ref": "#/$defs/dependency" } }
   },
   "patternProperties": { "^x-": {} },
@@ -151,6 +152,15 @@
       "patternProperties": { "^x-": {} },
       "additionalProperties": false
     },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "vendor-dir": { "$ref": "#/$defs/relativePath" },
+        "sync-targets": { "type": "array", "items": { "$ref": "#/$defs/relativePath" } }
+      },
+      "patternProperties": { "^x-": {} },
+      "additionalProperties": false
+    },
     "dependency": {
       "type": "object",
       "required": ["git"],
@@ -160,7 +170,18 @@
         "ref": { "type": "string", "minLength": 1 },
         "path": { "$ref": "#/$defs/relativePath" },
         "track": { "enum": ["locked", "floating"] },
-        "wire": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        "wire": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "vendor": { "$ref": "#/$defs/vendor" }
+      },
+      "patternProperties": { "^x-": {} },
+      "additionalProperties": false
+    },
+    "vendor": {
+      "type": "object",
+      "properties": {
+        "mode": { "enum": ["submodule", "copy"] },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "recursive": { "type": "boolean" }
       },
       "patternProperties": { "^x-": {} },
       "additionalProperties": false

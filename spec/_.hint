@@ -26,6 +26,14 @@ The directory the owner publishes for consumers: API summaries, usage, limits, e
 the only content of the dependency a consumer may read besides the manifest itself. Its location
 is declared (`module.surface`); there is no hard-coded path.
 
+# term vendored dependency
+
+A dependency whose source tree is checked out inside the consumer's repository — as a git
+submodule (a gitlink pinned to the locked commit) or as a plain copy — instead of, or in
+addition to, a package-manager reference. It serves toolchains that have no native Git dependency
+form and permits deliberate source-level integration for toolchains that do. The consumer decides;
+the dependency publishes exports but cannot make a consumer vendor them.
+
 # term intent
 
 What a request is for. Core tokens: `question`, `change`, `bug`, `review`, `incident`. The set is
@@ -54,6 +62,7 @@ product code), `reviewer`, `support`. The set is open.
 | `pypi` | Wires a Git dependency in pyproject.toml through uv. | Selects the Python distribution name and adapter. | Accepted; without an adapter it remains published metadata and cannot be wired. |
 | `golang` | Wires the Go module at the locked commit with go.mod edits. | Selects the Go import path and adapter. | Accepted; without an adapter it remains published metadata and cannot be wired. |
 | `cargo`, `swift`, `pub`, `gem`, `composer`, `hex`, `hackage`, `zig`, `clojure`, `nix` | Uses the matching native Git-dependency adapter. | Selects a different native manifest and package identity. | Accepted; without an adapter it remains published metadata and cannot be wired. |
+| `cmake`, `gradle`, `msbuild`, `maven`, `meson` | Uses a vendored integration adapter and generated include when the dependency is vendored. | Selects the build-system integration and generated file. | Accepted; without an adapter it remains published metadata and cannot be wired. |
 
 # data Known role tokens {#vocabulary_roles}
 
@@ -94,8 +103,9 @@ product code), `reviewer`, `support`. The set is open.
 
 # entity a2amodule.yml {#manifest}
 
-Top-level keys, in canonical order. `schema`, `module` and `module.id` are required; everything
-else is optional. Unknown keys are errors except `x-*`.
+Top-level keys, in canonical order: `schema`, `module`, `agents`, `policy`, `settings`,
+`dependencies`. `schema`, `module` and `module.id` are required; everything else is optional.
+Unknown keys are errors except `x-*`.
 
 ## field schema
 
@@ -115,9 +125,34 @@ as a plain library" — still importable, nobody to ask.
 
 object, see [#policy](#policy). Routing defaults and consumer permissions.
 
+## field settings
+
+object, see [#settings](#settings). Consumer-local defaults; owners of dependencies never read
+these settings from a consumer.
+
 ## field dependencies
 
 list, see [#dependency](#dependency). Modules this module depends on.
+
+# entity settings {#settings}
+
+Consumer-local behavior for this repository. Unknown keys are errors except `x-*`.
+
+## field vendor-dir
+
+string, optional relative path, default `deps`. Parent directory used when a vendored dependency
+does not declare `vendor.path`. `vendor/` is deliberately not the default because Go and Composer
+assign their own semantics to that name. Changing it moves only dependencies that use the default;
+explicit `vendor.path` values remain unchanged. It obeys all vendored-path safety rules.
+
+## field sync-targets
+
+list of relative paths, optional. Additional files whose managed roster block `sync` maintains.
+Changing the list changes sync destinations, not dependency resolution or vendoring.
+
+## field x-*
+
+extension keys, preserved.
 
 # entity module {#module}
 
@@ -508,6 +543,41 @@ only for an ecosystem named explicitly in `wire`. Wiring is repairable at any ti
 (`git-a2a wire [ID]` re-applies every adapter from the lock, idempotently) — a half-wired
 dependency is a state the tool can always see and always fix, never one it hides.
 
+## field vendor
+
+object, optional, see [#vendor](#vendor). Its presence explicitly asks the tool to materialise
+the locked source tree in this consumer; a dependency is never vendored implicitly.
+
+## field x-*
+
+extension keys, preserved.
+
+# entity vendor {#vendor}
+
+The consumer's explicit source-materialisation choice for one dependency. Vendoring changes the
+consumer repository and CI, so the consumer is the sole authority for this object.
+
+## field mode
+
+`submodule` (default) or `copy`. `submodule` records a Git gitlink at the locked commit and may
+initialise nested submodules. `copy` records a plain Git-metadata-free tree. Changing mode replaces
+one representation with the other transactionally; unknown values are rejected.
+
+## field path
+
+string, optional relative path. Default `<settings.vendor-dir>/<dependency-id>`, normally
+`deps/<id>`. After slash normalisation it must be `..`-free and non-absolute; it must not be
+`.git`, `.git-a2a`, or inside either; must not equal or be inside `module.surface`; must not overlap
+another dependency's vendor path; and no existing path component may be a symlink. For submodule
+mode it must not already be tracked or be a submodule registered with another URL. Validation
+reports violations and never silently rewrites the path.
+
+## field recursive
+
+boolean, optional, default `false`. In submodule mode, initialise the dependency's own nested
+submodules. In copy mode `true` is invalid because a Git tree contains nested gitlinks, not their
+content. Changing it changes only nested-submodule initialisation.
+
 ## field x-*
 
 extension keys, preserved.
@@ -518,11 +588,56 @@ YAML, written only by the CLI. `schema: 1`; `dependencies:` map keyed by depende
 `git`, `ref`, `path`, `commit` (40-hex, the resolved ref), `manifest` (`sha256:<hex>` of the
 fetched `a2amodule.yml` bytes), `cards` (map agent name → `sha256:<hex>` of the snapshotted
 card, present only for agents with a `card`), `surface` (`tree:<40-hex>`, the git tree object id of the surface directory at `commit`,
-recorded whenever the surface is fetched). Checkout strategies obtain it with
+recorded whenever the surface is fetched), and `vendor` for a vendored dependency: `mode`,
+resolved `path`, and, for copy mode, `tree` (`tree:<40-hex>` for the copied repository or module
+subtree). Checkout strategies obtain surface ids with
 `git rev-parse <commit>:<surface>`; the archive strategy derives the same Git tree object id from
 the archived entries. Keys sorted; no timestamps, no absolute
 paths, no hostnames beyond what the manifest already contains. A lock entry without a
 matching manifest dependency is stale and `status` reports it.
+
+# decision Vendoring is explicit, consumer-decided, and submodule-first {#vendoring}
+
+An owner describes source layout through exports; only a consumer may add `dependencies[].vendor`.
+The CLI may recommend `git-a2a set <id> --vendor submodule` when no native Git form exists, but
+never adds vendoring implicitly. Submodule is the default mode because its gitlink is already a
+content-addressed pin and ordinary clones can opt into `--recurse-submodules`; copy is the explicit
+alternative for repositories whose CI or policy rejects submodules. Subtree mode is not planned.
+
+# decision Vendored provenance is the lock and Git object identity {#vendor_provenance}
+
+For submodule mode, `git ls-files -s <vendor.path>` must have mode `160000` and an object id equal
+to `lock.commit`; dirty or uninitialised submodules are separate findings. Nested submodules are
+fixed by the outer commit and `vendor.recursive` controls only their initialisation. For copy mode,
+the lock records the dependency tree id at `commit` (`<commit>^{tree}` for dependency path `.`,
+otherwise `<commit>:<dependency.path>`) as `vendor.tree`; drift compares it with the consumer index
+tree at `vendor.path`, not the worktree, so Windows `core.fileMode` differences do not create drift.
+The human-readable `.git-a2a-vendored` stamp contains id, commit, and tree but is not authoritative.
+
+# decision Vendored mutations refuse dirty data and roll back completely {#vendor_transactions}
+
+`update`, `set`, and `remove` refuse a dirty vendored submodule, a submodule commit not contained
+in the locked commit, or a copy whose indexed tree differs from the lock. `--force` is the explicit
+data-loss override. A failed submodule mutation deinitialises it, removes the cached gitlink,
+deletes `.git/modules/<path>`, drops its `.gitmodules` section, restores the original
+`.gitmodules` bytes, and restores manifest, lock, wiring, and cache. Copy removal uses `git rm -r`.
+No failed transaction leaves a worktree, gitlink, `.gitmodules` entry, or `.git/modules` residue.
+
+# decision Copy mode preserves Git tree semantics {#vendor_copy_tree}
+
+Copy materialisation preserves regular/executable modes and creates 120000 entries as symlinks.
+On Windows without symlink privilege it fails with a clear error instead of converting a symlink
+to a regular file. Copy mode never expands nested submodules and rejects `recursive: true`.
+
+# decision Wiring chooses path, native Git, then integration {#vendor_wiring_priority}
+
+For every export the order is: (1) when `vendor` is set and the ecosystem supports a path form,
+wire `<vendor.path>/<dependency.path>/<export.path>` (copy mode already starts at the dependency
+path, so its export path is relative to `<vendor.path>`); (2) otherwise use its native Git form;
+(3) when vendored and an integration adapter exists, wire the generated integration; (4) report
+`not wired: <reason>`. Submodule mode always checks out the whole repository; copy mode copies only
+the dependency module path. Verbose status names the selected branch, such as `npm path`, `golang
+native`, or `maven integration`.
 
 # entity .git-a2a/ local state {#cache}
 

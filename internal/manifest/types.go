@@ -7,6 +7,7 @@ type Manifest struct {
 	Module       Module         `yaml:"module" json:"module"`
 	Agents       []Agent        `yaml:"agents,omitempty" json:"agents,omitempty"`
 	Policy       *Policy        `yaml:"policy,omitempty" json:"policy,omitempty"`
+	Settings     *Settings      `yaml:"settings,omitempty" json:"settings,omitempty"`
 	Dependencies []Dependency   `yaml:"dependencies,omitempty" json:"dependencies,omitempty"`
 	Extensions   map[string]any `yaml:",inline" json:"-"`
 }
@@ -116,6 +117,19 @@ type Consumers struct {
 	Extensions map[string]any `yaml:",inline" json:"-"`
 }
 
+type Settings struct {
+	VendorDir   string         `yaml:"vendor-dir,omitempty" json:"vendor-dir,omitempty"`
+	SyncTargets []string       `yaml:"sync-targets,omitempty" json:"sync-targets,omitempty"`
+	Extensions  map[string]any `yaml:",inline" json:"-"`
+}
+
+type Vendor struct {
+	Mode       string         `yaml:"mode,omitempty" json:"mode,omitempty"`
+	Path       string         `yaml:"path,omitempty" json:"path,omitempty"`
+	Recursive  bool           `yaml:"recursive,omitempty" json:"recursive,omitempty"`
+	Extensions map[string]any `yaml:",inline" json:"-"`
+}
+
 type Dependency struct {
 	ID         string         `yaml:"id,omitempty" json:"id,omitempty"`
 	Git        string         `yaml:"git" json:"git"`
@@ -123,6 +137,7 @@ type Dependency struct {
 	Path       string         `yaml:"path,omitempty" json:"path,omitempty"`
 	Track      string         `yaml:"track,omitempty" json:"track,omitempty"`
 	Wire       *[]string      `yaml:"wire,omitempty" json:"wire,omitempty"`
+	Vendor     *Vendor        `yaml:"vendor,omitempty" json:"vendor,omitempty"`
 	Extensions map[string]any `yaml:",inline" json:"-"`
 }
 
@@ -140,5 +155,13 @@ type LockedDependency struct {
 	Manifest   string            `yaml:"manifest" json:"manifest"`
 	Cards      map[string]string `yaml:"cards,omitempty" json:"cards,omitempty"`
 	Surface    string            `yaml:"surface,omitempty" json:"surface,omitempty"`
+	Vendor     *LockedVendor     `yaml:"vendor,omitempty" json:"vendor,omitempty"`
 	Extensions map[string]any    `yaml:",inline" json:"-"`
+}
+
+type LockedVendor struct {
+	Mode       string         `yaml:"mode" json:"mode"`
+	Path       string         `yaml:"path" json:"path"`
+	Tree       string         `yaml:"tree,omitempty" json:"tree,omitempty"`
+	Extensions map[string]any `yaml:",inline" json:"-"`
 }

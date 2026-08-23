@@ -32,7 +32,9 @@ ROUTES = [
     ("trust", "agents[].trust.", ("$defs", "trust")),
     ("policy", "policy.", ("$defs", "policy")),
     ("consumers", "policy.consumers.", ("$defs", "consumers")),
+    ("settings", "settings.", ("$defs", "settings")),
     ("dependency", "dependencies[].", ("$defs", "dependency")),
+    ("vendor", "dependencies[].vendor.", ("$defs", "vendor")),
 ]
 
 VOCABULARIES = {
@@ -63,6 +65,10 @@ DEFAULTS = {
     "dependencies[].path": "`.`",
     "dependencies[].track": "`locked`",
     "dependencies[].wire": "all matching detected ecosystems",
+    "settings.vendor-dir": "`deps`",
+    "dependencies[].vendor.mode": "`submodule`",
+    "dependencies[].vendor.path": "`<settings.vendor-dir>/<dependency-id>`",
+    "dependencies[].vendor.recursive": "`false`",
 }
 
 
