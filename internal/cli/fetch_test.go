@@ -16,6 +16,9 @@ import (
 )
 
 func TestFetchRestoresLockedCacheAndSurfaceWithoutChangingDurableState(t *testing.T) {
+	t.Setenv("GIT_CONFIG_COUNT", "1")
+	t.Setenv("GIT_CONFIG_KEY_0", "core.autocrlf")
+	t.Setenv("GIT_CONFIG_VALUE_0", "true")
 	root, remote, commit, manifestRaw, surfaceTree := fetchFixture(t)
 	writeFetchConsumer(t, root, remote, commit, manifestRaw, surfaceTree)
 	manifestBefore := mustRead(t, filepath.Join(root, "a2amodule.yml"))

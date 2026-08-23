@@ -22,7 +22,11 @@ type fakeRunner struct {
 type fileFallbackRunner struct{ body []byte }
 
 func (r fileFallbackRunner) Run(_ context.Context, dir string, _ []byte, args ...string) ([]byte, error) {
-	switch args[0] {
+	command := args[0]
+	if command == "-c" {
+		command = args[2]
+	}
+	switch command {
 	case "archive":
 		return nil, fmt.Errorf("archive unsupported")
 	case "clone":
@@ -35,6 +39,8 @@ func (r fileFallbackRunner) Run(_ context.Context, dir string, _ []byte, args ..
 			return nil, err
 		}
 		return nil, os.WriteFile(p, r.body, 0o644)
+	case "show":
+		return r.body, nil
 	default:
 		return nil, fmt.Errorf("unexpected command %s", args[0])
 	}
@@ -42,7 +48,11 @@ func (r fileFallbackRunner) Run(_ context.Context, dir string, _ []byte, args ..
 
 func (f *fakeRunner) Run(_ context.Context, _ string, _ []byte, args ...string) ([]byte, error) {
 	f.calls = append(f.calls, strings.Join(args, " "))
-	switch args[0] {
+	command := args[0]
+	if command == "-c" {
+		command = args[2]
+	}
+	switch command {
 	case "ls-remote":
 		return []byte(strings.Repeat("a", 40) + "\trefs/heads/main\n"), nil
 	case "archive":

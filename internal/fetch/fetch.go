@@ -59,7 +59,7 @@ func (f Fetcher) Fetch(ctx context.Context, url, ref, modulePath, work string) (
 }
 
 func (f Fetcher) archive(ctx context.Context, url, commit, manifestPath string) ([]byte, error) {
-	out, err := f.Runner.Run(ctx, "", nil, "archive", "--format=tar", "--remote="+url, commit, manifestPath)
+	out, err := f.Runner.Run(ctx, "", nil, "-c", "core.autocrlf=false", "archive", "--format=tar", "--remote="+url, commit, manifestPath)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,9 @@ func (f Fetcher) sparse(ctx context.Context, url, commit, manifestPath, work str
 	if _, err := f.Runner.Run(ctx, src, nil, "checkout", "--detach", commit); err != nil {
 		return nil, err
 	}
-	return os.ReadFile(filepath.Join(src, filepath.FromSlash(manifestPath)))
+	// Read the Git blob rather than the worktree file. core.autocrlf may rewrite line endings on
+	// Windows, but lock hashes describe repository bytes and must be platform-independent.
+	return f.Runner.Run(ctx, src, nil, "show", commit+":"+manifestPath)
 }
 
 func (f Fetcher) shallow(ctx context.Context, url, commit, manifestPath, work string) ([]byte, error) {
@@ -192,7 +194,7 @@ type SurfaceResult struct {
 
 func (f Fetcher) Surface(ctx context.Context, url, commit, modulePath, surface, dest, work string) (SurfaceResult, error) {
 	prefix := path.Join(modulePath, surface)
-	out, err := f.Runner.Run(ctx, "", nil, "archive", "--format=tar", "--remote="+url, commit, prefix)
+	out, err := f.Runner.Run(ctx, "", nil, "-c", "core.autocrlf=false", "archive", "--format=tar", "--remote="+url, commit, prefix)
 	if err == nil {
 		files, tree, extractErr := extractSurfaceArchive(out, prefix, dest)
 		if extractErr == nil {
@@ -228,6 +230,9 @@ func extractSurfaceArchive(out []byte, prefix, dest string) ([]string, string, e
 		}
 		if err != nil {
 			return nil, "", err
+		}
+		if h.Typeflag == tar.TypeXGlobalHeader || path.Base(h.Name) == "pax_global_header" {
+			continue
 		}
 		rel := strings.TrimPrefix(strings.TrimPrefix(path.Clean(h.Name), path.Clean(prefix)), "/")
 		if rel == "" || strings.HasPrefix(rel, "../") {
@@ -289,59 +294,19 @@ func (f Fetcher) surfaceCheckout(ctx context.Context, url, commit, prefix, dest,
 	if _, err := f.Runner.Run(ctx, src, nil, "fetch", "--depth=1", "origin", commit); err != nil {
 		return SurfaceResult{}, err
 	}
-	if _, err := f.Runner.Run(ctx, src, nil, "checkout", "--detach", commit); err != nil {
+	archive, err := f.Runner.Run(ctx, src, nil, "-c", "core.autocrlf=false", "archive", "--format=tar", commit, prefix)
+	if err != nil {
 		return SurfaceResult{}, err
 	}
 	treeRaw, err := f.Runner.Run(ctx, src, nil, "rev-parse", commit+":"+prefix)
 	if err != nil {
 		return SurfaceResult{}, err
 	}
-	files, err := copySurface(filepath.Join(src, filepath.FromSlash(prefix)), dest)
+	files, _, err := extractSurfaceArchive(archive, prefix, dest)
 	if err != nil {
 		return SurfaceResult{}, err
 	}
 	return SurfaceResult{Files: files, Tree: "tree:" + strings.TrimSpace(string(treeRaw))}, nil
-}
-
-func copySurface(source, dest string) ([]string, error) {
-	if err := os.RemoveAll(dest); err != nil {
-		return nil, err
-	}
-	var names []string
-	err := filepath.WalkDir(source, func(filePath string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		rel, err := filepath.Rel(source, filePath)
-		if err != nil || rel == "." {
-			return err
-		}
-		target := filepath.Join(dest, rel)
-		if entry.IsDir() {
-			return os.MkdirAll(target, 0o755)
-		}
-		info, err := entry.Info()
-		if err != nil {
-			return err
-		}
-		if !info.Mode().IsRegular() {
-			return nil
-		}
-		body, err := os.ReadFile(filePath)
-		if err != nil {
-			return err
-		}
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-			return err
-		}
-		if err := os.WriteFile(target, body, info.Mode().Perm()); err != nil {
-			return err
-		}
-		names = append(names, filepath.ToSlash(rel))
-		return nil
-	})
-	sort.Strings(names)
-	return names, err
 }
 
 type surfaceTree struct {

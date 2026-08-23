@@ -20,6 +20,15 @@ current executable to the adjacent `.old` path, installs the verified replacemen
 old executable if installation fails, and removes a leftover `.old` best-effort on the next
 invocation. Package-manager channels never use self-upgrade.
 
+<system_invariant name="Lock hashes describe Git blobs, not worktree translations" id="blob_bytes">
+
+Fetched manifest and card bytes used for hashes are read from Git objects (`git archive` or `git
+show <commit>:<path>`), never from a checked-out worktree. In particular, Windows
+`core.autocrlf` must not turn repository LF bytes into CRLF before lock verification. A regression
+test enables `core.autocrlf=true` while restoring a locked local-bare dependency.
+
+</system_invariant>
+
 # test Internal mutation invariants
 
 - YAML dependency edits retain comments, folded scalars, flow collections, and `x-` fields.
