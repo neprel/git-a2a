@@ -115,7 +115,9 @@ On Windows a standalone-binary upgrade renames the running executable to an adja
 file before installing its replacement; a failed install restores it, and the next invocation
 removes the `.old` remnant best-effort.
 Homebrew and Scoop publication is optional and skipped when its repository token is absent;
-npm is likewise optional, while PyPI uses its protected GitHub environment and OIDC. winget is
+npm uses token-less trusted publishing from `release.yml` on Node 24 with npm 11.5.1 or newer,
+one publisher binding per launcher/platform package, `id-token: write`, and repository metadata
+matching `neprel/git-a2a`; PyPI uses its protected GitHub environment and OIDC. winget is
 not automated in the first release: add it only after a stable package identity and publisher
 account exist. Prerelease tags are GitHub prereleases and never the `latest` release.
 Release notes group user-visible conventional commits as features, fixes, performance,

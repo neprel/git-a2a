@@ -26,9 +26,14 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	if attributes := read(".gitattributes"); !strings.Contains(attributes, "* text=auto eol=lf") {
 		t.Error("repository text files must retain LF line endings on every runner")
 	}
-	for _, required := range []string{"needs: test", "permissions: {}", "contents: write", "packages: write", "id-token: write", "--skip=homebrew", "--skip=scoop", "NPM_TOKEN == ''", "docker/setup-buildx-action@", "docker logout ghcr.io", "workflow_dispatch:", "GORELEASER_CURRENT_TAG", "RELEASE_TAG: ${{ inputs.tag || github.ref_name }}"} {
+	for _, required := range []string{"needs: test", "permissions: {}", "contents: write", "packages: write", "id-token: write", "--skip=homebrew", "--skip=scoop", "node-version: '24'", "npm@11.5.1", "docker/setup-buildx-action@", "docker logout ghcr.io", "workflow_dispatch:", "GORELEASER_CURRENT_TAG", "RELEASE_TAG: ${{ inputs.tag || github.ref_name }}"} {
 		if !strings.Contains(workflow, required) {
 			t.Errorf("release workflow missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{"NPM_TOKEN", "NODE_AUTH_TOKEN", "npm publishing skipped"} {
+		if strings.Contains(workflow, forbidden) {
+			t.Errorf("trusted npm publishing must not contain %q", forbidden)
 		}
 	}
 	if regexp.MustCompile(`(?m)^\s*if:\s*\$\{\{\s*secrets\.`).MatchString(workflow) {
@@ -70,8 +75,12 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 			t.Errorf("installer missing %q", required)
 		}
 	}
-	if docs := read("docs/releasing.md"); !strings.Contains(docs, "HOMEBREW_TAP_TOKEN") || !strings.Contains(docs, "SCOOP_BUCKET_TOKEN") || !strings.Contains(docs, "NPM_TOKEN") || !strings.Contains(docs, "environment named `pypi`") {
+	if docs := read("docs/releasing.md"); !strings.Contains(docs, "HOMEBREW_TAP_TOKEN") || !strings.Contains(docs, "SCOOP_BUCKET_TOKEN") || !strings.Contains(docs, "trusted publisher") || !strings.Contains(docs, "environment named `pypi`") {
 		t.Error("release prerequisites are incomplete")
+	}
+	npmBuilder := read("dist/npm/build_packages.py")
+	if strings.Count(npmBuilder, `"repository": REPOSITORY`) != 2 || !strings.Contains(npmBuilder, `"url": "git+https://github.com/neprel/git-a2a.git"`) {
+		t.Error("every npm package must carry repository metadata matching the trusted publisher")
 	}
 	launcher := read("dist/pypi/git_a2a.py")
 	if !strings.Contains(launcher, "os.execv") {

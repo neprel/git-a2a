@@ -16,15 +16,17 @@ The workflow uses the repository `GITHUB_TOKEN` for GitHub Releases and
   `neprel/homebrew-tap`. If absent, GoReleaser skips Homebrew publishing.
 - `SCOOP_BUCKET_TOKEN`: a fine-grained token with write access to
   `neprel/scoop-bucket`. If absent, GoReleaser skips Scoop publishing.
-- `NPM_TOKEN`: npm automation token permitted to publish `git-a2a` and the platform packages.
-  If absent, the npm publish step reports a clean skip. npm 11.5+ trusted publishing can replace
-  this secret once the GitHub workflow is registered on npm; remove the secret gate only then.
+- npm: `git-a2a` and every `@git-a2a/*` platform package register `neprel/git-a2a` and
+  `release.yml` as their GitHub Actions trusted publisher with `npm publish` permission. The
+  job uses Node 24, npm 11.5.1 and OIDC; it has no long-lived npm token.
 - PyPI: create the GitHub environment named `pypi`, register this repository and workflow as a
   trusted publisher for the `git-a2a` project, and keep its approval rules in that environment.
   PyPI uses OIDC and has no long-lived token.
 
 Job permissions are intentionally local: tests have read-only contents; GoReleaser alone has
-`contents: write` and `packages: write`; npm and PyPI alone have `id-token: write`.
+`contents: write` and `packages: write`; npm and PyPI alone have `id-token: write`. Each npm
+package includes repository metadata matching `https://github.com/neprel/git-a2a`, which npm
+requires when authenticating its trusted publisher.
 
 ## macOS and Windows status
 

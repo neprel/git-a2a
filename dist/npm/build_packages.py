@@ -16,6 +16,11 @@ TARGETS = {
     ("windows", "arm64"): ("win32", "arm64"),
 }
 
+REPOSITORY = {
+    "type": "git",
+    "url": "git+https://github.com/neprel/git-a2a.git",
+}
+
 def extract_binary(archive: Path, destination: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     if archive.suffix == ".zip":
@@ -46,6 +51,7 @@ def main() -> None:
         extract_binary(matches[0], binary)
         (package / "package.json").write_text(json.dumps({
             "name": name, "version": args.version, "license": "MIT",
+            "repository": REPOSITORY,
             "os": [node_os], "cpu": [node_cpu], "files": ["bin/"]
         }, indent=2) + "\n")
         optional[name] = args.version
@@ -55,7 +61,8 @@ def main() -> None:
     (root / "package.json").write_text(json.dumps({
         "name": "git-a2a", "version": args.version,
         "description": "Import git modules together with their owning agents",
-        "license": "MIT", "bin": {"git-a2a": "bin/git-a2a.js"},
+        "license": "MIT", "repository": REPOSITORY,
+        "bin": {"git-a2a": "bin/git-a2a.js"},
         "engines": {"node": ">=18"}, "optionalDependencies": optional
     }, indent=2) + "\n")
 
