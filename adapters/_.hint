@@ -14,13 +14,14 @@ Bundler, `composer.json` for Composer, `mix.exs` for Hex/Mix, and `stack.yaml` o
 `cabal.project` for Hackage, `build.zig.zon` for Zig, and `deps.edn` for Clojure tools.deps.
 `flake.nix` for Nix flakes. A root `CMakeLists.txt` activates the vendored CMake integration
 adapter; Gradle settings activate the vendored Maven integration and a root `.csproj` or
-`.fsproj` activates the vendored NuGet/MSBuild integration. Polyglot consumers may activate any combination; a
+`.fsproj` activates the vendored NuGet/MSBuild integration; root `pom.xml` activates Maven.
+Polyglot consumers may activate any combination; a
 dependency transaction applies every detected,
 applicable adapter rather than selecting a single ecosystem.
 
 # decision Adapter verification labels distinguish form from execution
 
-Every registered adapter through CMake, Gradle, and MSBuild has passed its native toolchain lifecycle in
+Every registered adapter through CMake, Gradle, MSBuild, and Maven has passed its native toolchain lifecycle in
 the opt-in Integration workflow and is `verified`. `status -v` exposes this evidence label; a
 future adapter begins `form-verified` and changes only after a recorded real-toolchain run, never
 merely because a fixture parses.

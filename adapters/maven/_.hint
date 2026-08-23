@@ -1,0 +1,22 @@
+# module Maven vendored integration
+
+Detect root `pom.xml` and consume `maven` exports only with a locked vendor. The export name is
+`group:artifact`; its vendored POM path should be explicit so preflight does not need the tree.
+
+# decision Generated reactor plus precise root POM blocks
+
+The wholly tool-owned `deps/git-a2a.maven/pom.xml` is a sorted aggregator of vendored module
+paths. The consumer POM receives a marked module entry for that aggregator and one marked
+dependency per module; existing XML outside markers stays byte-identical. A container created by
+git-a2a is marked and removed when empty. Foreign generated content is discarded with a warning.
+
+# invariant Reactor versions must match
+
+The managed dependency uses `${project.version}` because Maven composite substitution does not
+exist. The consumer reactor and vendored artifact must publish the same version; Refresh exposes a
+mismatch as a native Maven build error rather than silently installing or rewriting the library.
+
+# test Golden and real-toolchain lifecycle
+
+Goldens cover existing containers, repair, drift, and byte-restoring Unwire. Integration runs
+`mvn -B package -DskipTests` against a copied vendored Java module and compiles a real consumer.

@@ -110,6 +110,7 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	mustWrite(t, filepath.Join(source, "a2amodule.yml"), manifestBody)
 	mustWrite(t, filepath.Join(source, "acme.h"), []byte("#define ACME_VERSION 1\n"))
 	mustWrite(t, filepath.Join(source, "CMakeLists.txt"), []byte("add_library(acme-native INTERFACE)\nadd_library(acme::native ALIAS acme-native)\ntarget_include_directories(acme-native INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})\n"))
+	mustWrite(t, filepath.Join(source, "pom.xml"), []byte("<project><modelVersion>4.0.0</modelVersion><groupId>com.acme</groupId><artifactId>native</artifactId><version>1.0.0</version></project>\n"))
 	if err := os.MkdirAll(filepath.Join(source, "dotnet"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -126,6 +127,7 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	mustWrite(t, filepath.Join(consumer, "CMakeLists.txt"), []byte("cmake_minimum_required(VERSION 3.20)\nproject(consumer)\n"))
 	mustWrite(t, filepath.Join(consumer, "settings.gradle.kts"), []byte("rootProject.name = \"consumer\"\n"))
 	mustWrite(t, filepath.Join(consumer, "Acme.App.csproj"), []byte("<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>\n"))
+	mustWrite(t, filepath.Join(consumer, "pom.xml"), []byte("<project><modelVersion>4.0.0</modelVersion><groupId>com.acme</groupId><artifactId>consumer</artifactId><version>1.0.0</version><packaging>pom</packaging></project>\n"))
 	git(t, consumer, "add", ".")
 	git(t, consumer, "commit", "-m", "chore: initialize consumer")
 
@@ -165,6 +167,10 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	msbuildGenerated, err := os.ReadFile(filepath.Join(consumer, "deps", "git-a2a.targets"))
 	if err != nil || !strings.Contains(string(msbuildGenerated), `ProjectReference Include="deps/acme-native/dotnet/Acme.Native.csproj"`) {
 		t.Fatalf("msbuild integration = %q, %v", msbuildGenerated, err)
+	}
+	mavenGenerated, err := os.ReadFile(filepath.Join(consumer, "deps", "git-a2a.maven", "pom.xml"))
+	if err != nil || !strings.Contains(string(mavenGenerated), `<module>../acme-native</module>`) {
+		t.Fatalf("maven integration = %q, %v", mavenGenerated, err)
 	}
 	run("status", "acme-native", "--offline")
 	if !strings.Contains(strings.SplitN(out.String(), "\n", 2)[0], "VENDOR") {
@@ -223,6 +229,9 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	}
 	if _, statErr := os.Stat(filepath.Join(consumer, "deps", "git-a2a.targets")); !os.IsNotExist(statErr) {
 		t.Fatalf("--no-vendor left generated MSBuild integration: %v", statErr)
+	}
+	if _, statErr := os.Stat(filepath.Join(consumer, "deps", "git-a2a.maven", "pom.xml")); !os.IsNotExist(statErr) {
+		t.Fatalf("--no-vendor left generated Maven integration: %v", statErr)
 	}
 	run("set", "acme-native", "--vendor", "submodule", "--no-refresh")
 	run("remove", "acme-native")

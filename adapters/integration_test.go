@@ -21,6 +21,7 @@ import (
 	"github.com/neprel/git-a2a/adapters/gradle"
 	"github.com/neprel/git-a2a/adapters/hackage"
 	"github.com/neprel/git-a2a/adapters/hex"
+	"github.com/neprel/git-a2a/adapters/maven"
 	"github.com/neprel/git-a2a/adapters/msbuild"
 	"github.com/neprel/git-a2a/adapters/nix"
 	"github.com/neprel/git-a2a/adapters/npm"
@@ -79,6 +80,9 @@ func TestRealToolchainAdapterLifecycle(t *testing.T) {
 		{"msbuild", "consumer-msbuild", msbuild.Adapter{}, adapter.Export{Ecosystem: "nuget", Name: "Acme.LibUtils", Path: "dotnet/Acme.LibUtils.csproj"}, func(root string) error {
 			return copyTreeError(libraryPath, filepath.Join(root, "deps", "acme-lib-utils"))
 		}},
+		{"maven", "consumer-maven", maven.Adapter{}, adapter.Export{Ecosystem: "maven", Name: "com.acme:lib-utils", Path: "java/pom.xml"}, func(root string) error {
+			return copyTreeError(libraryPath, filepath.Join(root, "deps", "acme-lib-utils"))
+		}},
 	}
 	for _, test := range cases {
 		if filter != "" && filter != test.name {
@@ -87,7 +91,7 @@ func TestRealToolchainAdapterLifecycle(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			caseDep, caseLocked := dep, locked
 			caseExport := test.export
-			if test.name == "cmake" || test.name == "gradle" || test.name == "msbuild" {
+			if test.name == "cmake" || test.name == "gradle" || test.name == "msbuild" || test.name == "maven" {
 				caseDep.Vendor = &manifest.Vendor{Mode: "copy"}
 				caseLocked.Vendor = &manifest.LockedVendor{Mode: "copy", Path: "deps/acme-lib-utils", Tree: "tree:" + strings.Repeat("b", 40)}
 			}
@@ -154,6 +158,8 @@ func integrationLibrary(t *testing.T) (string, string, string) {
 		"src/main/java/com/acme/LibUtils.java": "package com.acme;\n\npublic final class LibUtils {\n    public static int answer() { return 42; }\n}\n",
 		"dotnet/Acme.LibUtils.csproj":          "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup>\n</Project>\n",
 		"dotnet/LibUtils.cs":                   "namespace Acme;\n\npublic static class LibUtils { public static int Answer() => 42; }\n",
+		"java/pom.xml":                         "<project xmlns=\"http://maven.apache.org/POM/4.0.0\"><modelVersion>4.0.0</modelVersion><groupId>com.acme</groupId><artifactId>lib-utils</artifactId><version>1.0.0</version><properties><maven.compiler.release>17</maven.compiler.release></properties></project>\n",
+		"java/src/main/java/com/acme/LibUtils.java": "package com.acme; public final class LibUtils { public static int answer() { return 42; } }\n",
 	}
 	for name, body := range files {
 		if err := os.MkdirAll(filepath.Dir(filepath.Join(root, name)), 0o755); err != nil {
