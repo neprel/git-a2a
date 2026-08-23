@@ -70,6 +70,14 @@ dry-run: download and SHA-256 verify git-a2a_1.0.0_windows_amd64.zip
 dry-run: install git-a2a.exe to the runner temporary directory
 ```
 
+The first complete stable tag-triggered publication is
+[Release #32629413793](https://github.com/neprel/git-a2a/actions/runs/32629413793) for v1.0.1:
+test, GoReleaser/GHCR, npm OIDC, PyPI OIDC, Homebrew, and Scoop all completed successfully.
+[Installer checks #32629684742](https://github.com/neprel/git-a2a/actions/runs/32629684742)
+then installed Scoop 1.0.1 on `windows-latest`; the version assertion is derived from
+`internal/version/VERSION`. A native Homebrew reinstall also proved that conditional quarantine
+removal succeeds when `com.apple.quarantine` is already absent.
+
 Before a stable release, manually exercise replacement of an installed binary on Windows:
 
 ```powershell
