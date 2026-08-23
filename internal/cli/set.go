@@ -331,16 +331,17 @@ func (a *App) applySet(o setOptions) int {
 		return 0
 	}
 	snapshots := snapshotAdapterFiles(root)
-	outcomes, err := rewireSet(a.context(), root, oldDep, next, oldManifest, nextManifest, locked, !o.noRefresh)
-	if err != nil {
-		restoreAdapterFiles(root, snapshots)
-		fmt.Fprintf(a.Err, "set: wiring failed and was rolled back: %v\n", err)
-		return 1
-	}
 	vendorRollback, err := a.applyVendorTransition(root, own, &oldDep, next, &oldEntry, &locked, o.force)
 	if err != nil {
 		restoreAdapterFiles(root, snapshots)
 		fmt.Fprintf(a.Err, "set: vendor failed and was rolled back: %v\n", err)
+		return 1
+	}
+	outcomes, err := rewireSet(a.context(), root, oldDep, next, oldManifest, nextManifest, locked, !o.noRefresh)
+	if err != nil {
+		restoreAdapterFiles(root, snapshots)
+		_ = vendorRollback()
+		fmt.Fprintf(a.Err, "set: wiring failed and was rolled back: %v\n", err)
 		return 1
 	}
 	stagedRoot := filepath.Join(work, "staged-cache")

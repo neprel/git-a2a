@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -225,7 +226,8 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 		t.Fatal("vendored submodule did not advance with lock")
 	}
 
-	run("set", "acme-native", "--vendor", "copy", "--no-refresh")
+	installVendorAwareUV(t, filepath.Join(consumer, "deps", "acme-native"))
+	run("set", "acme-native", "--vendor", "copy")
 	copyLock, _ := manifest.LoadLock(filepath.Join(consumer, "a2amodule.lock"))
 	copyEntry := copyLock.Dependencies["acme-native"]
 	if copyEntry.Vendor == nil || copyEntry.Vendor.Mode != "copy" || copyEntry.Vendor.Tree == "" {
@@ -281,6 +283,22 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	} else if len(entries) != 0 {
 		t.Fatalf("remove left .git/modules residue: %v", entries)
 	}
+}
+
+func installVendorAwareUV(t *testing.T, expectedVendor string) {
+	t.Helper()
+	dir := t.TempDir()
+	if runtime.GOOS == "windows" {
+		mustWrite(t, filepath.Join(dir, "uv.bat"), []byte("@echo off\r\nif \"%1\"==\"--version\" (echo uv 0.0.0& exit /b 0)\r\nif not exist \"%GITA2A_EXPECT_VENDOR%\\.\" (echo vendor missing 1>&2& exit /b 2)\r\nexit /b 0\r\n"))
+	} else {
+		path := filepath.Join(dir, "uv")
+		mustWrite(t, path, []byte("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 'uv 0.0.0'; exit 0; fi\nif [ ! -d \"$GITA2A_EXPECT_VENDOR\" ]; then echo 'vendor missing' >&2; exit 2; fi\n"))
+		if err := os.Chmod(path, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("GITA2A_EXPECT_VENDOR", expectedVendor)
 }
 
 func TestAddStoresRemoteDefaultBranchInsteadOfHEAD(t *testing.T) {

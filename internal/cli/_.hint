@@ -68,6 +68,8 @@ mode/path or `--no-vendor`; `update` moves the materialisation with the lock; `f
 restore missing materialisation; `remove` removes all Git residue. `set`, `update`, and `remove`
 refuse dirty/drifted vendor state unless `--force` makes data loss explicit. Transport rollback
 restores the old materialisation when later metadata, cache, or adapter publication fails.
+`set` materialises the candidate vendor before adapter Refresh so file/path resolvers can read
+it; the transport rollback remains live until every later publication step succeeds.
 
 # decision Usage is a deterministic agent briefing
 
