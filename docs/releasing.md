@@ -104,5 +104,8 @@ this manual check covers the live executable-replacement path that a unit test c
    JSON Schema with a pinned generator, and validates both card and catalog exports.
 3. Push the tag. Verify GitHub archives, checksums, SBOMs, deb/rpm/apk, GHCR, and every configured
    optional channel. A prerelease tag must remain a GitHub prerelease and must not become latest.
-4. Create the stable tag on the exact reviewed commit only after the release-candidate path is
+4. Run `gh workflow run release-smoke.yml -f tag=v<VERSION>` and require all three native jobs
+   (Linux, macOS, Windows) to print the exact version, list the eight default MCP tools through
+   stdio, and complete `setup --dry-run` against the downloaded release binary.
+5. Create the stable tag on the exact reviewed commit only after the release-candidate path is
    clean. If any source changed, run a new release candidate first.

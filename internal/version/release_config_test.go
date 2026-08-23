@@ -163,6 +163,7 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	workflow := read(".github/workflows/release.yml")
 	ciWorkflow := read(".github/workflows/ci.yml")
 	installerWorkflow := read(".github/workflows/installers.yml")
+	smokeWorkflow := read(".github/workflows/release-smoke.yml")
 	if attributes := read(".gitattributes"); !strings.Contains(attributes, "* text=auto eol=lf") {
 		t.Error("repository text files must retain LF line endings on every runner")
 	}
@@ -186,6 +187,14 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	}
 	if strings.Contains(installerWorkflow, `'^git-a2a 1\.0\.0`) {
 		t.Error("live Scoop check must derive the expected version from internal/version/VERSION")
+	}
+	for _, required := range []string{"ubuntu-latest", "macos-latest", "windows-latest", "gh release download", "go run ./tools/mcp-smoke", "setup --harness codex --dry-run"} {
+		if !strings.Contains(smokeWorkflow, required) {
+			t.Errorf("release smoke workflow missing %q", required)
+		}
+	}
+	if got := strings.Count(smokeWorkflow, "uses:"); got != 2 || strings.Count(smokeWorkflow, "# v") != got {
+		t.Errorf("release smoke actions must be SHA-pinned with version comments: uses=%d comments=%d", got, strings.Count(smokeWorkflow, "# v"))
 	}
 	goReleaserEnv := regexp.MustCompile(`(?s)uses: goreleaser/goreleaser-action@[0-9a-f]{40}.*?env:\s+GORELEASER_CURRENT_TAG: \$\{\{ env\.RELEASE_TAG \}\}`)
 	if !goReleaserEnv.MatchString(workflow) {

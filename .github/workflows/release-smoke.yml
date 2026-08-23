@@ -1,0 +1,63 @@
+name: Release smoke
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Immutable release tag to exercise
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  released-binary:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, asset: git-a2a_VERSION_linux_amd64.tar.gz, binary: git-a2a }
+          - { os: macos-latest, asset: git-a2a_VERSION_darwin_arm64.tar.gz, binary: git-a2a }
+          - { os: windows-latest, asset: git-a2a_VERSION_windows_amd64.zip, binary: git-a2a.exe }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.25.x'
+          cache: true
+      - name: Download the immutable release binary
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          ASSET_TEMPLATE: ${{ matrix.asset }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          asset="${ASSET_TEMPLATE/VERSION/$version}"
+          mkdir release-smoke
+          gh release download "$RELEASE_TAG" --pattern "$asset" --dir release-smoke
+          case "$asset" in
+            *.zip) unzip -q "release-smoke/$asset" -d release-smoke ;;
+            *) tar xzf "release-smoke/$asset" -C release-smoke ;;
+          esac
+      - name: Exercise version, MCP discovery, and setup
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          BINARY_NAME: ${{ matrix.binary }}
+        run: |
+          set -euo pipefail
+          binary="$PWD/release-smoke/$BINARY_NAME"
+          version="${RELEASE_TAG#v}"
+          output="$($binary version)"
+          printf '%s\n' "$output"
+          case "$output" in
+            "git-a2a $version "*) ;;
+            *) echo "unexpected version output" >&2; exit 1 ;;
+          esac
+          go run ./tools/mcp-smoke --binary "$binary"
+          mkdir release-smoke-root
+          cd release-smoke-root
+          git init -q
+          "$binary" init --id acme-smoke
+          "$binary" setup --harness codex --dry-run
