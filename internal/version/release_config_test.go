@@ -26,7 +26,7 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	if attributes := read(".gitattributes"); !strings.Contains(attributes, "* text=auto eol=lf") {
 		t.Error("repository text files must retain LF line endings on every runner")
 	}
-	for _, required := range []string{"needs: test", "permissions: {}", "contents: write", "packages: write", "id-token: write", "--skip=homebrew", "--skip=scoop", "node-version: '24'", "npm@11.5.1", "npm_tag=latest", "npm_tag=next", `npm publish "./$package" --access public --tag "$npm_tag"`, `npm publish ./npm-packages/git-a2a --access public --tag "$npm_tag"`, "docker/setup-buildx-action@", "docker logout ghcr.io", "workflow_dispatch:", "Disable immutable GitHub release upload during recovery", "sed -i '/^release:$/a\\  disable: true' .goreleaser.yaml", "GORELEASER_CURRENT_TAG", "RELEASE_TAG: ${{ inputs.tag || github.ref_name }}"} {
+	for _, required := range []string{"needs: test", "permissions: {}", "contents: write", "packages: write", "id-token: write", "--skip=homebrew", "--skip=scoop", "node-version: '24'", "npm@11.5.1", "npm_tag=latest", "npm_tag=next", `npm publish "./$package" --access public --tag "$npm_tag"`, `npm publish ./npm-packages/git-a2a --access public --tag "$npm_tag"`, "docker/setup-buildx-action@", "docker logout ghcr.io", "workflow_dispatch:", "Select GoReleaser configuration", `config_file="$RUNNER_TEMP/goreleaser-recovery.yaml"`, "sed -i '/^release:$/a\\  disable: true' \"$config_file\"", "--config ${{ steps.release_config.outputs.path }}", "GORELEASER_CURRENT_TAG", "RELEASE_TAG: ${{ inputs.tag || github.ref_name }}"} {
 		if !strings.Contains(workflow, required) {
 			t.Errorf("release workflow missing %q", required)
 		}
