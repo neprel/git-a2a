@@ -1,7 +1,10 @@
 package vendor
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +16,22 @@ import (
 	"github.com/neprel/git-a2a/internal/gitx"
 	"github.com/neprel/git-a2a/internal/manifest"
 )
+
+func TestCopySymlinkFailureIsActionableOnEveryPlatform(t *testing.T) {
+	var archive bytes.Buffer
+	writer := tar.NewWriter(&archive)
+	if err := writer.WriteHeader(&tar.Header{Name: "README.link", Linkname: "README.md", Typeflag: tar.TypeSymlink, Mode: 0o777}); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	manager := Manager{Symlink: func(string, string) error { return errors.New("privilege unavailable") }}
+	err := manager.extractArchive(archive.Bytes(), t.TempDir())
+	if err == nil || !strings.Contains(err.Error(), "cannot preserve symlink README.link") || !strings.Contains(err.Error(), "use --vendor submodule") {
+		t.Fatalf("symlink error = %v", err)
+	}
+}
 
 func TestSubmoduleRoundTripDriftAndResidueCleanup(t *testing.T) {
 	consumer, url, commit := repositories(t)

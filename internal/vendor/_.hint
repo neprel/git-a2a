@@ -21,6 +21,8 @@ that Git invocation. Global or repository Git configuration is never weakened.
 Materialise regular and executable blobs with their recorded modes and 120000 entries as symlinks.
 Reject gitlinks because copy mode cannot materialise nested-submodule content. If the platform
 cannot create a symlink, fail explicitly and roll back instead of writing its target as a file.
+The diagnostic names the entry and recommends enabling symlink privileges or switching to
+`--vendor submodule`; an injected failure regression runs on Windows as well as POSIX.
 
 # decision Transport rollback owns every Git residue
 

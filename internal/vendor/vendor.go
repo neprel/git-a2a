@@ -21,7 +21,8 @@ import (
 const StampName = ".git-a2a-vendored"
 
 type Manager struct {
-	Runner gitx.Runner
+	Runner  gitx.Runner
+	Symlink func(string, string) error
 }
 
 type Finding struct {
@@ -370,7 +371,7 @@ func (m Manager) applyCopy(ctx context.Context, root string, dep manifest.Depend
 		return "", err
 	}
 	staged := filepath.Join(temp, "tree")
-	if err = extractArchive(archive, staged); err != nil {
+	if err = m.extractArchive(archive, staged); err != nil {
 		return "", err
 	}
 	stamp := []byte(fmt.Sprintf("id: %s\ncommit: %s\ntree: tree:%s\n", dep.ID, locked.Commit, tree))
@@ -467,7 +468,7 @@ func (m Manager) run(ctx context.Context, dir, url string, args ...string) ([]by
 	return m.Runner.Run(ctx, dir, nil, args...)
 }
 
-func extractArchive(body []byte, dest string) error {
+func (m Manager) extractArchive(body []byte, dest string) error {
 	if err := os.MkdirAll(dest, 0o755); err != nil {
 		return err
 	}
@@ -509,8 +510,12 @@ func extractArchive(body []byte, dest string) error {
 			if err = os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 				return err
 			}
-			if err = os.Symlink(header.Linkname, target); err != nil {
-				return fmt.Errorf("create vendored symlink %s: %w", header.Name, err)
+			symlink := m.Symlink
+			if symlink == nil {
+				symlink = os.Symlink
+			}
+			if err = symlink(header.Linkname, target); err != nil {
+				return fmt.Errorf("copy vendor cannot preserve symlink %s: %w; enable symlink privileges or use --vendor submodule", header.Name, err)
 			}
 		}
 	}
