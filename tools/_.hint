@@ -1,0 +1,36 @@
+# decision Release-channel manifests come from immutable assets {#channel_checksums}
+
+`release-channels.py` renders the Homebrew formula and Scoop manifest from the `checksums.txt`
+already attached to the named GitHub Release. A recovery rebuild is never a checksum source:
+GoReleaser archives rebuilt from the same tag can have different bytes, while their published
+URLs still resolve to the original immutable assets. Missing expected archive names or malformed
+SHA-256 values are fatal; never guess, reuse a rebuild hash, or overwrite a release asset.
+
+# decision Homebrew uses a formula until macOS artifacts are notarized {#homebrew_quarantine}
+
+An unsigned, non-notarized macOS binary downloaded as a cask is assigned
+`com.apple.quarantine`; macOS Gatekeeper rejects its first launch (observed as exit 137 after a
+successful checksum-verified install). The tap therefore publishes `Formula/git-a2a.rb`. The
+formula installs the already checksum-verified release binary and then removes quarantine from
+that one installed file before its `test` invokes `git-a2a --version`. Do not publish a cask or
+remove this targeted step until the release pipeline signs and notarizes both macOS binaries.
+
+# invariant Channel output is deterministic and self-testing
+
+Given the same tag and `checksums.txt`, the renderer writes identical bytes. Formula URLs and
+Scoop URLs name the tag-specific archives; every emitted hash is looked up by that exact archive
+name. The formula test must execute the installed binary and the Scoop manifest must preserve
+separate amd64 and arm64 hashes.
+
+# test Release channels
+
+- A fixture `checksums.txt` drives both manifests and all four hashes appear in their correct
+  architecture entries.
+- A missing expected archive fails instead of emitting a partial manifest.
+- A recovery dispatch skips GoReleaser's Homebrew/Scoop publishers, downloads the immutable
+  release checksums, removes any obsolete cask, and commits only changed formula/bucket files.
+- A real Homebrew install has no quarantine attribute and prints `channel=brew` on first launch.
+- The Windows amd64 Scoop archive hash matches the manifest and its executable prints
+  `channel=scoop` under Wine on an amd64 host or a Windows runner. Do not treat Wine under amd64
+  QEMU on Apple Silicon as a valid gate: `scottyhardy/docker-wine` aborts in
+  `anon_mmap_fixed` before the executable starts because of the emulated host page layout.

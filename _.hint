@@ -114,7 +114,14 @@ other tag before publishing. Build and tests pass before any publishing job.
 On Windows a standalone-binary upgrade renames the running executable to an adjacent `.old`
 file before installing its replacement; a failed install restores it, and the next invocation
 removes the `.old` remnant best-effort.
-Homebrew and Scoop publication is optional and skipped when its repository token is absent;
+Homebrew and Scoop publication is optional and skipped when its repository token is absent. A
+dedicated channel renderer reads hashes only from the immutable release `checksums.txt`; recovery
+rebuild archives are never a checksum source because archive bytes may differ. Until the macOS
+binary is Apple-signed and notarized, the tap publishes a formula rather than a cask: Homebrew
+verifies the release SHA-256 first, then the formula removes `com.apple.quarantine` from only the
+installed `git-a2a` binary, and `brew test` proves the first launch. The Scoop channel is verified
+on `windows-latest`; Wine under amd64 QEMU on Apple Silicon can abort in its memory-mapping layer
+before the Windows executable starts and is not a substitute for that gate.
 npm uses token-less trusted publishing from `release.yml` on Node 24 with npm 11.5.1 or newer,
 one publisher binding per launcher/platform package, `id-token: write`, and repository metadata
 matching `neprel/git-a2a`; npm prereleases use dist-tag `next` and stable releases use `latest`.
@@ -122,10 +129,10 @@ PyPI uses its protected GitHub environment and OIDC. winget is
 not automated in the first release: add it only after a stable package identity and publisher
 account exist. Prerelease tags are GitHub prereleases and never the `latest` release.
 Recovery dispatches rebuild from the immutable tag with SCM artifact upload disabled, so existing
-GitHub assets are never overwritten while release URLs remain available and downstream npm, PyPI,
-Homebrew and Scoop publishers can be retried from the existing release. npm recovery checks each
-immutable package version and leaves an already-published version unchanged before continuing with
-missing packages.
+GitHub assets are never overwritten while downstream npm, PyPI, Homebrew and Scoop publishers can
+be retried from the existing release. Homebrew and Scoop are rendered from the already-published
+checksums. npm recovery checks each immutable package version and leaves an already-published
+version unchanged before continuing with missing packages.
 Release notes group user-visible conventional commits as features, fixes, performance,
 refactoring, and documentation while omitting chore, CI, and test-only commits; their header
 and footer explain the release, installation, checksums, and CLI reference. The GHCR image is

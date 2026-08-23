@@ -67,12 +67,12 @@ jobs:
         id: release_args
         run: |
           args='release --clean'
-          if [ -z "$HOMEBREW_TAP_TOKEN" ]; then args="$args --skip=homebrew"; fi
-          if [ -z "$SCOOP_BUCKET_TOKEN" ]; then args="$args --skip=scoop"; fi
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            args="$args --skip=homebrew --skip=scoop"
+          fi
           echo "args=$args" >> "$GITHUB_OUTPUT"
         env:
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
       - uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6.4.0
         with:
           distribution: goreleaser
@@ -81,12 +81,65 @@ jobs:
         env:
           GORELEASER_CURRENT_TAG: ${{ env.RELEASE_TAG }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
       - name: Verify the linked GHCR package is public
         run: |
           docker logout ghcr.io
           docker manifest inspect "ghcr.io/neprel/git-a2a:${RELEASE_TAG#v}" >/dev/null
+  channels:
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Check channel credentials
+        id: credentials
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
+        run: |
+          enabled=false
+          if [ -n "$HOMEBREW_TAP_TOKEN" ] && [ -n "$SCOOP_BUCKET_TOKEN" ]; then enabled=true; fi
+          echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
+      - name: Render manifests from immutable release assets
+        if: steps.credentials.outputs.enabled == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
+        run: |
+          set -euo pipefail
+          release_dir="$RUNNER_TEMP/release-channel"
+          brew_dir="$RUNNER_TEMP/homebrew-tap"
+          scoop_dir="$RUNNER_TEMP/scoop-bucket"
+          mkdir -p "$release_dir"
+          gh release download "$RELEASE_TAG" --pattern checksums.txt --dir "$release_dir"
+          GH_TOKEN="$HOMEBREW_TAP_TOKEN" gh auth setup-git
+          GH_TOKEN="$HOMEBREW_TAP_TOKEN" gh repo clone neprel/homebrew-tap "$brew_dir"
+          GH_TOKEN="$SCOOP_BUCKET_TOKEN" gh auth setup-git
+          GH_TOKEN="$SCOOP_BUCKET_TOKEN" gh repo clone neprel/scoop-bucket "$scoop_dir"
+          python3 tools/release-channels.py \
+            --tag "$RELEASE_TAG" \
+            --checksums "$release_dir/checksums.txt" \
+            --homebrew "$brew_dir/Formula/git-a2a.rb" \
+            --scoop "$scoop_dir/git-a2a.json"
+          if git -C "$brew_dir" ls-files --error-unmatch Casks/git-a2a.rb >/dev/null 2>&1; then
+            git -C "$brew_dir" rm Casks/git-a2a.rb
+          fi
+          git -C "$brew_dir" add Formula/git-a2a.rb
+          git -C "$scoop_dir" add git-a2a.json
+          for channel_dir in "$brew_dir" "$scoop_dir"; do
+            git -C "$channel_dir" config user.name git-a2a-release
+            git -C "$channel_dir" config user.email neprel@users.noreply.github.com
+          done
+          if ! git -C "$brew_dir" diff --cached --quiet; then
+            git -C "$brew_dir" commit -m "Brew formula update for git-a2a $RELEASE_TAG"
+            GH_TOKEN="$HOMEBREW_TAP_TOKEN" git -C "$brew_dir" push
+          fi
+          if ! git -C "$scoop_dir" diff --cached --quiet; then
+            git -C "$scoop_dir" commit -m "Scoop update for git-a2a $RELEASE_TAG"
+            GH_TOKEN="$SCOOP_BUCKET_TOKEN" git -C "$scoop_dir" push
+          fi
   npm:
     needs: goreleaser
     runs-on: ubuntu-latest

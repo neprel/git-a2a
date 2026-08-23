@@ -133,22 +133,6 @@ release:
 
     Verify downloaded archives against `checksums.txt`. See the
     [CLI reference](https://github.com/neprel/git-a2a/blob/main/docs/cli.md) for every command.
-homebrew_casks:
-  - repository:
-      owner: neprel
-      name: homebrew-tap
-      token: '{{ .Env.HOMEBREW_TAP_TOKEN }}'
-    homepage: https://github.com/neprel/git-a2a
-    description: Import git modules together with their owning agents
-    ids: [brew]
-scoops:
-  - repository:
-      owner: neprel
-      name: scoop-bucket
-      token: '{{ .Env.SCOOP_BUCKET_TOKEN }}'
-    homepage: https://github.com/neprel/git-a2a
-    description: Import git modules together with their owning agents
-    ids: [scoop]
 nfpms:
   - id: deb
     package_name: git-a2a

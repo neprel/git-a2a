@@ -13,6 +13,12 @@ on:
       - sites/git-a2a.com/install.ps1
       - .github/workflows/installers.yml
   workflow_dispatch:
+    inputs:
+      live_channels:
+        description: Exercise published Homebrew/Scoop channels
+        required: false
+        default: false
+        type: boolean
 permissions:
   contents: read
 jobs:
@@ -56,3 +62,19 @@ jobs:
           GIT_A2A_TEST_OS: windows
           GIT_A2A_TEST_ARCH: amd64
         run: '& sites/git-a2a.com/install.ps1 --version 1.0.0 --dir "$env:RUNNER_TEMP\git-a2a" --dry-run'
+  scoop-live:
+    if: github.event_name == 'workflow_dispatch' && inputs.live_channels
+    runs-on: windows-latest
+    steps:
+      - name: Install from the public Scoop bucket
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+          Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+          scoop bucket add git-a2a https://github.com/neprel/scoop-bucket
+          scoop install git-a2a/git-a2a
+          $version = git-a2a --version
+          $version
+          if ($version -notmatch '^git-a2a 1\.0\.0 .*windows/amd64, channel=scoop\)$') {
+            throw "unexpected Scoop binary: $version"
+          }

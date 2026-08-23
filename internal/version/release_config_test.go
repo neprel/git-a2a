@@ -1,6 +1,7 @@
 package version
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,6 +10,63 @@ import (
 	"strings"
 	"testing"
 )
+
+func TestReleaseChannelManifestsUseImmutableChecksums(t *testing.T) {
+	_, file, _, _ := runtime.Caller(0)
+	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+	temp := t.TempDir()
+	checksums := filepath.Join(temp, "checksums.txt")
+	formula := filepath.Join(temp, "Formula", "git-a2a.rb")
+	scoop := filepath.Join(temp, "git-a2a.json")
+	body := strings.Join([]string{
+		strings.Repeat("a", 64) + "  git-a2a_brew_1.2.3_darwin_amd64.tar.gz",
+		strings.Repeat("b", 64) + "  git-a2a_brew_1.2.3_darwin_arm64.tar.gz",
+		strings.Repeat("c", 64) + "  git-a2a_scoop_1.2.3_windows_amd64.zip",
+		strings.Repeat("d", 64) + "  git-a2a_scoop_1.2.3_windows_arm64.zip",
+	}, "\n") + "\n"
+	if err := os.WriteFile(checksums, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	command := exec.Command("python3", filepath.Join(root, "tools", "release-channels.py"),
+		"--tag", "v1.2.3", "--checksums", checksums, "--homebrew", formula, "--scoop", scoop)
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("render release channels: %v: %s", err, output)
+	}
+	formulaBody, err := os.ReadFile(formula)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{strings.Repeat("a", 64), strings.Repeat("b", 64),
+		`system "/usr/bin/xattr", "-d", "com.apple.quarantine", bin/"git-a2a"`, "git-a2a_brew_1.2.3"} {
+		if !strings.Contains(string(formulaBody), expected) {
+			t.Errorf("Homebrew formula missing %q", expected)
+		}
+	}
+	var scoopManifest struct {
+		Architecture map[string]struct {
+			Hash string `json:"hash"`
+		} `json:"architecture"`
+	}
+	scoopBody, err := os.ReadFile(scoop)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(scoopBody, &scoopManifest); err != nil {
+		t.Fatal(err)
+	}
+	if scoopManifest.Architecture["64bit"].Hash != strings.Repeat("c", 64) || scoopManifest.Architecture["arm64"].Hash != strings.Repeat("d", 64) {
+		t.Fatal("Scoop manifest did not retain immutable release checksums")
+	}
+	missing := filepath.Join(temp, "missing-checksums.txt")
+	if err := os.WriteFile(missing, []byte(strings.Repeat("a", 64)+"  git-a2a_brew_1.2.3_darwin_amd64.tar.gz\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	command = exec.Command("python3", filepath.Join(root, "tools", "release-channels.py"),
+		"--tag", "v1.2.3", "--checksums", missing, "--homebrew", formula, "--scoop", scoop)
+	if output, err := command.CombinedOutput(); err == nil || !strings.Contains(string(output), "release checksum missing") {
+		t.Fatalf("missing archive checksum must fail clearly: err=%v output=%s", err, output)
+	}
+}
 
 func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
@@ -23,10 +81,11 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	}
 	workflow := read(".github/workflows/release.yml")
 	ciWorkflow := read(".github/workflows/ci.yml")
+	installerWorkflow := read(".github/workflows/installers.yml")
 	if attributes := read(".gitattributes"); !strings.Contains(attributes, "* text=auto eol=lf") {
 		t.Error("repository text files must retain LF line endings on every runner")
 	}
-	for _, required := range []string{"needs: test", "permissions: {}", "contents: write", "packages: write", "id-token: write", "--skip=homebrew", "--skip=scoop", "node-version: '24'", "npm@11.5.1", "npm_tag=latest", "npm_tag=next", "publish_if_missing()", `npm view "${package_name}@${package_version}" version`, `npm publish "./${package_dir}" --access public --tag "$npm_tag"`, "docker/setup-buildx-action@", "docker logout ghcr.io", "workflow_dispatch:", "Select GoReleaser configuration", `config_file="$RUNNER_TEMP/goreleaser-recovery.yaml"`, "sed -i '/^release:$/a\\  skip_upload: true' \"$config_file\"", "--config ${{ steps.release_config.outputs.path }}", "GORELEASER_CURRENT_TAG", "RELEASE_TAG: ${{ inputs.tag || github.ref_name }}"} {
+	for _, required := range []string{"needs: test", "permissions: {}", "contents: write", "packages: write", "id-token: write", "--skip=homebrew", "--skip=scoop", "node-version: '24'", "npm@11.5.1", "npm_tag=latest", "npm_tag=next", "publish_if_missing()", `npm view "${package_name}@${package_version}" version`, `npm publish "./${package_dir}" --access public --tag "$npm_tag"`, "docker/setup-buildx-action@", "docker logout ghcr.io", "workflow_dispatch:", "Select GoReleaser configuration", `config_file="$RUNNER_TEMP/goreleaser-recovery.yaml"`, "sed -i '/^release:$/a\\  skip_upload: true' \"$config_file\"", "--config ${{ steps.release_config.outputs.path }}", "GORELEASER_CURRENT_TAG", "RELEASE_TAG: ${{ inputs.tag || github.ref_name }}", "tools/release-channels.py", "--pattern checksums.txt", "Formula/git-a2a.rb", "Casks/git-a2a.rb", "HOMEBREW_TAP_TOKEN", "SCOOP_BUCKET_TOKEN"} {
 		if !strings.Contains(workflow, required) {
 			t.Errorf("release workflow missing %q", required)
 		}
@@ -38,6 +97,11 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	}
 	if regexp.MustCompile(`(?m)^\s*if:\s*\$\{\{\s*secrets\.`).MatchString(workflow) {
 		t.Error("GitHub Actions does not allow the secrets context directly in an if expression")
+	}
+	for _, required := range []string{"live_channels:", "scoop-live:", "scoop install git-a2a/git-a2a", "channel=scoop"} {
+		if !strings.Contains(installerWorkflow, required) {
+			t.Errorf("installer workflow missing live Scoop check %q", required)
+		}
 	}
 	goReleaserEnv := regexp.MustCompile(`(?s)uses: goreleaser/goreleaser-action@[0-9a-f]{40}.*?env:\s+GORELEASER_CURRENT_TAG: \$\{\{ env\.RELEASE_TAG \}\}`)
 	if !goReleaserEnv.MatchString(workflow) {

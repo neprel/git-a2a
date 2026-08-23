@@ -13,9 +13,9 @@ The workflow uses the repository `GITHUB_TOKEN` for GitHub Releases and
 `ghcr.io/neprel/git-a2a`. Configure these optional channels separately:
 
 - `HOMEBREW_TAP_TOKEN`: a fine-grained token with write access to
-  `neprel/homebrew-tap`. If absent, GoReleaser skips Homebrew publishing.
+  `neprel/homebrew-tap`. If absent, the channel job skips Homebrew publishing.
 - `SCOOP_BUCKET_TOKEN`: a fine-grained token with write access to
-  `neprel/scoop-bucket`. If absent, GoReleaser skips Scoop publishing.
+  `neprel/scoop-bucket`. If absent, the channel job skips Scoop publishing.
 - npm: `git-a2a` and every `@git-a2a/*` platform package register `neprel/git-a2a` and
   `release.yml` as their GitHub Actions trusted publisher with `npm publish` permission. The
   job uses Node 24, npm 11.5.1 and OIDC; it has no long-lived npm token. Prereleases receive
@@ -31,18 +31,26 @@ requires when authenticating its trusted publisher.
 
 A `workflow_dispatch` recovery checks out the immutable tag, copies that tag's GoReleaser config
 outside the checkout, and injects `release.skip_upload: true` into the copy before rebuilding.
-The checkout remains clean, existing GitHub release assets remain untouched, release URLs stay
-available to the Homebrew and Scoop publishers, and downstream package channels can be retried.
-npm checks each immutable package version and leaves an already-published version unchanged.
-Tag-triggered releases use the checked-in config with artifact upload enabled.
+The checkout remains clean and existing GitHub release assets remain untouched. The channel job
+downloads the published `checksums.txt` and renders Homebrew/Scoop manifests from those immutable
+asset hashes; it must never use hashes from a recovery rebuild, whose archives need not be
+byte-identical. npm checks each immutable package version and leaves an already-published version
+unchanged. Tag-triggered releases use the checked-in config with artifact upload enabled.
 
 ## macOS and Windows status
 
-The Homebrew cask artifacts are currently not Apple-signed or notarized. This is an explicit
-early-release limitation: users may need to remove the downloaded-file quarantine attribute,
-and signing/notarization should be configured before claiming Gatekeeper-clean installation.
+The macOS binaries are not yet Apple-signed or notarized. A cask or direct browser download is
+therefore quarantined and Gatekeeper rejects its first launch. The tap publishes a checksum-
+verified formula instead: after Homebrew verifies the immutable release SHA-256, its install step
+removes `com.apple.quarantine` from that one binary. `brew test neprel/tap/git-a2a` must exercise
+the first launch. Apple signing/notarization remains required before publishing a cask or claiming
+that direct downloads are Gatekeeper-clean.
 The Scoop bucket is automated. winget submission is deliberately deferred until the stable
 package identity and publisher account exist; it is not part of the first automated release.
+Run `gh workflow run installers.yml -f live_channels=true` after publishing a stable manifest;
+the `scoop-live` job installs from the public bucket on `windows-latest` and asserts the exact
+version, target, and `channel=scoop`. Wine under amd64 QEMU on Apple Silicon is not an equivalent
+gate: the container runtime can abort before the Windows executable starts.
 
 Before a stable release, manually exercise replacement of an installed binary on Windows:
 
