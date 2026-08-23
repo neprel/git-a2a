@@ -126,6 +126,10 @@ The README distribution matrix uses a check mark only after the public artifact 
 through that exact channel on its native platform; a generated manifest or a local rebuild is not
 channel verification. A live site installer check must additionally assert its production MIME
 type before executing the downloaded text in dry-run mode.
+GitHub currently annotates the pinned `actions/checkout` v4 line because the action declares
+Node 20 while hosted runners force it onto Node 24. This is a maintenance warning, not an
+installer failure: replace the full SHA only with a reviewed official checkout release that
+declares the supported runtime; do not hide or disable the annotation.
 npm uses token-less trusted publishing from `release.yml` on Node 24 with npm 11.5.1 or newer,
 one publisher binding per launcher/platform package, `id-token: write`, and repository metadata
 matching `neprel/git-a2a`; npm prereleases use dist-tag `next` and stable releases use `latest`.
