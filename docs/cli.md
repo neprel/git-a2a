@@ -8,13 +8,21 @@ The repository's `.hint` sources and the commands used to read them are explaine
 
 ## init
 
-`git-a2a init [--id ID] [--description TEXT] [--surface DIR] [--export ECOSYSTEM=NAME] [--yes]`
+`git-a2a init [--id ID] [--description TEXT] [--surface DIR] [--export ECOSYSTEM=NAME]
+[--example lib|app] [--yes]`
 creates `a2amodule.yml` and adds `.git-a2a/` to `.gitignore`. Repeat `--export`; `--yes` is an
-accepted no-op for automation. Exit `1` if a manifest already exists.
+accepted no-op for automation. `--example lib|app` writes a complete, commented owner or
+consumer manifest; it may be combined with `--id`, but not the other content flags. Exit `1` if
+a manifest already exists; invalid combinations exit `2`.
 
 ```text
 $ git-a2a init --id acme-app --yes
 initialized module acme-app
+```
+
+```text
+$ git-a2a init --example lib --id acme-lib
+initialized lib example module acme-lib
 ```
 
 ## validate
@@ -214,6 +222,61 @@ module or agents resolved.
 ```text
 $ git-a2a catalog export --out ai-catalog.json
 exported 2 A2A catalog entrie(s)
+```
+
+## agent
+
+`git-a2a agent add NAME --role ROLE [--scope GLOB]... [--card URL] [--contact FIELDS]...
+[--yes]` adds an agent binding. Each contact is comma-separated `key=value`; list values such as
+`intents` and `labels` use `|`, for example
+`intents=question|change,kind=github-issue,repo=acme/lib,labels=from-agent|change-request`.
+`git-a2a agent remove NAME [--yes]` removes it. `git-a2a agent list [--json] [--yes]` returns
+agents in stable name order. Mutations validate and atomically write canonical YAML, then update
+an existing AGENTS.md managed block. Invalid fields exit `2`; validation/write failures and
+duplicates exit `1`; an unknown removal or empty list exits `2`.
+
+```text
+$ git-a2a agent add acme-lib-owner --role owner --scope '**' --contact 'intents=question|change,kind=github-issue,repo=acme/lib'
+added agent acme-lib-owner
+$ git-a2a agent list
+acme-lib-owner  owner  **  1 contact(s)
+1 agent(s)
+```
+
+## export
+
+`git-a2a export add ECOSYSTEM NAME [--path PATH] [--yes]` adds a native export to the current
+module. The result is validated and written atomically; relative path and duplicate violations
+exit `1`, while invalid arguments exit `2`.
+
+```text
+$ git-a2a export add npm @acme/lib --path packages/js
+added npm export @acme/lib
+```
+
+## policy
+
+`git-a2a policy set INTENT=ROLE [INTENT=ROLE ...] [--yes]` creates or updates intent routing
+without replacing consumer permissions, notes, extensions, or unrelated mappings. It writes
+canonical YAML atomically. Invalid mappings exit `2`; validation/write failures exit `1`.
+
+```text
+$ git-a2a policy set question=owner change=spec
+set 2 policy intent(s)
+```
+
+## explain
+
+`git-a2a explain PATH [--json] [--yes]` prints the generated reference entry embedded in this
+binary. Array markers may be omitted, so `agents.contacts.kind` resolves to
+`agents[].contacts[].kind`. It performs no repository or network access. Unknown paths and
+invalid arguments exit `2`.
+
+```text
+$ git-a2a explain module.id
+## `module.id`
+- Type: string; required.
+…
 ```
 
 ## fmt

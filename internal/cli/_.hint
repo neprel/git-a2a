@@ -57,3 +57,22 @@ adapters; missing lock coordinates or hash mismatches exit 1 and preserve the ol
 exit classes, structured-output guidance, and the canonical reference. `--prompt` appends the
 complete fresh-agent workflow and `--json` returns the same ordered lines. Both forms are embedded
 constants: they do not inspect the repository, network, terminal, clock, or environment.
+
+# decision Authoring helpers construct valid manifests without prompts
+
+`agent add/remove/list`, `export add`, and `policy set` are non-interactive, noun-first helpers
+for manifest authors. Mutations load and validate the existing manifest, apply exactly the
+requested typed change, validate again, emit canonical YAML atomically, and refresh an existing
+AGENTS.md managed block. A roster-refresh failure restores the original manifest and roster.
+Repeated `--scope` and `--contact` flags preserve declaration order; contact fields use
+comma-separated `key=value` pairs and `|` only inside list values such as intents and labels.
+They accept `--yes` as a no-op for automation. `init --example lib|app` writes a complete valid,
+commented starting manifest and never overwrites an existing one.
+
+# decision Explain embeds the generated normative field reference
+
+`git-a2a explain PATH [--json]` reads no repository, environment, clock, or network. Its content
+is the byte-identical generated `docs/manifest-reference.md` embedded at build time; the docs
+generator updates and drift-checks both copies, so the command cannot become a second normative
+source. Authors may omit `[]` from array paths (`agents.contacts.kind` resolves to
+`agents[].contacts[].kind`). Unknown paths exit 2.

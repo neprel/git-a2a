@@ -120,6 +120,14 @@ func (a *App) Run(args []string) int {
 		return a.doctor(args[1:])
 	case "usage":
 		return a.agentUsage(args[1:])
+	case "agent":
+		return a.agent(args[1:])
+	case "export":
+		return a.export(args[1:])
+	case "policy":
+		return a.policy(args[1:])
+	case "explain":
+		return a.explain(args[1:])
 	case "help", "-h", "--help":
 		a.usage()
 		return 0
@@ -131,24 +139,28 @@ func (a *App) Run(args []string) int {
 }
 
 func (a *App) usage() {
-	fmt.Fprintln(a.Out, "usage: git-a2a <init|validate|add|set|pin|unpin|wire|update|remove|fetch|show|sync|who|contact|status|card|catalog|fmt|doctor|usage|version|upgrade> [options]")
+	fmt.Fprintln(a.Out, "usage: git-a2a <init|validate|add|set|pin|unpin|wire|update|remove|fetch|show|sync|who|contact|status|card|catalog|agent|export|policy|explain|fmt|doctor|usage|version|upgrade> [options]")
 }
 func (a *App) commandUsage(command string) {
 	usage := map[string]string{
-		"init":     "git-a2a init [--id ID] [--description TEXT] [--surface DIR] [--export ECOSYSTEM=NAME]",
+		"init":     "git-a2a init [--id ID] [--description TEXT] [--surface DIR] [--export ECOSYSTEM=NAME] [--example lib|app] [--yes]",
 		"validate": "git-a2a validate [FILE ...]", "add": "git-a2a add URL [--id ID] [--path DIR] [--track locked|floating] [--wire LIST|--no-wire] [--no-refresh]",
 		"set": "git-a2a set ID [--git URL] [--ref REF] [--path DIR] [--track locked|floating] [--id NEW-ID] [--dry-run] [--no-refresh]",
 		"pin": "git-a2a pin ID [COMMIT] [--no-refresh]", "unpin": "git-a2a unpin ID --ref REF [--track locked|floating] [--no-refresh]",
 		"wire": "git-a2a wire [ID] [--ecosystem NAME] [--no-refresh]", "update": "git-a2a update [ID ...] [--check] [--review|--no-review] [--follow-moves] [--no-refresh]",
 		"remove": "git-a2a remove ID [--keep-wiring]", "show": "git-a2a show [ID] [--json] [--surface]",
 		"fetch": "git-a2a fetch [ID ...] [--surface] [--json]",
-		"sync": "git-a2a sync [--check] [--brief] [--target FILE]", "who": "git-a2a who [ID] [--intent INTENT] [--path FILE] [--json]",
+		"sync":  "git-a2a sync [--check] [--brief] [--target FILE]", "who": "git-a2a who [ID] [--intent INTENT] [--path FILE] [--json]",
 		"contact": "git-a2a contact ID --intent INTENT --message FILE|- [--wait]", "ask": "git-a2a contact ID --intent INTENT --message FILE|- [--wait]",
 		"status": "git-a2a status [ID ...] [--offline] [--json] [-v]", "card": "git-a2a card <export|validate|verify|show> [options]",
 		"catalog": "git-a2a catalog export [--out FILE]",
 		"fmt":     "git-a2a fmt [--check] [PATH...]", "version": "git-a2a version [--check]", "upgrade": "git-a2a upgrade [--to VERSION]",
-		"doctor": "git-a2a doctor [--json]",
-		"usage":  "git-a2a usage [--prompt] [--json]",
+		"doctor":  "git-a2a doctor [--json]",
+		"usage":   "git-a2a usage [--prompt] [--json]",
+		"agent":   "git-a2a agent <add|remove|list> [options]",
+		"export":  "git-a2a export add ECOSYSTEM NAME [--path PATH] [--yes]",
+		"policy":  "git-a2a policy set INTENT=ROLE [INTENT=ROLE ...] [--yes]",
+		"explain": "git-a2a explain PATH [--json] [--yes]",
 	}
 	if line := usage[command]; line != "" {
 		fmt.Fprintln(a.Out, "usage: "+line)
@@ -213,6 +225,7 @@ func (a *App) init(args []string) int {
 	id := fs.String("id", "", "module id")
 	desc := fs.String("description", "", "description")
 	surface := fs.String("surface", "", "surface directory")
+	example := fs.String("example", "", "complete commented example: lib or app")
 	_ = fs.Bool("yes", false, "accept defaults (no-op)")
 	var exports stringList
 	fs.Var(&exports, "export", "ecosystem=name")
@@ -228,6 +241,31 @@ func (a *App) init(args []string) int {
 	if *id == "" {
 		abs, _ := filepath.Abs(root)
 		*id = sanitizeID(strings.ToLower(filepath.Base(abs)))
+	}
+	if *example != "" {
+		if *example != "lib" && *example != "app" {
+			fmt.Fprintf(a.Err, "init: --example must be lib or app\n")
+			return 2
+		}
+		if *desc != "" || *surface != "" || len(exports) > 0 {
+			fmt.Fprintln(a.Err, "init: --example cannot be combined with --description, --surface, or --export")
+			return 2
+		}
+		body := exampleManifest(*example, *id)
+		if _, err := manifest.Parse(body); err != nil {
+			fmt.Fprintf(a.Err, "init: embedded example is invalid: %v\n", err)
+			return 1
+		}
+		if err := lockfile.Atomic(manifestPath, body, 0o644); err != nil {
+			fmt.Fprintf(a.Err, "init: %v\n", err)
+			return 1
+		}
+		if err := ensureIgnored(root); err != nil {
+			fmt.Fprintf(a.Err, "init: %v\n", err)
+			return 1
+		}
+		fmt.Fprintf(a.Err, "initialized %s example module %s\n", *example, *id)
+		return 0
 	}
 	m := &manifest.Manifest{Schema: 1, Module: manifest.Module{ID: *id, Description: *desc, Surface: *surface}}
 	for _, item := range exports {

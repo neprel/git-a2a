@@ -15,6 +15,7 @@ import textwrap
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCHEMA_PATH = ROOT / "spec/schema/a2amodule.schema.json"
 OUTPUT_PATH = ROOT / "docs/manifest-reference.md"
+EMBED_PATH = ROOT / "internal/reference/manifest-reference.md"
 
 # entity id, rendered path prefix, schema location
 ROUTES = [
@@ -276,16 +277,21 @@ def main() -> None:
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     rendered = generate()
+    rendered_bytes = rendered.encode("utf-8")
     for forbidden in ("See term `", "See root decision `", "documented below"):
         if forbidden in rendered:
             fail(f"generated reference contains unresolved wording: {forbidden}")
     if args.check:
-        if not OUTPUT_PATH.exists() or OUTPUT_PATH.read_text() != rendered:
+        if not OUTPUT_PATH.exists() or OUTPUT_PATH.read_bytes() != rendered_bytes:
             fail("docs/manifest-reference.md is stale; run tools/gen-reference.py")
+        if not EMBED_PATH.exists() or EMBED_PATH.read_bytes() != rendered_bytes:
+            fail("internal/reference/manifest-reference.md is stale; run tools/gen-reference.py")
         print("manifest-reference: generated documentation is current and every schema field has HINT")
         return
-    OUTPUT_PATH.write_text(rendered)
-    print(f"manifest-reference: wrote {OUTPUT_PATH.relative_to(ROOT)}")
+    OUTPUT_PATH.write_bytes(rendered_bytes)
+    EMBED_PATH.parent.mkdir(parents=True, exist_ok=True)
+    EMBED_PATH.write_bytes(rendered_bytes)
+    print(f"manifest-reference: wrote {OUTPUT_PATH.relative_to(ROOT)} and {EMBED_PATH.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

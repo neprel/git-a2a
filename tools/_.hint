@@ -58,6 +58,9 @@ byte-identical reference copies, a byte-identical static-site skill tree, and th
 `/.well-known/skills/index.json`; check mode fails on version or copy drift. Skill frontmatter
 `metadata.version` must equal `internal/version/VERSION`. Generated text is written as explicit
 UTF-8 bytes with LF endings so byte checks have the same result on Windows and POSIX.
+`gen-reference.py` also writes a byte-identical copy under `internal/reference/`; Go embeds that
+generated artifact for `git-a2a explain`. Check mode fails if either the public guide or embedded
+copy differs from the same rendered source.
 
 # test Release channels
 
