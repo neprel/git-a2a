@@ -11,6 +11,7 @@ include/apply line. Gradle therefore adds both settings DSL variants and both
 MSBuild root project names are discovered dynamically for staging and rollback because their
 names are project-defined; `deps/git-a2a.targets` remains a fixed generated output.
 Maven snapshots both the root `pom.xml` managed blocks and its tool-owned generated reactor POM.
+Meson snapshots both root `meson.build` and its tool-owned `deps/git-a2a/meson.build` include.
 
 # invariant Dependency mutations are recoverable
 

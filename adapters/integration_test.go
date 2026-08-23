@@ -22,6 +22,7 @@ import (
 	"github.com/neprel/git-a2a/adapters/hackage"
 	"github.com/neprel/git-a2a/adapters/hex"
 	"github.com/neprel/git-a2a/adapters/maven"
+	"github.com/neprel/git-a2a/adapters/meson"
 	"github.com/neprel/git-a2a/adapters/msbuild"
 	"github.com/neprel/git-a2a/adapters/nix"
 	"github.com/neprel/git-a2a/adapters/npm"
@@ -83,6 +84,9 @@ func TestRealToolchainAdapterLifecycle(t *testing.T) {
 		{"maven", "consumer-maven", maven.Adapter{}, adapter.Export{Ecosystem: "maven", Name: "com.acme:lib-utils", Path: "java/pom.xml"}, func(root string) error {
 			return copyTreeError(libraryPath, filepath.Join(root, "deps", "acme-lib-utils"))
 		}},
+		{"meson", "consumer-meson", meson.Adapter{}, adapter.Export{Ecosystem: "meson", Name: "acme-lib-utils"}, func(root string) error {
+			return copyTreeError(libraryPath, filepath.Join(root, "subprojects", "acme-lib-utils"))
+		}},
 	}
 	for _, test := range cases {
 		if filter != "" && filter != test.name {
@@ -91,9 +95,13 @@ func TestRealToolchainAdapterLifecycle(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			caseDep, caseLocked := dep, locked
 			caseExport := test.export
-			if test.name == "cmake" || test.name == "gradle" || test.name == "msbuild" || test.name == "maven" {
+			if test.name == "cmake" || test.name == "gradle" || test.name == "msbuild" || test.name == "maven" || test.name == "meson" {
 				caseDep.Vendor = &manifest.Vendor{Mode: "copy"}
 				caseLocked.Vendor = &manifest.LockedVendor{Mode: "copy", Path: "deps/acme-lib-utils", Tree: "tree:" + strings.Repeat("b", 40)}
+			}
+			if test.name == "meson" {
+				caseDep.Vendor.Path = "subprojects/acme-lib-utils"
+				caseLocked.Vendor.Path = "subprojects/acme-lib-utils"
 			}
 			if test.name == "pypi" {
 				caseDep.Git = "file://" + filepath.ToSlash(libraryPath)
@@ -160,6 +168,7 @@ func integrationLibrary(t *testing.T) (string, string, string) {
 		"dotnet/LibUtils.cs":                   "namespace Acme;\n\npublic static class LibUtils { public static int Answer() => 42; }\n",
 		"java/pom.xml":                         "<project xmlns=\"http://maven.apache.org/POM/4.0.0\"><modelVersion>4.0.0</modelVersion><groupId>com.acme</groupId><artifactId>lib-utils</artifactId><version>1.0.0</version><properties><maven.compiler.release>17</maven.compiler.release></properties></project>\n",
 		"java/src/main/java/com/acme/LibUtils.java": "package com.acme; public final class LibUtils { public static int answer() { return 42; } }\n",
+		"meson.build": "project('acme-lib-utils', 'cpp')\nacme_lib_utils = declare_dependency(include_directories: include_directories('.'))\nacme_lib_utils_dep = acme_lib_utils\n",
 	}
 	for name, body := range files {
 		if err := os.MkdirAll(filepath.Dir(filepath.Join(root, name)), 0o755); err != nil {

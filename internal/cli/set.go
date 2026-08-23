@@ -517,7 +517,7 @@ func appendUnique(values []string, value string) []string {
 	return append(values, value)
 }
 
-var adapterFiles = []string{"package.json", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "bun.lockb", "pyproject.toml", "uv.lock", "poetry.lock", "pdm.lock", "go.mod", "go.sum", ".yarnrc.yml", "Cargo.toml", "Cargo.lock", "Package.swift", "Package.resolved", "pubspec.yaml", "pubspec.lock", "CMakeLists.txt", "deps/git-a2a.cmake", "settings.gradle", "settings.gradle.kts", "deps/git-a2a.settings.gradle", "deps/git-a2a.settings.gradle.kts", "deps/git-a2a.targets", "pom.xml", "deps/git-a2a.maven/pom.xml"}
+var adapterFiles = []string{"package.json", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "bun.lockb", "pyproject.toml", "uv.lock", "poetry.lock", "pdm.lock", "go.mod", "go.sum", ".yarnrc.yml", "Cargo.toml", "Cargo.lock", "Package.swift", "Package.resolved", "pubspec.yaml", "pubspec.lock", "CMakeLists.txt", "deps/git-a2a.cmake", "settings.gradle", "settings.gradle.kts", "deps/git-a2a.settings.gradle", "deps/git-a2a.settings.gradle.kts", "deps/git-a2a.targets", "pom.xml", "deps/git-a2a.maven/pom.xml", "meson.build", "deps/git-a2a/meson.build"}
 
 func copyAdapterFiles(from, to string) {
 	_ = os.MkdirAll(to, 0o755)

@@ -1,0 +1,25 @@
+# module Meson vendored integration adapter
+
+Detect a consumer root `meson.build`. This adapter applies only to a `meson` export whose
+dependency has a locked vendor; Meson has no native Git dependency form owned by this adapter.
+
+# decision A generated subproject include and one owned root line
+
+Write sorted `subproject('<id>')` blocks to the wholly tool-owned `deps/git-a2a/meson.build`. The root
+file gets exactly `subdir('deps/git-a2a') # git-a2a`; remove only that marked line and only when no managed
+dependency remains. Wire regenerates the generated file after any foreign content and warns that
+the content was discarded. Unwire repairs or removes the generated file and never treats foreign
+content as an ownership conflict.
+
+# invariant Meson vendor paths are real subproject directories
+
+Meson rejects path traversal in a wrap `directory` key. A dependency therefore uses the explicit
+vendor path `subprojects/<id>` and has no dependency/export subpath; the generated include calls
+that real subproject by id. Reject any other path with the exact corrective `set --vendor-path`
+command. This avoids symlinks and works on Windows.
+
+# test Golden and real-toolchain lifecycle
+
+Fixture tests cover Wire, byte-identical second Wire, Drift, path rejection, foreign-content
+repair, Unwire restoring root bytes, and sorted blocks. `GITA2A_IT=1` runs setup and compile with
+Meson and Ninja in the pinned integration image.

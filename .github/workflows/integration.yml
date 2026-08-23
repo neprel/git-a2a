@@ -33,6 +33,7 @@ jobs:
           - { ecosystem: gradle, image: 'gradle:8.14-jdk21', prepare: 'apt-get update && apt-get install -y --no-install-recommends git ca-certificates' }
           - { ecosystem: msbuild, image: 'mcr.microsoft.com/dotnet/sdk:8.0', prepare: 'apt-get update && apt-get install -y --no-install-recommends git ca-certificates' }
           - { ecosystem: maven, image: 'maven:3.9-eclipse-temurin-21', prepare: 'apt-get update && apt-get install -y --no-install-recommends git ca-certificates' }
+          - { ecosystem: meson, image: 'ubuntu:24.04', prepare: 'apt-get update && apt-get install -y --no-install-recommends meson ninja-build build-essential git ca-certificates' }
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
