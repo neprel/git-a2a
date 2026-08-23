@@ -30,10 +30,11 @@ package includes repository metadata matching `https://github.com/neprel/git-a2a
 requires when authenticating its trusted publisher.
 
 A `workflow_dispatch` recovery checks out the immutable tag, copies that tag's GoReleaser config
-outside the checkout, and injects `release.disable: true` into the copy before rebuilding. The
-checkout remains clean, existing GitHub release assets remain untouched, and downstream package
-channels can be retried. npm checks each immutable package version and leaves an already-published
-version unchanged. Tag-triggered releases use the checked-in config with the SCM publisher enabled.
+outside the checkout, and injects `release.skip_upload: true` into the copy before rebuilding.
+The checkout remains clean, existing GitHub release assets remain untouched, release URLs stay
+available to the Homebrew and Scoop publishers, and downstream package channels can be retried.
+npm checks each immutable package version and leaves an already-published version unchanged.
+Tag-triggered releases use the checked-in config with artifact upload enabled.
 
 ## macOS and Windows status
 

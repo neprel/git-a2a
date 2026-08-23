@@ -52,7 +52,7 @@ jobs:
           if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
             config_file="$RUNNER_TEMP/goreleaser-recovery.yaml"
             cp .goreleaser.yaml "$config_file"
-            sed -i '/^release:$/a\  disable: true' "$config_file"
+            sed -i '/^release:$/a\  skip_upload: true' "$config_file"
           fi
           echo "path=$config_file" >> "$GITHUB_OUTPUT"
         env:
