@@ -32,8 +32,8 @@ requires when authenticating its trusted publisher.
 A `workflow_dispatch` recovery checks out the immutable tag, copies that tag's GoReleaser config
 outside the checkout, and injects `release.disable: true` into the copy before rebuilding. The
 checkout remains clean, existing GitHub release assets remain untouched, and downstream package
-channels can be retried. Tag-triggered releases use the checked-in config with the SCM publisher
-enabled.
+channels can be retried. npm checks each immutable package version and leaves an already-published
+version unchanged. Tag-triggered releases use the checked-in config with the SCM publisher enabled.
 
 ## macOS and Windows status
 

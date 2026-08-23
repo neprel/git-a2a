@@ -123,7 +123,8 @@ not automated in the first release: add it only after a stable package identity 
 account exist. Prerelease tags are GitHub prereleases and never the `latest` release.
 Recovery dispatches rebuild from the immutable tag but disable the SCM release publisher, so
 existing GitHub assets are never overwritten while downstream npm, PyPI, Homebrew and Scoop
-publishers can be retried from the existing release.
+publishers can be retried from the existing release. npm recovery checks each immutable package
+version and leaves an already-published version unchanged before continuing with missing packages.
 Release notes group user-visible conventional commits as features, fixes, performance,
 refactoring, and documentation while omitting chore, CI, and test-only commits; their header
 and footer explain the release, installation, checksums, and CLI reference. The GHCR image is
