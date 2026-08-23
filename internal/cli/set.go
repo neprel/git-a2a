@@ -517,11 +517,11 @@ func appendUnique(values []string, value string) []string {
 	return append(values, value)
 }
 
-var adapterFiles = []string{"package.json", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "bun.lockb", "pyproject.toml", "uv.lock", "poetry.lock", "pdm.lock", "go.mod", "go.sum", ".yarnrc.yml", "Cargo.toml", "Cargo.lock", "Package.swift", "Package.resolved", "pubspec.yaml", "pubspec.lock", "CMakeLists.txt", "deps/git-a2a.cmake", "settings.gradle", "settings.gradle.kts", "deps/git-a2a.settings.gradle", "deps/git-a2a.settings.gradle.kts"}
+var adapterFiles = []string{"package.json", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "bun.lockb", "pyproject.toml", "uv.lock", "poetry.lock", "pdm.lock", "go.mod", "go.sum", ".yarnrc.yml", "Cargo.toml", "Cargo.lock", "Package.swift", "Package.resolved", "pubspec.yaml", "pubspec.lock", "CMakeLists.txt", "deps/git-a2a.cmake", "settings.gradle", "settings.gradle.kts", "deps/git-a2a.settings.gradle", "deps/git-a2a.settings.gradle.kts", "deps/git-a2a.targets"}
 
 func copyAdapterFiles(from, to string) {
 	_ = os.MkdirAll(to, 0o755)
-	for _, name := range adapterFiles {
+	for _, name := range adapterFileNames(from) {
 		if b, err := os.ReadFile(filepath.Join(from, name)); err == nil {
 			_ = os.MkdirAll(filepath.Dir(filepath.Join(to, name)), 0o755)
 			_ = os.WriteFile(filepath.Join(to, name), b, 0o644)
@@ -530,7 +530,7 @@ func copyAdapterFiles(from, to string) {
 }
 func snapshotAdapterFiles(root string) map[string][]byte {
 	out := map[string][]byte{}
-	for _, name := range adapterFiles {
+	for _, name := range adapterFileNames(root) {
 		if b, err := os.ReadFile(filepath.Join(root, name)); err == nil {
 			out[name] = b
 		} else {
@@ -538,6 +538,16 @@ func snapshotAdapterFiles(root string) map[string][]byte {
 		}
 	}
 	return out
+}
+func adapterFileNames(root string) []string {
+	names := append([]string(nil), adapterFiles...)
+	entries, _ := os.ReadDir(root)
+	for _, entry := range entries {
+		if !entry.IsDir() && (strings.HasSuffix(entry.Name(), ".csproj") || strings.HasSuffix(entry.Name(), ".fsproj")) {
+			names = append(names, entry.Name())
+		}
+	}
+	return names
 }
 func restoreAdapterFiles(root string, snapshots map[string][]byte) {
 	for name, b := range snapshots {

@@ -91,6 +91,8 @@ func ToolFor(ecosystem string, variant Variant) ToolRequirement {
 		} else {
 			command = "mvn"
 		}
+	case "nuget":
+		command = "dotnet"
 	}
 	return ToolRequirement{Ecosystem: ecosystem, Command: command, VersionArg: versionArg, Install: installHint(command)}
 }
@@ -193,6 +195,7 @@ func installHint(command string) string {
 		"swift": "https://www.swift.org/install/", "dart": "https://dart.dev/get-dart", "bundle": "https://bundler.io/guides/getting_started.html", "composer": "https://getcomposer.org/download/",
 		"mix": "https://elixir-lang.org/install.html", "cabal": "https://www.haskell.org/ghcup/install/", "stack": "https://docs.haskellstack.org/en/stable/install_and_upgrade/", "zig": "https://ziglang.org/download/", "clj": "https://clojure.org/guides/install_clojure", "nix": "https://nixos.org/download/",
 		"gradle": "https://gradle.org/install/", "mvn": "https://maven.apache.org/install.html",
+		"dotnet": "https://dotnet.microsoft.com/download",
 	}
 	if value := urls[command]; value != "" {
 		return value

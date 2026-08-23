@@ -31,6 +31,7 @@ jobs:
           - { ecosystem: nix, image: 'nixos/nix:2.28.3', prepare: ':' }
           - { ecosystem: cmake, image: 'ubuntu:24.04', prepare: 'apt-get update && apt-get install -y --no-install-recommends cmake build-essential git ca-certificates' }
           - { ecosystem: gradle, image: 'gradle:8.14-jdk21', prepare: 'apt-get update && apt-get install -y --no-install-recommends git ca-certificates' }
+          - { ecosystem: msbuild, image: 'mcr.microsoft.com/dotnet/sdk:8.0', prepare: 'apt-get update && apt-get install -y --no-install-recommends git ca-certificates' }
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0

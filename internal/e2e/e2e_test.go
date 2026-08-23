@@ -106,10 +106,14 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	git(t, source, "config", "user.email", "acme@example.test")
 	git(t, source, "config", "user.name", "Acme")
 	git(t, source, "config", "core.autocrlf", "true")
-	manifestBody := []byte("schema: 1\nmodule:\n  id: acme-native\n  release: {channel: main}\n  exports:\n    - ecosystem: cmake\n      name: acme::native\n    - ecosystem: maven\n      name: com.acme:native\n")
+	manifestBody := []byte("schema: 1\nmodule:\n  id: acme-native\n  release: {channel: main}\n  exports:\n    - ecosystem: cmake\n      name: acme::native\n    - ecosystem: maven\n      name: com.acme:native\n    - ecosystem: nuget\n      name: Acme.Native\n      path: dotnet/Acme.Native.csproj\n")
 	mustWrite(t, filepath.Join(source, "a2amodule.yml"), manifestBody)
 	mustWrite(t, filepath.Join(source, "acme.h"), []byte("#define ACME_VERSION 1\n"))
 	mustWrite(t, filepath.Join(source, "CMakeLists.txt"), []byte("add_library(acme-native INTERFACE)\nadd_library(acme::native ALIAS acme-native)\ntarget_include_directories(acme-native INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})\n"))
+	if err := os.MkdirAll(filepath.Join(source, "dotnet"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(source, "dotnet", "Acme.Native.csproj"), []byte("<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>\n"))
 	git(t, source, "add", ".")
 	git(t, source, "commit", "-m", "feat: add acme native library")
 	git(t, tmp, "clone", "--bare", source, bare)
@@ -121,6 +125,7 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte("schema: 1\nmodule: {id: consumer-app}\n"))
 	mustWrite(t, filepath.Join(consumer, "CMakeLists.txt"), []byte("cmake_minimum_required(VERSION 3.20)\nproject(consumer)\n"))
 	mustWrite(t, filepath.Join(consumer, "settings.gradle.kts"), []byte("rootProject.name = \"consumer\"\n"))
+	mustWrite(t, filepath.Join(consumer, "Acme.App.csproj"), []byte("<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>\n"))
 	git(t, consumer, "add", ".")
 	git(t, consumer, "commit", "-m", "chore: initialize consumer")
 
@@ -156,6 +161,10 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	gradleGenerated, err := os.ReadFile(filepath.Join(consumer, "deps", "git-a2a.settings.gradle.kts"))
 	if err != nil || !strings.Contains(string(gradleGenerated), `substitute(module("com.acme:native"))`) {
 		t.Fatalf("gradle integration = %q, %v", gradleGenerated, err)
+	}
+	msbuildGenerated, err := os.ReadFile(filepath.Join(consumer, "deps", "git-a2a.targets"))
+	if err != nil || !strings.Contains(string(msbuildGenerated), `ProjectReference Include="deps/acme-native/dotnet/Acme.Native.csproj"`) {
+		t.Fatalf("msbuild integration = %q, %v", msbuildGenerated, err)
 	}
 	run("status", "acme-native", "--offline")
 	if !strings.Contains(strings.SplitN(out.String(), "\n", 2)[0], "VENDOR") {
@@ -211,6 +220,9 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	}
 	if _, statErr := os.Stat(filepath.Join(consumer, "deps", "git-a2a.settings.gradle.kts")); !os.IsNotExist(statErr) {
 		t.Fatalf("--no-vendor left generated Gradle integration: %v", statErr)
+	}
+	if _, statErr := os.Stat(filepath.Join(consumer, "deps", "git-a2a.targets")); !os.IsNotExist(statErr) {
+		t.Fatalf("--no-vendor left generated MSBuild integration: %v", statErr)
 	}
 	run("set", "acme-native", "--vendor", "submodule", "--no-refresh")
 	run("remove", "acme-native")

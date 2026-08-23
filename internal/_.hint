@@ -8,6 +8,8 @@ new manifests and locks; `fmt` canonicalizes through the YAML node tree.
 Adapter transactions snapshot both a generated integration file and its precisely marked root
 include/apply line. Gradle therefore adds both settings DSL variants and both
 `deps/git-a2a.settings.gradle(.kts)` outputs to the same rollback set as CMake.
+MSBuild root project names are discovered dynamically for staging and rollback because their
+names are project-defined; `deps/git-a2a.targets` remains a fixed generated output.
 
 # invariant Dependency mutations are recoverable
 

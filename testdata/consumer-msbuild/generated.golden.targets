@@ -1,0 +1,8 @@
+<Project>
+  <!-- git-a2a:begin acme-lib -->
+  <ItemGroup>
+    <Compile Remove="deps/acme-lib/dotnet/**/*.cs;deps/acme-lib/dotnet/**/*.fs" />
+    <ProjectReference Include="deps/acme-lib/dotnet/Acme.LibUtils.csproj" />
+  </ItemGroup>
+  <!-- git-a2a:end acme-lib -->
+</Project>
