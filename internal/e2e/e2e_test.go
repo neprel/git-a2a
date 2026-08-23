@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -157,7 +158,7 @@ func TestOnlineStatusReusesSparseSourceCheckout(t *testing.T) {
 		out.Reset()
 		errOut.Reset()
 		if code := app.Run([]string{"status", "acme-lib"}); code != 0 {
-			t.Fatalf("status %d exit %d: %s", i+1, code, errOut.String())
+			t.Fatalf("status %d exit %d:\nstdout:\n%s\nstderr:\n%s", i+1, code, out.String(), errOut.String())
 		}
 	}
 	if runner.clones != 1 {
@@ -893,7 +894,7 @@ type archiveFailCountingRunner struct {
 }
 
 func (runner *archiveFailCountingRunner) Run(ctx context.Context, dir string, stdin []byte, args ...string) ([]byte, error) {
-	if len(args) > 0 && args[0] == "archive" {
+	if slices.Contains(args, "archive") {
 		return nil, fmt.Errorf("archive deliberately unavailable")
 	}
 	if len(args) > 0 && args[0] == "clone" {
