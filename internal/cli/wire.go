@@ -8,6 +8,7 @@ import (
 	"github.com/neprel/git-a2a/internal/cache"
 	lockfile "github.com/neprel/git-a2a/internal/lock"
 	"github.com/neprel/git-a2a/internal/manifest"
+	vendortransport "github.com/neprel/git-a2a/internal/vendor"
 )
 
 func (a *App) wire(args []string) int {
@@ -64,6 +65,17 @@ func (a *App) wire(args []string) int {
 		if loadErr != nil {
 			fmt.Fprintf(a.Err, "wire: dependency %s cache: %v\n", original.ID, loadErr)
 			return 1
+		}
+		if original.Vendor != nil {
+			vendorLock, vendorErr := (vendortransport.Manager{Runner: a.runner()}).Apply(a.context(), root, own, original, entry, false)
+			if vendorErr != nil {
+				fmt.Fprintf(a.Err, "wire: %s vendor: %v\n", original.ID, vendorErr)
+				return 1
+			}
+			if entry.Vendor == nil || vendorLock.Mode != entry.Vendor.Mode || vendorLock.Path != entry.Vendor.Path || vendorLock.Tree != entry.Vendor.Tree {
+				fmt.Fprintf(a.Err, "wire: %s vendored content does not match a2amodule.lock\n", original.ID)
+				return 1
+			}
 		}
 		dep := original
 		if ecosystem != "" {

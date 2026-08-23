@@ -56,6 +56,13 @@ func Build(root string, own *manifest.Manifest, l *manifest.Lock, brief bool) (s
 		if dep.Module.Surface != "" {
 			fmt.Fprintf(&b, "> Published surface (%s): `.git-a2a/cache/%s/surface/` (available after `git-a2a show %s --surface`).\n>\n", origin, id, id)
 		}
+		if entry.Vendor != nil {
+			fmt.Fprintf(&b, "> Vendored at `%s` (%s).", safe(entry.Vendor.Path, fieldLimit), safe(entry.Vendor.Mode, fieldLimit))
+			if entry.Vendor.Mode == "submodule" {
+				b.WriteString(" Clone with `--recurse-submodules`; repair an existing clone with `git submodule update --init` or `git-a2a wire`.")
+			}
+			b.WriteString("\n>\n")
+		}
 		writeConsumers(&b, dep.Policy, true, origin, id)
 		b.WriteString("\n| Intent | Agent (role) | Declared contact |\n| --- | --- | --- |\n")
 		for _, intent := range intents(dep) {

@@ -23,6 +23,7 @@ import (
 	lockfile "github.com/neprel/git-a2a/internal/lock"
 	"github.com/neprel/git-a2a/internal/manifest"
 	"github.com/neprel/git-a2a/internal/render"
+	vendortransport "github.com/neprel/git-a2a/internal/vendor"
 )
 
 type statusRow struct {
@@ -32,6 +33,7 @@ type statusRow struct {
 	Upstream string   `json:"upstream"`
 	Manifest string   `json:"manifest"`
 	Wiring   string   `json:"wiring"`
+	Vendor   string   `json:"vendor"`
 	Agents   string   `json:"agents"`
 	Sync     string   `json:"sync"`
 	Details  []string `json:"details,omitempty"`
@@ -85,7 +87,7 @@ func (a *App) status(args []string) int {
 		}
 		matched++
 		entry, ok := l.Dependencies[dep.ID]
-		row := statusRow{ID: dep.ID, Source: "canonical", Ref: refLabel(dep.Ref, ""), Upstream: "unknown", Manifest: "unknown", Wiring: "clean", Agents: "unknown", Sync: syncState}
+		row := statusRow{ID: dep.ID, Source: "canonical", Ref: refLabel(dep.Ref, ""), Upstream: "unknown", Manifest: "unknown", Wiring: "clean", Vendor: "none", Agents: "unknown", Sync: syncState}
 		if !ok {
 			row.Manifest = "unlocked"
 			row.failed = true
@@ -95,6 +97,34 @@ func (a *App) status(args []string) int {
 		if entry.Git != dep.Git || entry.Ref != dep.Ref || entry.Path != defaultPath(dep.Path) {
 			row.failed = true
 			row.Details = append(row.Details, "manifest entry differs from lock — run update")
+		}
+		if dep.Vendor == nil && entry.Vendor != nil || dep.Vendor != nil && entry.Vendor == nil {
+			row.failed = true
+			row.Vendor = "drift"
+			row.Details = append(row.Details, "vendor declaration differs from lock — run update")
+		} else if dep.Vendor != nil && entry.Vendor != nil {
+			wantMode := vendortransport.Mode(dep)
+			wantPath := vendortransport.Path(own, dep)
+			if entry.Vendor.Mode != wantMode || entry.Vendor.Path != wantPath {
+				row.failed = true
+				row.Vendor = "drift"
+				row.Details = append(row.Details, "vendor mode or path differs from lock — run update")
+			} else {
+				state, vendorErr := (vendortransport.Manager{Runner: a.runner()}).Inspect(a.context(), root, dep, entry)
+				if vendorErr != nil {
+					row.failed = true
+					row.Vendor = "error"
+					row.Details = append(row.Details, "vendor: "+vendorErr.Error())
+				} else {
+					row.Vendor = state.Label
+					if len(state.Findings) > 0 {
+						row.failed = true
+						for _, finding := range state.Findings {
+							row.Details = append(row.Details, fmt.Sprintf("vendor %s: want %s, got %s", finding.Kind, finding.Want, finding.Got))
+						}
+					}
+				}
+			}
 		}
 		cached, loadErr := os.ReadFile(filepath.Join(cache.Dir(root, dep.ID), "a2amodule.yml"))
 		if loadErr != nil {
@@ -277,9 +307,9 @@ func (a *App) status(args []string) int {
 		fmt.Fprintln(a.Out, string(b))
 	} else {
 		table := tabwriter.NewWriter(a.Out, 0, 4, 2, ' ', 0)
-		fmt.Fprintln(table, "MODULE\tSOURCE\tREF\tUPSTREAM\tMANIFEST\tWIRING\tAGENTS\tSYNC")
+		fmt.Fprintln(table, "MODULE\tSOURCE\tREF\tUPSTREAM\tMANIFEST\tWIRING\tVENDOR\tAGENTS\tSYNC")
 		for _, row := range rows {
-			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.ID, row.Source, row.Ref, row.Upstream, row.Manifest, row.Wiring, row.Agents, row.Sync)
+			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.ID, row.Source, row.Ref, row.Upstream, row.Manifest, row.Wiring, row.Vendor, row.Agents, row.Sync)
 			if verbose {
 				for _, detail := range row.Details {
 					fmt.Fprintf(table, "  - %s\n", detail)

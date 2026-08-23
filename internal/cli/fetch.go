@@ -14,6 +14,7 @@ import (
 	"github.com/neprel/git-a2a/internal/fetch"
 	lockfile "github.com/neprel/git-a2a/internal/lock"
 	"github.com/neprel/git-a2a/internal/manifest"
+	vendortransport "github.com/neprel/git-a2a/internal/vendor"
 )
 
 type fetchResult struct {
@@ -22,6 +23,7 @@ type fetchResult struct {
 	Manifest string `json:"manifest"`
 	Surface  string `json:"surface,omitempty"`
 	Method   string `json:"method"`
+	Vendor   string `json:"vendor,omitempty"`
 }
 
 // fetch restores disposable local cache state from the immutable coordinates and hashes in
@@ -145,6 +147,20 @@ func (a *App) fetch(args []string) int {
 			_ = os.RemoveAll(work)
 			fmt.Fprintf(a.Err, "fetch %s: cache replacement: %v\n", id, replaceErr)
 			return 1
+		}
+		if dependency.Vendor != nil {
+			vendorLock, vendorErr := (vendortransport.Manager{Runner: a.runner()}).Apply(a.context(), root, own, dependency, entry, false)
+			if vendorErr != nil {
+				_ = os.RemoveAll(work)
+				fmt.Fprintf(a.Err, "fetch %s vendor: %v\n", id, vendorErr)
+				return 1
+			}
+			if entry.Vendor == nil || vendorLock.Mode != entry.Vendor.Mode || vendorLock.Path != entry.Vendor.Path || vendorLock.Tree != entry.Vendor.Tree {
+				_ = os.RemoveAll(work)
+				fmt.Fprintf(a.Err, "fetch %s: vendored content does not match a2amodule.lock\n", id)
+				return 1
+			}
+			result.Vendor = vendorLock.Mode + ":" + vendorLock.Path
 		}
 		_ = os.RemoveAll(work)
 		results = append(results, result)

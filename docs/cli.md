@@ -41,9 +41,11 @@ a2amodule.yml: valid
 ## add
 
 `git-a2a add URL [--id ID] [--path DIR] [--track locked|floating] [--wire LIST|--no-wire]
-[--no-refresh]`
+[--vendor submodule|copy] [--vendor-path PATH] [--no-refresh]`
 fetches the remote manifest, resolves one commit, wires detected ecosystems, writes the lock,
-and snapshots cards. `--no-refresh` edits project manifests but skips package-manager Refresh.
+and snapshots cards. `--vendor` explicitly materialises the locked source as a submodule or copy;
+its default path is `deps/<id>`, overridden by `--vendor-path`. `--no-refresh` edits project
+manifests but skips package-manager Refresh.
 Missing optional toolchains warn but do not prevent the manifest edit.
 Exit `1` covers fetch/wiring failure and `2` invalid arguments.
 
@@ -55,8 +57,10 @@ added acme-lib at ea1e8656ad1e6eaeef81759c10969e64defdd9ce
 ## set
 
 `git-a2a set ID [--git URL] [--ref REF] [--path DIR] [--track locked|floating] [--id NEW-ID]
-[--dry-run] [--no-refresh]` transactionally changes a dependency source or identity and rewires
-it. `--no-refresh` skips package-manager Refresh. Exit `1`
+[--vendor submodule|copy|--no-vendor] [--vendor-path PATH] [--force] [--dry-run] [--no-refresh]`
+transactionally changes a dependency source, identity, or vendoring choice and rewires it.
+`--force` explicitly permits replacing dirty vendored content; `--no-refresh` skips
+package-manager Refresh. Exit `1`
 means the transaction failed and rolled back; exit `2` means the ID/options did not resolve.
 
 ```text
@@ -100,10 +104,11 @@ npm: wired acme-lib
 
 ## update
 
-`git-a2a update [ID ...] [--check] [--review|--no-review] [--follow-moves] [--no-refresh]`
+`git-a2a update [ID ...] [--check] [--review|--no-review] [--follow-moves] [--force] [--no-refresh]`
 resolves upstream refs and transactionally updates changed dependencies. `--check` only reports
 availability; `--review` prints manifest/surface diffs; `--no-refresh` skips package-manager
-Refresh; moves require explicit `--follow-moves`. Exit `1`
+Refresh; moves require explicit `--follow-moves`. Dirty or drifted vendored content refuses an
+update unless `--force` makes replacement explicit. Exit `1`
 means updates exist in check mode or an update failed; exit `2` means no dependency resolved.
 
 ```text
@@ -114,9 +119,10 @@ acme-lib: ea1e8656ad1e -> 3ad806dc575c
 
 ## remove
 
-`git-a2a remove ID [--keep-wiring]` removes the manifest/lock/cache entry and normally unwires
-all owned package-manager entries. Exit `1` means removal failed; exit `2` means the ID/options
-did not resolve.
+`git-a2a remove ID [--keep-wiring] [--force]` removes the manifest/lock/cache entry, its vendored
+tree, and normally unwires all owned package-manager entries. Dirty or drifted vendored content
+is retained unless `--force` explicitly permits its deletion. Exit `1` means removal failed;
+exit `2` means the ID/options did not resolve.
 
 After any successful `add`, `update`, `set`, `pin`, `unpin`, `wire`, or `remove`, an existing
 `AGENTS.md` managed block is rendered again as the final mutation. These commands never create a
@@ -132,8 +138,9 @@ removed acme-lib (cache deleted; it can be recreated by add)
 `git-a2a fetch [ID ...] [--surface] [--json]` restores disposable
 `.git-a2a/cache` content from the exact commits and hashes in `a2amodule.lock`. Without IDs it
 fetches every dependency; `--surface` also restores a declared surface whose tree hash is already
-recorded in the lock. It never resolves a moving ref and never changes the manifest, lock, or
-package-manager files. Missing/incomplete lock entries and hash mismatches exit `1`; invalid
+recorded in the lock. A declared vendored checkout is also restored and verified from the lock.
+It never resolves a moving ref and never changes the manifest, lock, or package-manager files.
+Missing/incomplete lock entries and hash mismatches exit `1`; invalid
 options or an empty dependency set exit `2`.
 
 ```text
@@ -191,13 +198,14 @@ acme-lib owner github-issue issue=https://github.com/acme/lib/issues/42
 `git-a2a status [ID ...] [--offline] [--json] [-v]` checks upstream, manifest/cache hashes,
 wiring, cards/trust, and rendered blocks. The table contains dependencies only; the consuming
 module is summarized below it. A repository that has not run `sync` has roster/SYNC `none`, which
-is healthy; `stale` means an existing managed block differs. `-v` adds own-module findings,
+is healthy; `stale` means an existing managed block differs. `VENDOR` reports `none`, a pinned
+submodule, a copy, missing state, or drift. `-v` adds own-module findings,
 prerequisite state, and adapter verification labels. Any unhealthy dependency or own-module
 check exits `1`; no match exits `2`.
 
 ```text
 $ git-a2a status --offline
-acme-lib  canonical  branch main  unknown  clean  npm clean  unknown  none
+acme-lib  canonical  branch main  unknown  clean  npm clean  none  unknown  none
 consumer-app: manifest valid · agents none · roster none
 1 dependency: clean
 ```
@@ -300,7 +308,9 @@ formatted 3 file(s)
 
 `git-a2a doctor [--json]` reports Git and every toolchain required by detected ecosystems and
 wired dependencies, including version, PATH status, and platform installation hints. It never
-installs anything. Missing required Refresh tools exit `1`.
+installs anything. Vendored dependencies also report their materialisation state; an uninitialised
+submodule points to `git submodule update --init` or `git-a2a wire`. Missing required Refresh
+tools exit `1`.
 
 ```text
 $ git-a2a doctor

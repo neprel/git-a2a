@@ -67,6 +67,14 @@ The same run extracts `contact_kinds` into `docs/contact-kinds.md`, generates th
 `llms.txt` map and `llms-full.txt` canonical-document concatenation, and checks local Markdown
 targets across README, spec, and docs. These files are outputs, never separately authored sources.
 
+# decision Transcript captures the status table byte-for-byte
+
+The transcript generator stores command stdout without trimming, collapsing, or reformatting and
+embeds the same bytes in JSON and the no-JavaScript HTML fallback. Status header changes, including
+the `VENDOR` column, must be regenerated from the fixture rather than patched by hand. The fixture
+comparison normalises only the resolved commit hash; tabwriter spacing and every other byte remain
+an acceptance check.
+
 # test Release channels
 
 - A fixture `checksums.txt` drives both manifests and all four hashes appear in their correct

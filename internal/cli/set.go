@@ -21,7 +21,9 @@ import (
 type setOptions struct {
 	id                           string
 	git, ref, path, track, newID *string
-	dry, noRefresh               bool
+	vendorMode, vendorPath       *string
+	dry, noRefresh, noVendor     bool
+	force                        bool
 }
 
 func parseSet(args []string) (setOptions, error) {
@@ -54,6 +56,16 @@ func parseSet(args []string) (setOptions, error) {
 		case "--id":
 			v, err = value()
 			o.newID = v
+		case "--vendor":
+			v, err = value()
+			o.vendorMode = v
+		case "--vendor-path":
+			v, err = value()
+			o.vendorPath = v
+		case "--no-vendor":
+			o.noVendor = true
+		case "--force":
+			o.force = true
 		case "--dry-run":
 			o.dry = true
 		case "--no-refresh":
@@ -74,11 +86,17 @@ func parseSet(args []string) (setOptions, error) {
 	if o.id == "" {
 		return o, fmt.Errorf("dependency id is required")
 	}
-	if o.git == nil && o.ref == nil && o.path == nil && o.track == nil && o.newID == nil {
+	if o.git == nil && o.ref == nil && o.path == nil && o.track == nil && o.newID == nil && o.vendorMode == nil && o.vendorPath == nil && !o.noVendor {
 		return o, fmt.Errorf("at least one change option is required")
 	}
 	if o.track != nil && *o.track != "locked" && *o.track != "floating" {
 		return o, fmt.Errorf("--track must be locked or floating")
+	}
+	if o.vendorMode != nil && *o.vendorMode != "submodule" && *o.vendorMode != "copy" {
+		return o, fmt.Errorf("--vendor must be submodule or copy")
+	}
+	if o.noVendor && (o.vendorMode != nil || o.vendorPath != nil) {
+		return o, fmt.Errorf("--no-vendor cannot be combined with --vendor or --vendor-path")
 	}
 	return o, nil
 }
@@ -205,6 +223,22 @@ func (a *App) applySet(o setOptions) int {
 	if o.track != nil {
 		next.Track = *o.track
 	}
+	if o.noVendor {
+		next.Vendor = nil
+	} else if o.vendorMode != nil || o.vendorPath != nil {
+		if next.Vendor == nil {
+			next.Vendor = &manifest.Vendor{}
+		} else {
+			copy := *next.Vendor
+			next.Vendor = &copy
+		}
+		if o.vendorMode != nil {
+			next.Vendor.Mode = *o.vendorMode
+		}
+		if o.vendorPath != nil {
+			next.Vendor.Path = *o.vendorPath
+		}
+	}
 	expected := o.id
 	if o.newID != nil {
 		expected = *o.newID
@@ -223,6 +257,11 @@ func (a *App) applySet(o setOptions) int {
 	l, err := lockfile.Load(root)
 	if err != nil {
 		fmt.Fprintf(a.Err, "set: lock: %v\n", err)
+		return 1
+	}
+	oldEntry, hasOldEntry := l.Dependencies[o.id]
+	if !hasOldEntry {
+		fmt.Fprintf(a.Err, "set: dependency %s is not locked\n", o.id)
 		return 1
 	}
 	resolution, resolveErr := gitx.ResolveDetailed(a.context(), a.runner(), next.Git, next.Ref)
@@ -264,6 +303,13 @@ func (a *App) applySet(o setOptions) int {
 	}
 	sum := sha256.Sum256(res.Manifest)
 	locked := manifest.LockedDependency{Git: next.Git, Ref: next.Ref, Path: defaultPath(next.Path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:])}
+	validated := *own
+	validated.Dependencies = append([]manifest.Dependency(nil), own.Dependencies...)
+	validated.Dependencies[idx] = next
+	if err = validated.Validate(); err != nil {
+		fmt.Fprintf(a.Err, "set: %v; no files changed\n", err)
+		return 1
+	}
 	preflight, err := os.MkdirTemp("", "git-a2a-preflight-")
 	if err != nil {
 		fmt.Fprintf(a.Err, "set: %v\n", err)
@@ -290,9 +336,16 @@ func (a *App) applySet(o setOptions) int {
 		fmt.Fprintf(a.Err, "set: wiring failed and was rolled back: %v\n", err)
 		return 1
 	}
+	vendorRollback, err := a.applyVendorTransition(root, own, &oldDep, next, &oldEntry, &locked, o.force)
+	if err != nil {
+		restoreAdapterFiles(root, snapshots)
+		fmt.Fprintf(a.Err, "set: vendor failed and was rolled back: %v\n", err)
+		return 1
+	}
 	stagedRoot := filepath.Join(work, "staged-cache")
 	if err = cache.Save(stagedRoot, next.ID, res.Manifest, res.Commit, res.Method); err != nil {
 		restoreAdapterFiles(root, snapshots)
+		_ = vendorRollback()
 		fmt.Fprintf(a.Err, "set: stage cache: %v\n", err)
 		return 1
 	}
@@ -314,6 +367,7 @@ func (a *App) applySet(o setOptions) int {
 			_ = os.Remove(filepath.Join(root, "a2amodule.lock"))
 		}
 		restoreAdapterFiles(root, snapshots)
+		_ = vendorRollback()
 		fmt.Fprintf(a.Err, "set: metadata write failed and was rolled back: %v\n", err)
 		return 1
 	}
@@ -325,6 +379,7 @@ func (a *App) applySet(o setOptions) int {
 			_ = os.Remove(filepath.Join(root, "a2amodule.lock"))
 		}
 		restoreAdapterFiles(root, snapshots)
+		_ = vendorRollback()
 		fmt.Fprintf(a.Err, "set: cache replacement failed and was rolled back: %v\n", err)
 		return 1
 	}

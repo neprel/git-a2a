@@ -1,0 +1,37 @@
+# module Vendored source transports
+
+This package owns materialising a dependency's locked Git tree inside the consumer as either a
+submodule or a plain copy. CLI commands orchestrate metadata and adapter transactions; this package
+owns Git/path safety, source identity, materialisation, drift, and residue-free removal.
+
+# invariant Lock object identity is authoritative
+
+Submodule state is the index gitlink at `vendor.path`, which must be mode 160000 and equal the
+locked commit. Copy state is a Git tree id computed from index entries below `vendor.path`, with
+their prefix removed and only `.git-a2a-vendored` excluded. The stamp is human-readable evidence,
+not provenance. Worktree mode differences never substitute for index identity.
+
+# invariant File remotes opt into Git's local protocol narrowly
+
+Only a command operating on a `file://` source adds `-c protocol.file.allow=always`, and only to
+that Git invocation. Global or repository Git configuration is never weakened.
+
+# decision Copy archives preserve Git entry semantics
+
+Materialise regular and executable blobs with their recorded modes and 120000 entries as symlinks.
+Reject gitlinks because copy mode cannot materialise nested-submodule content. If the platform
+cannot create a symlink, fail explicitly and roll back instead of writing its target as a file.
+
+# decision Transport rollback owns every Git residue
+
+A failed newly-added submodule is deinitialised, removed from the index and worktree, removed from
+`.git/modules/<path>`, and removed from `.gitmodules`; the original `.gitmodules` bytes are restored.
+Copy materialisation uses a temporary sibling and replaces the destination only after extraction
+succeeds. Removal and destructive replacement refuse drift or dirty submodules unless the caller
+passes the explicit force choice.
+
+# test Transport regression suite
+
+Use local bare repositories. Assert submodule gitlink identity, update, dirty refusal, recursive
+file-protocol scoping, complete removal of `.gitmodules` and `.git/modules` residue, copy modes and
+symlinks, copy tree drift, stamp exclusion, idempotence, unsafe/symlink path rejection, and rollback.

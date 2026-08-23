@@ -1,6 +1,7 @@
 # decision Manifest-changing commands are transactions
 
-`add`, `update`, `set`, and `wire` stage every manifest, lock, cache, surface, and ecosystem
+`add`, `update`, `set`, `remove`, and `wire` stage every manifest, lock, cache, surface, vendored
+tree, and ecosystem
 edit before publishing any of them. A failure before commit leaves every tracked file byte-for-byte
 unchanged; a commit failure rolls back already-published files. `wire` is idempotent and may repair
 an intentionally partial dependency without changing its identity.
@@ -33,6 +34,8 @@ never creates one implicitly. `--no-refresh` on add, update, set, pin, unpin, an
 package-manager Refresh phase without skipping deterministic manifest, lock, wiring, or roster
 updates. Human status output expands its table with spaces through Go's tabwriter so every column
 starts at the same position even when a source, ref, or wiring summary is longer than the header.
+The dependency table includes an ASCII-only `VENDOR` value (`none`, `submodule @<sha7>`, `copy`,
+`missing`, or `drift`); ASCII keeps tabwriter byte width equal to terminal cell width.
 
 # decision Prerequisite reporting is shared with adapters
 
@@ -45,11 +48,20 @@ returns the shared actionable error.
 
 # decision Fetch restores cache from immutable lock state
 
-`git-a2a fetch [ID ...]` is the non-mutating durable-state repair command for `.git-a2a/cache`.
+`git-a2a fetch [ID ...]` is the durable-state repair command for reconstructible local state.
 It fetches each manifest at the exact lock commit, validates the manifest SHA-256, stages the
 cache, and atomically replaces only that dependency's cache. `--surface` also verifies the locked
-tree id. It never resolves the manifest ref, rewrites manifest/lock, snapshots cards, or invokes
-adapters; missing lock coordinates or hash mismatches exit 1 and preserve the old cache.
+tree id. For a declared vendor it restores the submodule or copy at the exact lock identity without
+changing the lock or adapter files. It never resolves the manifest ref, rewrites manifest/lock,
+snapshots cards, or invokes adapters; missing lock coordinates or hash mismatches exit 1.
+
+# decision Vendoring participates in every dependency lifecycle
+
+`add --vendor submodule|copy [--vendor-path P]` makes the consumer choice explicit. `set` changes
+mode/path or `--no-vendor`; `update` moves the materialisation with the lock; `fetch` and `wire`
+restore missing materialisation; `remove` removes all Git residue. `set`, `update`, and `remove`
+refuse dirty/drifted vendor state unless `--force` makes data loss explicit. Transport rollback
+restores the old materialisation when later metadata, cache, or adapter publication fails.
 
 # decision Usage is a deterministic agent briefing
 

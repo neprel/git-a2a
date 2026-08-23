@@ -96,6 +96,95 @@ func TestAddUpdateCheckRemoveAgainstLocalBareRepository(t *testing.T) {
 	}
 }
 
+func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "source")
+	bare := filepath.Join(tmp, "acme-native.git")
+	consumer := filepath.Join(tmp, "consumer")
+	mustMkdir(t, source)
+	git(t, source, "init", "-b", "main")
+	git(t, source, "config", "user.email", "acme@example.test")
+	git(t, source, "config", "user.name", "Acme")
+	manifestBody := []byte("schema: 1\nmodule:\n  id: acme-native\n  release: {channel: main}\n")
+	mustWrite(t, filepath.Join(source, "a2amodule.yml"), manifestBody)
+	mustWrite(t, filepath.Join(source, "acme.h"), []byte("#define ACME_VERSION 1\n"))
+	git(t, source, "add", ".")
+	git(t, source, "commit", "-m", "feat: add acme native library")
+	git(t, tmp, "clone", "--bare", source, bare)
+
+	mustMkdir(t, consumer)
+	git(t, consumer, "init", "-b", "main")
+	git(t, consumer, "config", "user.email", "consumer@example.test")
+	git(t, consumer, "config", "user.name", "Consumer")
+	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte("schema: 1\nmodule: {id: consumer-app}\n"))
+	git(t, consumer, "add", ".")
+	git(t, consumer, "commit", "-m", "chore: initialize consumer")
+
+	var out, errOut bytes.Buffer
+	app := cli.New(&out, &errOut)
+	app.Root = consumer
+	url := "file://" + bare
+	run := func(args ...string) {
+		t.Helper()
+		out.Reset()
+		errOut.Reset()
+		if code := app.Run(args); code != 0 {
+			t.Fatalf("git-a2a %v exit %d\nstdout:\n%s\nstderr:\n%s", args, code, out.String(), errOut.String())
+		}
+	}
+
+	run("add", url, "--no-wire", "--vendor", "submodule")
+	locked, err := manifest.LoadLock(filepath.Join(consumer, "a2amodule.lock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := locked.Dependencies["acme-native"]
+	if first.Vendor == nil || first.Vendor.Mode != "submodule" || first.Vendor.Path != "deps/acme-native" {
+		t.Fatalf("submodule lock = %#v", first.Vendor)
+	}
+	if got := gitOutput(t, consumer, "ls-files", "-s", "--", "deps/acme-native"); !strings.HasPrefix(got, "160000 "+first.Commit) {
+		t.Fatalf("gitlink = %q", got)
+	}
+	run("status", "acme-native", "--offline")
+	if !strings.Contains(out.String(), "submodule @"+first.Commit[:7]) {
+		t.Fatalf("submodule status missing:\n%s", out.String())
+	}
+
+	git(t, consumer, "submodule", "deinit", "-f", "--", "deps/acme-native")
+	run("fetch", "acme-native")
+	if _, err = os.Stat(filepath.Join(consumer, "deps", "acme-native", "acme.h")); err != nil {
+		t.Fatalf("fetch did not restore submodule: %v", err)
+	}
+
+	mustWrite(t, filepath.Join(source, "acme.h"), []byte("#define ACME_VERSION 2\n"))
+	git(t, source, "add", "acme.h")
+	git(t, source, "commit", "-m", "feat: update acme native library")
+	git(t, source, "push", bare, "main")
+	run("update", "acme-native", "--no-refresh")
+	next, _ := manifest.LoadLock(filepath.Join(consumer, "a2amodule.lock"))
+	if next.Dependencies["acme-native"].Commit == first.Commit {
+		t.Fatal("vendored submodule did not advance with lock")
+	}
+
+	run("set", "acme-native", "--vendor", "copy", "--no-refresh")
+	copyLock, _ := manifest.LoadLock(filepath.Join(consumer, "a2amodule.lock"))
+	copyEntry := copyLock.Dependencies["acme-native"]
+	if copyEntry.Vendor == nil || copyEntry.Vendor.Mode != "copy" || copyEntry.Vendor.Tree == "" {
+		t.Fatalf("copy lock = %#v", copyEntry.Vendor)
+	}
+	if _, err = os.Stat(filepath.Join(consumer, ".gitmodules")); !os.IsNotExist(err) {
+		t.Fatalf("switch left .gitmodules: %v", err)
+	}
+	run("status", "acme-native", "--offline")
+	if !strings.Contains(out.String(), "copy") {
+		t.Fatalf("copy status missing:\n%s", out.String())
+	}
+	run("remove", "acme-native")
+	if _, err = os.Stat(filepath.Join(consumer, "deps", "acme-native")); !os.IsNotExist(err) {
+		t.Fatalf("remove left vendored copy: %v", err)
+	}
+}
+
 func TestAddStoresRemoteDefaultBranchInsteadOfHEAD(t *testing.T) {
 	tmp := t.TempDir()
 	source := filepath.Join(tmp, "source")

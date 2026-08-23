@@ -161,13 +161,13 @@ func (a *App) commandUsage(command string) {
 	helpByCommand := map[string]help{
 		"init":           {"git-a2a init [--id ID] [--description TEXT] [--surface DIR] [--export ECOSYSTEM=NAME] [--example lib|app]", "git-a2a init --id consumer-app --yes"},
 		"validate":       {"git-a2a validate [FILE ...] [--json]", "git-a2a validate a2amodule.yml --json"},
-		"add":            {"git-a2a add URL [--id ID] [--path DIR] [--track locked|floating] [--wire LIST|--no-wire] [--no-refresh]", "git-a2a add https://github.com/acme/lib.git"},
-		"set":            {"git-a2a set ID [--git URL] [--ref REF] [--path DIR] [--track locked|floating] [--id NEW-ID] [--dry-run] [--no-refresh]", "git-a2a set acme-lib --ref v1.1.0 --dry-run"},
+		"add":            {"git-a2a add URL [--id ID] [--path DIR] [--track locked|floating] [--wire LIST|--no-wire] [--vendor submodule|copy] [--vendor-path PATH] [--no-refresh]", "git-a2a add https://github.com/acme/lib.git --vendor submodule"},
+		"set":            {"git-a2a set ID [--git URL] [--ref REF] [--path DIR] [--track locked|floating] [--id NEW-ID] [--vendor submodule|copy|--no-vendor] [--vendor-path PATH] [--force] [--dry-run] [--no-refresh]", "git-a2a set acme-lib --vendor copy"},
 		"pin":            {"git-a2a pin ID [COMMIT] [--no-refresh]", "git-a2a pin acme-lib"},
 		"unpin":          {"git-a2a unpin ID --ref REF [--track locked|floating] [--no-refresh]", "git-a2a unpin acme-lib --ref main"},
 		"wire":           {"git-a2a wire [ID] [--ecosystem NAME] [--no-refresh]", "git-a2a wire acme-lib --ecosystem npm"},
-		"update":         {"git-a2a update [ID ...] [--check] [--review|--no-review] [--follow-moves] [--no-refresh]", "git-a2a update --check"},
-		"remove":         {"git-a2a remove ID [--keep-wiring]", "git-a2a remove acme-lib"},
+		"update":         {"git-a2a update [ID ...] [--check] [--review|--no-review] [--follow-moves] [--force] [--no-refresh]", "git-a2a update --check"},
+		"remove":         {"git-a2a remove ID [--keep-wiring] [--force]", "git-a2a remove acme-lib"},
 		"show":           {"git-a2a show [ID] [--json] [--surface]", "git-a2a show acme-lib --surface"},
 		"fetch":          {"git-a2a fetch [ID ...] [--surface] [--json]", "git-a2a fetch acme-lib --surface --json"},
 		"sync":           {"git-a2a sync [--check] [--brief] [--target FILE]", "git-a2a sync --check"},
@@ -506,9 +506,9 @@ func (a *App) validate(args []string) int {
 }
 
 type addOptions struct {
-	url, ref, path, id, track string
-	wire                      *[]string
-	noRefresh                 bool
+	url, ref, path, id, track, vendorMode, vendorPath string
+	wire                                              *[]string
+	noRefresh                                         bool
 }
 
 func parseAdd(args []string) (addOptions, error) {
@@ -554,6 +554,18 @@ func parseAdd(args []string) (addOptions, error) {
 			o.wire = &wires
 		case "--no-refresh":
 			o.noRefresh = true
+		case "--vendor":
+			v, e := next()
+			if e != nil {
+				return o, e
+			}
+			o.vendorMode = v
+		case "--vendor-path":
+			v, e := next()
+			if e != nil {
+				return o, e
+			}
+			o.vendorPath = v
 		default:
 			if strings.HasPrefix(arg, "-") {
 				return o, fmt.Errorf("unknown option %s", arg)
@@ -569,6 +581,12 @@ func parseAdd(args []string) (addOptions, error) {
 	}
 	if o.track != "locked" && o.track != "floating" {
 		return o, fmt.Errorf("--track must be locked or floating")
+	}
+	if o.vendorMode != "" && o.vendorMode != "submodule" && o.vendorMode != "copy" {
+		return o, fmt.Errorf("--vendor must be submodule or copy")
+	}
+	if o.vendorPath != "" && o.vendorMode == "" {
+		return o, fmt.Errorf("--vendor-path requires --vendor")
 	}
 	if idx := strings.LastIndex(o.url, "#"); idx > strings.Index(o.url, "://")+2 {
 		o.ref = o.url[idx+1:]
@@ -652,8 +670,17 @@ func (a *App) add(args []string) int {
 		return 1
 	}
 	dep := manifest.Dependency{ID: o.id, Git: o.url, Ref: o.ref, Path: defaultPath(o.path), Track: o.track, Wire: o.wire}
+	if o.vendorMode != "" {
+		dep.Vendor = &manifest.Vendor{Mode: o.vendorMode, Path: o.vendorPath}
+	}
 	sum := sha256.Sum256(res.Manifest)
 	locked := manifest.LockedDependency{Git: o.url, Ref: o.ref, Path: defaultPath(o.path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:])}
+	validated := *own
+	validated.Dependencies = append(append([]manifest.Dependency(nil), own.Dependencies...), dep)
+	if err = validated.Validate(); err != nil {
+		fmt.Fprintf(a.Err, "add: %v; no files changed\n", err)
+		return 1
+	}
 	stagedRoot := filepath.Join(work, "staged-cache")
 	if err := cache.Save(stagedRoot, o.id, res.Manifest, res.Commit, res.Method); err != nil {
 		fmt.Fprintf(a.Err, "add: stage cache: %v\n", err)
@@ -674,6 +701,12 @@ func (a *App) add(args []string) int {
 		fmt.Fprintf(a.Err, "add: wiring failed and was rolled back: %v\n", err)
 		return 1
 	}
+	vendorRollback, err := a.applyVendorTransition(root, own, nil, dep, nil, &locked, false)
+	if err != nil {
+		restoreAdapterFiles(root, snapshots)
+		fmt.Fprintf(a.Err, "add: vendor failed and was rolled back: %v\n", err)
+		return 1
+	}
 	oldManifestBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.yml"))
 	oldLockBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.lock"))
 	own.Dependencies = append(own.Dependencies, dep)
@@ -692,12 +725,14 @@ func (a *App) add(args []string) int {
 	if err != nil {
 		rollbackMetadata()
 		restoreAdapterFiles(root, snapshots)
+		_ = vendorRollback()
 		fmt.Fprintf(a.Err, "add: metadata write failed and was rolled back: %v\n", err)
 		return 1
 	}
 	if err = replaceCache(root, o.id, cache.Dir(stagedRoot, o.id), work); err != nil {
 		rollbackMetadata()
 		restoreAdapterFiles(root, snapshots)
+		_ = vendorRollback()
 		fmt.Fprintf(a.Err, "add: cache replacement failed and was rolled back: %v\n", err)
 		return 1
 	}
@@ -784,6 +819,7 @@ func (a *App) update(args []string) int {
 	check := false
 	followMoves := false
 	noRefresh := false
+	force := false
 	review := writerIsTerminal(a.Out)
 	var ids []string
 	for _, arg := range args {
@@ -797,6 +833,8 @@ func (a *App) update(args []string) int {
 			review = false
 		} else if arg == "--no-refresh" {
 			noRefresh = true
+		} else if arg == "--force" {
+			force = true
 		} else if strings.HasPrefix(arg, "-") {
 			fmt.Fprintf(a.Err, "update: unknown option %s\n", arg)
 			return 2
@@ -828,6 +866,7 @@ func (a *App) update(args []string) int {
 		}
 		found++
 		entry := l.Dependencies[d.ID]
+		oldEntry := entry
 		cacheRepair := cacheNeedsRepair(root, d.ID, entry.Manifest)
 		resolution, e := gitx.ResolveDetailed(a.context(), a.runner(), d.Git, d.Ref)
 		if e != nil {
@@ -955,10 +994,18 @@ func (a *App) update(args []string) int {
 			fmt.Fprintf(a.Err, "update %s wiring failed and was rolled back: %v\n", d.ID, wireErr)
 			return 1
 		}
+		vendorRollback, vendorErr := a.applyVendorTransition(root, own, &d, d, &oldEntry, &entry, force)
+		if vendorErr != nil {
+			restoreAdapterFiles(root, snapshots)
+			_ = os.RemoveAll(work)
+			fmt.Fprintf(a.Err, "update %s vendor failed and was rolled back: %v\n", d.ID, vendorErr)
+			return 1
+		}
 		oldLockBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.lock"))
 		l.Dependencies[d.ID] = entry
 		if e = lockfile.Write(root, l); e != nil {
 			restoreAdapterFiles(root, snapshots)
+			_ = vendorRollback()
 			_ = os.RemoveAll(work)
 			fmt.Fprintf(a.Err, "update %s lock write failed and was rolled back: %v\n", d.ID, e)
 			return 1
@@ -966,6 +1013,7 @@ func (a *App) update(args []string) int {
 		if e = replaceCache(root, d.ID, cache.Dir(stagedRoot, d.ID), work); e != nil {
 			_ = lockfile.Atomic(filepath.Join(root, "a2amodule.lock"), oldLockBytes, 0o644)
 			restoreAdapterFiles(root, snapshots)
+			_ = vendorRollback()
 			_ = os.RemoveAll(work)
 			fmt.Fprintf(a.Err, "update %s cache replacement failed and was rolled back: %v\n", d.ID, e)
 			return 1
@@ -1047,10 +1095,13 @@ func trustedCardWarnings(m *manifest.Manifest, cardsDir, root string) []error {
 
 func (a *App) remove(args []string) int {
 	keep := false
+	force := false
 	var id string
 	for _, arg := range args {
 		if arg == "--keep-wiring" {
 			keep = true
+		} else if arg == "--force" {
+			force = true
 		} else if strings.HasPrefix(arg, "-") {
 			fmt.Fprintf(a.Err, "remove: unknown option %s\n", arg)
 			return 2
@@ -1079,19 +1130,20 @@ func (a *App) remove(args []string) int {
 		fmt.Fprintf(a.Err, "remove: unknown dependency %s\n", id)
 		return 2
 	}
+	l, err := lockfile.Load(root)
+	if err != nil {
+		fmt.Fprintf(a.Err, "remove: lock: %v\n", err)
+		return 1
+	}
+	entry, hasEntry := l.Dependencies[id]
+	if !hasEntry {
+		fmt.Fprintf(a.Err, "remove: dependency %s is not locked\n", id)
+		return 1
+	}
+	snapshots := snapshotAdapterFiles(root)
 	if !keep {
 		depManifest, loadErr := manifest.Load(filepath.Join(cache.Dir(root, id), "a2amodule.yml"))
 		if loadErr != nil {
-			locked, lockErr := lockfile.Load(root)
-			if lockErr != nil {
-				fmt.Fprintf(a.Err, "remove: cannot recover wiring metadata for %s: %v\n", id, loadErr)
-				return 1
-			}
-			entry, ok := locked.Dependencies[id]
-			if !ok {
-				fmt.Fprintf(a.Err, "remove: cannot recover wiring metadata for %s: lock entry missing\n", id)
-				return 1
-			}
 			work, tempErr := os.MkdirTemp("", "git-a2a-remove-")
 			if tempErr != nil {
 				fmt.Fprintf(a.Err, "remove: %v\n", tempErr)
@@ -1123,24 +1175,43 @@ func (a *App) remove(args []string) int {
 					continue
 				}
 				if _, unwireErr := implementation.Unwire(a.context(), root, m.Dependencies[idx], exp); unwireErr != nil {
+					restoreAdapterFiles(root, snapshots)
 					fmt.Fprintf(a.Err, "remove: unwire %s: %v\n", exp.Ecosystem, unwireErr)
 					return 1
 				}
 			}
 		}
 	}
+	oldDep := m.Dependencies[idx]
+	nextDep := oldDep
+	nextDep.Vendor = nil
+	nextEntry := entry
+	nextEntry.Vendor = nil
+	vendorRollback, vendorErr := a.applyVendorTransition(root, m, &oldDep, nextDep, &entry, &nextEntry, force)
+	if vendorErr != nil {
+		restoreAdapterFiles(root, snapshots)
+		fmt.Fprintf(a.Err, "remove: vendor: %v\n", vendorErr)
+		return 1
+	}
+	oldManifestBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.yml"))
+	oldLockBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.lock"))
 	m.Dependencies = append(m.Dependencies[:idx], m.Dependencies[idx+1:]...)
 	if err := writeManifest(root, m); err != nil {
+		restoreAdapterFiles(root, snapshots)
+		_ = vendorRollback()
 		fmt.Fprintf(a.Err, "remove: %v\n", err)
 		return 1
 	}
-	l, err := lockfile.Load(root)
-	if err == nil {
-		delete(l.Dependencies, id)
-		if err = lockfile.Write(root, l); err != nil {
-			fmt.Fprintf(a.Err, "remove: %v\n", err)
-			return 1
+	delete(l.Dependencies, id)
+	if err = lockfile.Write(root, l); err != nil {
+		_ = lockfile.Atomic(filepath.Join(root, "a2amodule.yml"), oldManifestBytes, 0o644)
+		if len(oldLockBytes) > 0 {
+			_ = lockfile.Atomic(filepath.Join(root, "a2amodule.lock"), oldLockBytes, 0o644)
 		}
+		restoreAdapterFiles(root, snapshots)
+		_ = vendorRollback()
+		fmt.Fprintf(a.Err, "remove: %v\n", err)
+		return 1
 	}
 	if err := os.RemoveAll(cache.Dir(root, id)); err != nil {
 		fmt.Fprintf(a.Err, "remove: %v\n", err)

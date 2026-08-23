@@ -610,9 +610,10 @@ For submodule mode, `git ls-files -s <vendor.path>` must have mode `160000` and 
 to `lock.commit`; dirty or uninitialised submodules are separate findings. Nested submodules are
 fixed by the outer commit and `vendor.recursive` controls only their initialisation. For copy mode,
 the lock records the dependency tree id at `commit` (`<commit>^{tree}` for dependency path `.`,
-otherwise `<commit>:<dependency.path>`) as `vendor.tree`; drift compares it with the consumer index
-tree at `vendor.path`, not the worktree, so Windows `core.fileMode` differences do not create drift.
-The human-readable `.git-a2a-vendored` stamp contains id, commit, and tree but is not authoritative.
+otherwise `<commit>:<dependency.path>`) as `vendor.tree`; drift computes the equivalent tree from
+the consumer index entries below `vendor.path`, excluding only the informational
+`.git-a2a-vendored` stamp. It does not inspect worktree modes, so Windows `core.fileMode`
+differences do not create drift. The stamp contains id, commit, and tree but is not authoritative.
 
 # decision Vendored mutations refuse dirty data and roll back completely {#vendor_transactions}
 

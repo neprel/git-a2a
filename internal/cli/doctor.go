@@ -8,12 +8,21 @@ import (
 
 	"github.com/neprel/git-a2a/adapters"
 	"github.com/neprel/git-a2a/internal/adapter"
+	lockfile "github.com/neprel/git-a2a/internal/lock"
 	"github.com/neprel/git-a2a/internal/manifest"
+	vendortransport "github.com/neprel/git-a2a/internal/vendor"
 )
 
 type doctorReport struct {
-	Ready bool                 `json:"ready"`
-	Tools []adapter.ToolStatus `json:"tools"`
+	Ready  bool                 `json:"ready"`
+	Tools  []adapter.ToolStatus `json:"tools"`
+	Vendor []doctorVendorState  `json:"vendor,omitempty"`
+}
+
+type doctorVendorState struct {
+	ID    string `json:"id"`
+	State string `json:"state"`
+	Hint  string `json:"hint,omitempty"`
 }
 
 func (a *App) doctor(args []string) int {
@@ -45,6 +54,34 @@ func (a *App) doctor(args []string) int {
 			report.Ready = false
 		}
 	}
+	if own, loadErr := manifest.Load(filepath.Join(a.root(), "a2amodule.yml")); loadErr == nil {
+		if locked, lockErr := lockfile.Load(a.root()); lockErr == nil {
+			manager := vendortransport.Manager{Runner: a.runner()}
+			for _, dependency := range own.Dependencies {
+				if dependency.Vendor == nil {
+					continue
+				}
+				entry, ok := locked.Dependencies[dependency.ID]
+				state := doctorVendorState{ID: dependency.ID, State: "unlocked", Hint: "run git-a2a update"}
+				if ok {
+					inspected, inspectErr := manager.Inspect(a.context(), a.root(), dependency, entry)
+					if inspectErr != nil {
+						state.State = "error: " + inspectErr.Error()
+						state.Hint = "run git-a2a status -v"
+					} else {
+						state.State = inspected.Label
+						for _, finding := range inspected.Findings {
+							if finding.Kind == "missing" || finding.Kind == "uninitialised" {
+								state.Hint = "run git submodule update --init, or git-a2a wire"
+								break
+							}
+						}
+					}
+				}
+				report.Vendor = append(report.Vendor, state)
+			}
+		}
+	}
 	if jsonOut {
 		body, _ := json.MarshalIndent(report, "", "  ")
 		fmt.Fprintln(a.Out, string(body))
@@ -67,6 +104,13 @@ func (a *App) doctor(args []string) int {
 			if !status.Ready {
 				fmt.Fprintf(a.Out, "  install: %s\n", status.Install)
 			}
+		}
+		for _, state := range report.Vendor {
+			fmt.Fprintf(a.Out, "vendor %-24s %s", state.ID, state.State)
+			if state.Hint != "" {
+				fmt.Fprintf(a.Out, "  hint: %s", state.Hint)
+			}
+			fmt.Fprintln(a.Out)
 		}
 	}
 	if report.Ready {
