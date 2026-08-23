@@ -108,7 +108,7 @@ func (a *App) wire(args []string) int {
 	if changed == 0 {
 		fmt.Fprintln(a.Err, "wiring is current")
 	} else {
-		fmt.Fprintf(a.Err, "wired %d ecosystem entrie(s)\n", changed)
+		fmt.Fprintln(a.Err, wireEntrySummary(changed))
 	}
 	for _, line := range output {
 		fmt.Fprintln(a.Out, line)
@@ -118,4 +118,8 @@ func (a *App) wire(args []string) int {
 		return 1
 	}
 	return 0
+}
+
+func wireEntrySummary(count int) string {
+	return fmt.Sprintf("wired %d ecosystem %s", count, entryNoun(count))
 }

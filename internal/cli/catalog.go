@@ -70,6 +70,17 @@ func (a *App) catalog(args []string) int {
 			return 1
 		}
 	}
-	fmt.Fprintf(a.Err, "exported %d A2A catalog entrie(s)\n", len(value.Entries))
+	fmt.Fprintln(a.Err, catalogEntrySummary(len(value.Entries)))
 	return 0
+}
+
+func catalogEntrySummary(count int) string {
+	return fmt.Sprintf("exported %d A2A catalog %s", count, entryNoun(count))
+}
+
+func entryNoun(count int) string {
+	if count == 1 {
+		return "entry"
+	}
+	return "entries"
 }

@@ -1,0 +1,4 @@
+wired 1 ecosystem entry
+wired 2 ecosystem entries
+exported 1 A2A catalog entry
+exported 2 A2A catalog entries

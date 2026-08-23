@@ -23,6 +23,9 @@ func TestCatalogExportMatchesARDGolden(t *testing.T) {
 	if code := app.Run([]string{"catalog", "export"}); code != 0 {
 		t.Fatalf("exit %d: %s", code, errOut.String())
 	}
+	if got, want := errOut.String(), "exported 2 A2A catalog entries\n"; got != want {
+		t.Fatalf("catalog summary = %q, want %q", got, want)
+	}
 	if !bytes.Equal(out.Bytes(), want) {
 		t.Fatalf("catalog differs from golden:\n%s", out.String())
 	}
@@ -37,6 +40,22 @@ func TestCatalogExportMatchesARDGolden(t *testing.T) {
 		if entry.Type != catalog.A2AAgentCardType {
 			t.Fatalf("entry type = %q", entry.Type)
 		}
+	}
+}
+
+func TestEntrySummariesMatchGolden(t *testing.T) {
+	want, err := os.ReadFile(filepath.Join("testdata", "entry-summaries.golden.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.Join([]string{
+		wireEntrySummary(1),
+		wireEntrySummary(2),
+		catalogEntrySummary(1),
+		catalogEntrySummary(2),
+	}, "\n") + "\n"
+	if got != string(want) {
+		t.Fatalf("entry summaries differ from golden:\n%s", got)
 	}
 }
 
