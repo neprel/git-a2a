@@ -47,7 +47,14 @@ func TestRealToolchainAdapterLifecycle(t *testing.T) {
 		{"npm", "consumer-npm", npm.Adapter{}, adapter.Export{Ecosystem: "npm", Name: "@acme/lib-utils"}, nil},
 		{"yarn", "consumer-yarn", npm.Adapter{}, adapter.Export{Ecosystem: "npm", Name: "@acme/lib-utils"}, nil},
 		{"pnpm", "consumer-pnpm", npm.Adapter{}, adapter.Export{Ecosystem: "npm", Name: "@acme/lib-utils"}, nil},
-		{"bun", "consumer-npm", npm.Adapter{}, adapter.Export{Ecosystem: "npm", Name: "@acme/lib-utils"}, func(root string) error { return os.WriteFile(filepath.Join(root, "bun.lock"), nil, 0o644) }},
+		{"bun", "consumer-npm", npm.Adapter{}, adapter.Export{Ecosystem: "npm", Name: "@acme/lib-utils"}, func(root string) error {
+			command := exec.Command("bun", "install", "--lockfile-only", "--ignore-scripts")
+			command.Dir = root
+			if output, err := command.CombinedOutput(); err != nil {
+				return fmt.Errorf("prepare bun lock: %w: %s", err, output)
+			}
+			return nil
+		}},
 		{"pypi", "consumer-uv", pypi.Adapter{}, adapter.Export{Ecosystem: "pypi", Name: "acme-lib-utils"}, nil},
 		{"golang", "consumer-go", golang.Adapter{}, adapter.Export{Ecosystem: "golang", Name: "acme.dev/lib-utils"}, nil},
 		{"cargo", "consumer-cargo", cargo.Adapter{}, adapter.Export{Ecosystem: "cargo", Name: "acme-lib-utils"}, nil},
@@ -79,6 +86,10 @@ func TestRealToolchainAdapterLifecycle(t *testing.T) {
 			if test.name == "pypi" {
 				caseDep.Git = "file://" + filepath.ToSlash(libraryPath)
 				caseLocked.Git = caseDep.Git
+			} else if test.name == "bun" {
+				caseDep.Git = "https://github.com/neprel/git-a2a-demo-acme-lib.git"
+				caseLocked.Git = caseDep.Git
+				caseLocked.Commit = remoteCommit(t, caseDep.Git)
 			} else if test.name == "golang" {
 				caseDep.Git = "https://github.com/stretchr/testify.git"
 				caseLocked.Git = caseDep.Git

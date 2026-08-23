@@ -30,6 +30,9 @@ The compiled integration test runs with `adapters/` as its working directory, ma
 package semantics so `../testdata/` fixtures resolve identically inside and outside containers.
 Images that do not bundle Git install it only inside their disposable CI container; the Zig job
 downloads the official versioned archive and verifies the SHA-256 published by ziglang.org.
+The Bun integration resolves the current commit of the public `acme-*` demo repository: Bun 1.2
+does not resolve a raw commit from the test's ephemeral `git://` daemon even when Git advertises
+that commit as `main`, while the public HTTPS Git path is the production form the adapter emits.
 
 # decision Not wired is policy, not an adapter success
 
