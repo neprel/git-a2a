@@ -58,7 +58,7 @@ latest stable release; pin an explicit version in CI.
 | ✔ | npm | `npx git-a2a@latest --version` |
 | ✔ | PyPI with uv | `uvx git-a2a --version` |
 | ✔ | PyPI with pipx | `pipx run git-a2a --version` |
-| ✔ | Container | `docker run --rm ghcr.io/neprel/git-a2a:latest --version` |
+| ✔ | Container | `docker run --pull=always --rm ghcr.io/neprel/git-a2a:latest --version` |
 
 The checksum-verifying standalone installers support `GIT_A2A_VERSION`, `--version`, `--dir`,
 and `--dry-run`. The macOS binaries are not yet Apple-notarized; use the Homebrew formula for a
@@ -75,7 +75,7 @@ sudo apk add --allow-untrusted git-a2a_*.apk
 The scratch container contains only the binary:
 
 ```sh
-docker run --rm ghcr.io/neprel/git-a2a:latest version
+docker run --pull=always --rm ghcr.io/neprel/git-a2a:latest version
 ```
 
 Every channel executes the same Go binary. `git-a2a version --check` is the only automatic

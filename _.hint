@@ -134,6 +134,8 @@ release number: Go's built-in SemVer query `@latest`, npm's `latest` dist-tag, t
 tag, and unversioned PyPI resolution. Stable releases move the npm/GHCR aliases and channel
 manifests; never create or move a non-SemVer Git tag named `latest`, because Go ignores it as a
 module version and release tags are immutable. Explicit versions remain the recommendation for CI.
+Commands that use the moving GHCR `latest` alias include Docker's `--pull=always`; otherwise a
+locally cached old image can keep running after the remote alias moves.
 GitHub currently annotates the pinned `actions/checkout` v4 line because the action declares
 Node 20 while hosted runners force it onto Node 24. This is a maintenance warning, not an
 installer failure: replace the full SHA only with a reviewed official checkout release that
