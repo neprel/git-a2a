@@ -7,6 +7,7 @@ not run dependency resolution.
 The tuple is delimited with Elixir comments; if insertion adds a comma to the preceding tuple,
 the separator is marked and removed with the dependency so a pre-existing trailing-comma choice
 is never guessed.
+With a locked vendor the same tuple uses `path: "<vendor/export-path>"` and omits Git options.
 
 # test Hex adapter
 

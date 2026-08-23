@@ -49,6 +49,9 @@ func (a Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, ex
 		return adapter.Change{}, err
 	}
 	s := string(b)
+	if locked.Vendor != nil && v != "uv" {
+		return adapter.Change{}, adapter.NotWirable(fmt.Sprintf("%s does not support git-a2a vendored path wiring; use uv", v))
+	}
 	if exp.Path != "" && exp.Path != "." && v != "uv" {
 		return adapter.Change{}, adapter.NotWirable(fmt.Sprintf("%s cannot express subdirectory %s", v, exp.Path))
 	}
@@ -123,6 +126,13 @@ func (a Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, e
 		return nil, err
 	}
 	s := string(b)
+	if locked.Vendor != nil {
+		want := fmt.Sprintf("path = %q", adapter.VendorSourcePath(exp, locked))
+		if !strings.Contains(s, fmt.Sprintf("%q = { %s }", exp.Name, want)) && !strings.Contains(s, exp.Name+" = { "+want+" }") {
+			return []adapter.Finding{{File: "pyproject.toml", Entry: exp.Name, Want: want, Got: "missing or changed"}}, nil
+		}
+		return nil, nil
+	}
 	target := ""
 	namePattern := regexp.MustCompile(`(?:` + tomlKeyPattern(exp.Name) + `[ \t]*=|["']` + regexp.QuoteMeta(exp.Name) + `\s+@)`)
 	for _, line := range strings.Split(s, "\n") {
@@ -156,6 +166,9 @@ func pin(dep adapter.Dependency, l adapter.Locked) string {
 	return l.Commit
 }
 func uvSource(dep adapter.Dependency, exp adapter.Export, l adapter.Locked) string {
+	if l.Vendor != nil {
+		return fmt.Sprintf("{ path = %q }", adapter.VendorSourcePath(exp, l))
+	}
 	field := "rev"
 	if dep.Track == "floating" {
 		field = "branch"

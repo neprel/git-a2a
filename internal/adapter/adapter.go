@@ -4,9 +4,26 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 
 	"github.com/neprel/git-a2a/internal/manifest"
 )
+
+// VendorSourcePath returns the consumer-root-relative directory that contains an export.
+// Copy vendors already materialise dependency.path as their root; submodules retain it.
+func VendorSourcePath(exp Export, locked Locked) string {
+	if locked.Vendor == nil {
+		return ""
+	}
+	parts := []string{locked.Vendor.Path}
+	if locked.Vendor.Mode == "submodule" && locked.Path != "" && locked.Path != "." {
+		parts = append(parts, locked.Path)
+	}
+	if exp.Path != "" && exp.Path != "." {
+		parts = append(parts, exp.Path)
+	}
+	return filepath.ToSlash(filepath.Join(parts...))
+}
 
 type Variant string
 type Dependency = manifest.Dependency

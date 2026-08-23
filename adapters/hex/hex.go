@@ -31,13 +31,18 @@ func (Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp 
 	if err != nil {
 		return adapter.Change{}, err
 	}
-	pinKey, pin := "ref", locked.Commit
-	if dep.Track == "floating" {
-		pinKey, pin = "branch", dep.Ref
-	}
-	line := fmt.Sprintf("    {%s, git: %s, %s: %s", atom(exp.Name), strconv.Quote(dep.Git), pinKey, strconv.Quote(pin))
-	if exp.Path != "" && exp.Path != "." {
-		line += ", sparse: " + strconv.Quote(exp.Path)
+	line := ""
+	if locked.Vendor != nil {
+		line = fmt.Sprintf("    {%s, path: %s", atom(exp.Name), strconv.Quote(adapter.VendorSourcePath(exp, locked)))
+	} else {
+		pinKey, pin := "ref", locked.Commit
+		if dep.Track == "floating" {
+			pinKey, pin = "branch", dep.Ref
+		}
+		line = fmt.Sprintf("    {%s, git: %s, %s: %s", atom(exp.Name), strconv.Quote(dep.Git), pinKey, strconv.Quote(pin))
+		if exp.Path != "" && exp.Path != "." {
+			line += ", sparse: " + strconv.Quote(exp.Path)
+		}
 	}
 	line += "}"
 	next, changed, err := upsert(string(body), exp.Name, line)
@@ -78,6 +83,13 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 		return nil, err
 	}
 	line := strings.TrimSpace(dependencyLine(exp.Name).FindString(string(body)))
+	if locked.Vendor != nil {
+		want := "path: " + strconv.Quote(adapter.VendorSourcePath(exp, locked))
+		if line == "" || !strings.Contains(line, want) {
+			return []adapter.Finding{{File: "mix.exs", Entry: exp.Name, Want: want, Got: line}}, nil
+		}
+		return nil, nil
+	}
 	match := regexp.MustCompile(`git:\s*["']([^"']+)["']`).FindStringSubmatch(line)
 	gotURL := ""
 	if len(match) == 2 {

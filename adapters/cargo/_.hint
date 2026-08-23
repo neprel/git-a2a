@@ -6,6 +6,7 @@ anywhere in the Git repository, so an export subdirectory does not become a Carg
 Unrelated TOML text and dependency entries remain byte-for-byte unchanged.
 If `[dependencies]` is absent, the adapter creates it inside a delimited block; unwire removes
 the block as a unit instead of leaving an empty table.
+With a locked vendor the owned entry instead contains only `path = "<vendor/export-path>"`.
 
 # decision Cargo.lock stays downstream
 

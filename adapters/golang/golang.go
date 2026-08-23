@@ -32,6 +32,14 @@ func (a Adapter) Wire(ctx context.Context, root string, dep adapter.Dependency, 
 		return adapter.Change{}, err
 	}
 	s := string(b)
+	if locked.Vendor != nil {
+		local := "./" + adapter.VendorSourcePath(exp, locked)
+		if err := adapter.Command(ctx, root, "go", "mod", "edit", "-require="+exp.Name+"@v0.0.0", "-replace="+exp.Name+"="+local); err != nil {
+			return adapter.Change{}, err
+		}
+		next, readErr := os.ReadFile(p)
+		return adapter.Change{File: "go.mod", Entry: exp.Name, Changed: string(next) != s}, readErr
+	}
 	source, err := sourceModule(dep.Git, exp.Path)
 	if err != nil {
 		return adapter.Change{}, adapter.NotWirable(err.Error())
@@ -98,6 +106,14 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 	b, err := os.ReadFile(filepath.Join(root, "go.mod"))
 	if err != nil {
 		return nil, err
+	}
+	if locked.Vendor != nil {
+		line := findLine(string(b), "replace", exp.Name)
+		want := "./" + adapter.VendorSourcePath(exp, locked)
+		if !strings.Contains(line, want) {
+			return []adapter.Finding{{File: "go.mod", Entry: exp.Name, Want: want, Got: strings.TrimSpace(line)}}, nil
+		}
+		return nil, nil
 	}
 	prefix := locked.Commit
 	if len(prefix) > 12 {

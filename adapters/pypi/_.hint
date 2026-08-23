@@ -19,6 +19,9 @@ Poetry projects with `[tool.poetry.dependencies]` use Poetry's native inline Git
 projects whose `dependencies` field is absent gain a delimited field that unwire removes as a
 unit; this supports valid projects with dynamic or intentionally empty runtime dependencies
 without reconstructing `pyproject.toml`.
+With a locked vendor, uv keeps the project dependency name and writes
+`[tool.uv.sources].<name> = { path = "<vendor/export-path>" }`. Other Python variants return a
+typed not-wirable reason because PEP 621 has no portable local-source table.
 
 # decision Refresh prerequisite
 

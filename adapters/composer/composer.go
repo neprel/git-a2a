@@ -27,7 +27,7 @@ func (Adapter) Detect(root string) (bool, adapter.Variant, error) {
 }
 
 func (Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) (adapter.Change, error) {
-	if exp.Path != "" && exp.Path != "." {
+	if locked.Vendor == nil && exp.Path != "" && exp.Path != "." {
 		return adapter.Change{}, adapter.NotWirable("Composer VCS repositories require composer.json at the repository root")
 	}
 	path := filepath.Join(root, "composer.json")
@@ -39,20 +39,24 @@ func (Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp 
 	if err := json.Unmarshal(body, &doc); err != nil {
 		return adapter.Change{}, err
 	}
-	repository, _ := json.Marshal(map[string]string{"type": "vcs", "url": dep.Git})
+	repositoryType, repositoryURL := "vcs", dep.Git
+	constraint := "dev-" + branchName(dep.Ref)
+	if dep.Track != "floating" {
+		constraint += "#" + locked.Commit
+	}
+	if locked.Vendor != nil {
+		repositoryType, repositoryURL, constraint = "path", adapter.VendorSourcePath(exp, locked), "*"
+	}
+	repository, _ := json.Marshal(map[string]string{"type": repositoryType, "url": repositoryURL})
 	var next []byte
 	var repositoryChanged bool
 	if raw := doc["repositories"]; len(raw) > 0 && strings.HasPrefix(strings.TrimSpace(string(raw)), "[") {
-		next, repositoryChanged, err = setArrayRepository(body, dep.Git, repository)
+		next, repositoryChanged, err = setArrayRepository(body, repositoryURL, repository)
 	} else {
 		next, repositoryChanged, err = setObjectEntry(body, "repositories", exp.Name, repository)
 	}
 	if err != nil {
 		return adapter.Change{}, err
-	}
-	constraint := "dev-" + branchName(dep.Ref)
-	if dep.Track != "floating" {
-		constraint += "#" + locked.Commit
 	}
 	next, requireChanged, err := setObjectEntry(next, "require", exp.Name, mustJSON(constraint))
 	if err == nil && (repositoryChanged || requireChanged) {
@@ -78,7 +82,11 @@ func (Adapter) Unwire(_ context.Context, root string, dep adapter.Dependency, ex
 		repositories = doc["repositories"]
 	}
 	if strings.HasPrefix(strings.TrimSpace(string(repositories)), "[") {
-		next, repositoryChanged, err = removeArrayRepository(next, dep.Git)
+		repositoryURL := dep.Git
+		if dep.Vendor != nil {
+			repositoryURL = dependencyVendorPath(dep, exp)
+		}
+		next, repositoryChanged, err = removeArrayRepository(next, repositoryURL)
 	} else {
 		next, repositoryChanged, err = removeObjectEntry(next, "repositories", exp.Name)
 	}
@@ -107,6 +115,14 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 	if err := json.Unmarshal(body, &doc); err != nil {
 		return nil, err
 	}
+	if locked.Vendor != nil {
+		want := adapter.VendorSourcePath(exp, locked)
+		repositoryType, repositoryURL := repositoryFor(doc.Repositories, exp.Name, want)
+		if repositoryType != "path" || filepath.ToSlash(repositoryURL) != want || doc.Require[exp.Name] != "*" {
+			return []adapter.Finding{{File: "composer.json", Entry: exp.Name, Want: "path " + want, Got: repositoryURL + " " + doc.Require[exp.Name]}}, nil
+		}
+		return nil, nil
+	}
 	repositoryType, repositoryURL := repositoryFor(doc.Repositories, exp.Name, locked.Git)
 	constraint := doc.Require[exp.Name]
 	badPin := dep.Track != "floating" && !strings.Contains(constraint, locked.Commit)
@@ -122,6 +138,21 @@ func branchName(ref string) string {
 		return "main"
 	}
 	return ref
+}
+
+func dependencyVendorPath(dep adapter.Dependency, exp adapter.Export) string {
+	path := dep.Vendor.Path
+	if path == "" {
+		path = filepath.ToSlash(filepath.Join("deps", dep.ID))
+	}
+	parts := []string{path}
+	if dep.Vendor.Mode == "submodule" && dep.Path != "" && dep.Path != "." {
+		parts = append(parts, dep.Path)
+	}
+	if exp.Path != "" && exp.Path != "." {
+		parts = append(parts, exp.Path)
+	}
+	return filepath.ToSlash(filepath.Join(parts...))
 }
 
 func mustJSON(value string) []byte {

@@ -30,13 +30,18 @@ func (Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp 
 	if err != nil {
 		return adapter.Change{}, err
 	}
-	ref := locked.Commit
-	if dep.Track == "floating" {
-		ref = dep.Ref
-	}
-	lines := []string{fmt.Sprintf("  %s:", exp.Name), "    git:", "      url: " + strconv.Quote(dep.Git), "      ref: " + strconv.Quote(ref)}
-	if exp.Path != "" && exp.Path != "." {
-		lines = append(lines, "      path: "+strconv.Quote(strings.Trim(exp.Path, "/")))
+	lines := []string{fmt.Sprintf("  %s:", exp.Name)}
+	if locked.Vendor != nil {
+		lines = append(lines, "    path: "+strconv.Quote(adapter.VendorSourcePath(exp, locked)))
+	} else {
+		ref := locked.Commit
+		if dep.Track == "floating" {
+			ref = dep.Ref
+		}
+		lines = append(lines, "    git:", "      url: "+strconv.Quote(dep.Git), "      ref: "+strconv.Quote(ref))
+		if exp.Path != "" && exp.Path != "." {
+			lines = append(lines, "      path: "+strconv.Quote(strings.Trim(exp.Path, "/")))
+		}
 	}
 	entry := strings.Join(lines, "\n") + "\n"
 	next, changed, err := upsert(string(body), exp.Name, entry)
@@ -82,6 +87,13 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 	entry := ""
 	if ok {
 		entry = string(body[start:end])
+	}
+	if locked.Vendor != nil {
+		want := "path: " + strconv.Quote(adapter.VendorSourcePath(exp, locked))
+		if entry == "" || !strings.Contains(entry, want) {
+			return []adapter.Finding{{File: "pubspec.yaml", Entry: exp.Name, Want: want, Got: strings.TrimSpace(entry)}}, nil
+		}
+		return nil, nil
 	}
 	urlMatch := regexp.MustCompile(`(?m)^\s+url:\s*["']?([^"'\s]+)`).FindStringSubmatch(entry)
 	gotURL := ""

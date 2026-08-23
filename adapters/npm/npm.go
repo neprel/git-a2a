@@ -54,13 +54,16 @@ func (a Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, ex
 	if err != nil || !ok {
 		return adapter.Change{}, err
 	}
-	if exp.Path != "" && exp.Path != "." && v != "pnpm" && v != "yarn-berry" {
+	if locked.Vendor == nil && exp.Path != "" && exp.Path != "." && v != "pnpm" && v != "yarn-berry" {
 		return adapter.Change{}, adapter.NotWirable(fmt.Sprintf("%s cannot express subdirectory %s", v, exp.Path))
 	}
-	if exp.Path != "" && exp.Path != "." && (v == "npm" || v == "bun") {
+	if locked.Vendor == nil && exp.Path != "" && exp.Path != "." && (v == "npm" || v == "bun") {
 		return adapter.Change{}, fmt.Errorf("npm export %s has subdirectory %s: %s does not support git subdirectory dependencies", exp.Name, exp.Path, v)
 	}
 	pin := dependencyURL(dep, locked, string(v), exp.Path)
+	if locked.Vendor != nil {
+		pin = "file:" + adapter.VendorSourcePath(exp, locked)
+	}
 	p := filepath.Join(root, "package.json")
 	b, err := os.ReadFile(p)
 	if err != nil {
@@ -128,6 +131,13 @@ func (a Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, e
 		return nil, err
 	}
 	got := p.Dependencies[exp.Name]
+	if locked.Vendor != nil {
+		want := "file:" + adapter.VendorSourcePath(exp, locked)
+		if got != want {
+			return []adapter.Finding{{File: "package.json", Entry: exp.Name, Want: want, Got: got}}, nil
+		}
+		return nil, nil
+	}
 	base := got
 	if i := strings.Index(base, "#"); i >= 0 {
 		base = base[:i]

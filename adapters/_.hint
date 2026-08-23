@@ -14,14 +14,15 @@ Bundler, `composer.json` for Composer, `mix.exs` for Hex/Mix, and `stack.yaml` o
 `cabal.project` for Hackage, `build.zig.zon` for Zig, and `deps.edn` for Clojure tools.deps.
 `flake.nix` for Nix flakes. A root `CMakeLists.txt` activates the vendored CMake integration
 adapter; Gradle settings activate the vendored Maven integration and a root `.csproj` or
-`.fsproj` activates the vendored NuGet/MSBuild integration; root `pom.xml` activates Maven.
+`.fsproj` activates the vendored NuGet/MSBuild integration; root `pom.xml` activates Maven and
+root `meson.build` activates Meson.
 Polyglot consumers may activate any combination; a
 dependency transaction applies every detected,
 applicable adapter rather than selecting a single ecosystem.
 
 # decision Adapter verification labels distinguish form from execution
 
-Every registered adapter through CMake, Gradle, MSBuild, and Maven has passed its native toolchain lifecycle in
+Every registered adapter through CMake, Gradle, MSBuild, Maven, and Meson has passed its native toolchain lifecycle in
 the opt-in Integration workflow and is `verified`. `status -v` exposes this evidence label; a
 future adapter begins `form-verified` and changes only after a recorded real-toolchain run, never
 merely because a fixture parses.
@@ -76,3 +77,12 @@ foreign content was discarded. `Drift` reports such content. `Unwire` and `remov
 because the generated file was edited: they retain other intact generated blocks or delete the
 file and its one managed root include when none remain. CMake, Gradle, MSBuild, Maven, and Meson
 all obey this contract, so a half-wired state is one `git-a2a wire` can always repair.
+
+# decision Vendored exports use native local-path forms
+
+When a lock entry has `vendor`, native ecosystems address the materialised export path rather
+than the Git URL: npm-family `file:`, Cargo `path`, Go `replace => ./...`, uv `path`, Pub `path`,
+Mix `path`, and Composer `type: path`. The path is lock `vendor.path`, plus dependency path only
+for submodules, plus export path. Drift compares this exact local form; changing or removing
+vendoring rewires the same owned entry back to its native Git form or removes it. Python path
+wiring is deliberately uv-only because generic PEP 621 has no portable source table.

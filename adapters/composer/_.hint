@@ -7,6 +7,8 @@ array form, plus `require[<package-name>]`. The repository remains `type: vcs`; 
 `set` replace the source without leaving stale VCS entries; array entries are addressed by their
 normalized URL. Subdirectory exports return a typed not-wirable result because Composer's VCS
 metadata cannot select them.
+With a locked vendor, the owned repository becomes `type: path` at the materialised export and
+the requirement is `*`; subdirectory exports are valid in this mode.
 
 # decision composer.lock stays downstream
 

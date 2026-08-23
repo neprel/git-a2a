@@ -106,9 +106,16 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	git(t, source, "config", "user.email", "acme@example.test")
 	git(t, source, "config", "user.name", "Acme")
 	git(t, source, "config", "core.autocrlf", "true")
-	manifestBody := []byte("schema: 1\nmodule:\n  id: acme-native\n  release: {channel: main}\n  exports:\n    - ecosystem: cmake\n      name: acme::native\n    - ecosystem: maven\n      name: com.acme:native\n    - ecosystem: nuget\n      name: Acme.Native\n      path: dotnet/Acme.Native.csproj\n")
+	manifestBody := []byte("schema: 1\nmodule:\n  id: acme-native\n  release: {channel: main}\n  exports:\n    - {ecosystem: npm, name: '@acme/native'}\n    - {ecosystem: cargo, name: acme-native}\n    - {ecosystem: golang, name: acme.dev/native}\n    - {ecosystem: pypi, name: acme-native}\n    - {ecosystem: pub, name: acme_native}\n    - {ecosystem: hex, name: acme_native}\n    - {ecosystem: composer, name: acme/native}\n    - ecosystem: cmake\n      name: acme::native\n    - ecosystem: maven\n      name: com.acme:native\n    - ecosystem: nuget\n      name: Acme.Native\n      path: dotnet/Acme.Native.csproj\n")
 	mustWrite(t, filepath.Join(source, "a2amodule.yml"), manifestBody)
 	mustWrite(t, filepath.Join(source, "acme.h"), []byte("#define ACME_VERSION 1\n"))
+	mustWrite(t, filepath.Join(source, "package.json"), []byte("{\"name\":\"@acme/native\",\"version\":\"1.0.0\"}\n"))
+	mustWrite(t, filepath.Join(source, "Cargo.toml"), []byte("[package]\nname = \"acme-native\"\nversion = \"1.0.0\"\nedition = \"2021\"\n"))
+	mustWrite(t, filepath.Join(source, "go.mod"), []byte("module acme.dev/native\n\ngo 1.25\n"))
+	mustWrite(t, filepath.Join(source, "pyproject.toml"), []byte("[project]\nname = \"acme-native\"\nversion = \"1.0.0\"\n"))
+	mustWrite(t, filepath.Join(source, "pubspec.yaml"), []byte("name: acme_native\nversion: 1.0.0\n"))
+	mustWrite(t, filepath.Join(source, "mix.exs"), []byte("defmodule AcmeNative.MixProject do\n  use Mix.Project\n  def project, do: [app: :acme_native, version: \"1.0.0\"]\nend\n"))
+	mustWrite(t, filepath.Join(source, "composer.json"), []byte("{\"name\":\"acme/native\",\"version\":\"1.0.0\"}\n"))
 	mustWrite(t, filepath.Join(source, "CMakeLists.txt"), []byte("add_library(acme-native INTERFACE)\nadd_library(acme::native ALIAS acme-native)\ntarget_include_directories(acme-native INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})\n"))
 	mustWrite(t, filepath.Join(source, "pom.xml"), []byte("<project><modelVersion>4.0.0</modelVersion><groupId>com.acme</groupId><artifactId>native</artifactId><version>1.0.0</version></project>\n"))
 	if err := os.MkdirAll(filepath.Join(source, "dotnet"), 0o755); err != nil {
@@ -128,6 +135,13 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	mustWrite(t, filepath.Join(consumer, "settings.gradle.kts"), []byte("rootProject.name = \"consumer\"\n"))
 	mustWrite(t, filepath.Join(consumer, "Acme.App.csproj"), []byte("<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>\n"))
 	mustWrite(t, filepath.Join(consumer, "pom.xml"), []byte("<project><modelVersion>4.0.0</modelVersion><groupId>com.acme</groupId><artifactId>consumer</artifactId><version>1.0.0</version><packaging>pom</packaging></project>\n"))
+	mustWrite(t, filepath.Join(consumer, "package.json"), []byte("{\"name\":\"consumer-app\",\"private\":true}\n"))
+	mustWrite(t, filepath.Join(consumer, "Cargo.toml"), []byte("[package]\nname = \"consumer-app\"\nversion = \"1.0.0\"\nedition = \"2021\"\n"))
+	mustWrite(t, filepath.Join(consumer, "go.mod"), []byte("module acme.dev/consumer\n\ngo 1.25\n"))
+	mustWrite(t, filepath.Join(consumer, "pyproject.toml"), []byte("[project]\nname = \"consumer-app\"\nversion = \"1.0.0\"\ndependencies = []\n\n[tool.uv]\n"))
+	mustWrite(t, filepath.Join(consumer, "pubspec.yaml"), []byte("name: consumer_app\ndependencies:\n"))
+	mustWrite(t, filepath.Join(consumer, "mix.exs"), []byte("defmodule Consumer.MixProject do\n  use Mix.Project\n  def project, do: [app: :consumer, version: \"1.0.0\", deps: deps()]\n  defp deps, do: []\nend\n"))
+	mustWrite(t, filepath.Join(consumer, "composer.json"), []byte("{\"name\":\"acme/consumer\"}\n"))
 	git(t, consumer, "add", ".")
 	git(t, consumer, "commit", "-m", "chore: initialize consumer")
 
@@ -171,6 +185,21 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	mavenGenerated, err := os.ReadFile(filepath.Join(consumer, "deps", "git-a2a.maven", "pom.xml"))
 	if err != nil || !strings.Contains(string(mavenGenerated), `<module>../acme-native</module>`) {
 		t.Fatalf("maven integration = %q, %v", mavenGenerated, err)
+	}
+	pathWiring := map[string]string{
+		"package.json":   `file:deps/acme-native`,
+		"Cargo.toml":     `path = "deps/acme-native"`,
+		"go.mod":         `replace acme.dev/native => ./deps/acme-native`,
+		"pyproject.toml": `"acme-native" = { path = "deps/acme-native" }`,
+		"pubspec.yaml":   `path: "deps/acme-native"`,
+		"mix.exs":        `path: "deps/acme-native"`,
+		"composer.json":  `"type":"path"`,
+	}
+	for name, fragment := range pathWiring {
+		body, readErr := os.ReadFile(filepath.Join(consumer, name))
+		if readErr != nil || !strings.Contains(string(body), fragment) {
+			t.Fatalf("%s path integration missing %q: %v\n%s", name, fragment, readErr, body)
+		}
 	}
 	run("status", "acme-native", "--offline")
 	if !strings.Contains(strings.SplitN(out.String(), "\n", 2)[0], "VENDOR") {
@@ -232,6 +261,15 @@ func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) 
 	}
 	if _, statErr := os.Stat(filepath.Join(consumer, "deps", "git-a2a.maven", "pom.xml")); !os.IsNotExist(statErr) {
 		t.Fatalf("--no-vendor left generated Maven integration: %v", statErr)
+	}
+	for name, fragment := range pathWiring {
+		body, readErr := os.ReadFile(filepath.Join(consumer, name))
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		if strings.Contains(string(body), fragment) {
+			t.Fatalf("--no-vendor left local path in %s:\n%s", name, body)
+		}
 	}
 	run("set", "acme-native", "--vendor", "submodule", "--no-refresh")
 	run("remove", "acme-native")

@@ -5,6 +5,8 @@ The Go adapter uses `go mod edit` for `-require`, `-replace`, `-droprequire`, an
 both ask `go list -m -json <module>@<commit>` for the native version and give that exact
 pseudo-version to `go mod edit`; a fabricated zero timestamp is invalid for a real module and
 must never be written. Unrelated directives, comments, and blank lines survive.
+With a locked vendor, `go mod edit` writes `require <module> v0.0.0` plus
+`replace <module> => ./<vendor/export-path>` and performs no version resolution.
 
 # decision Go refresh is intentionally empty
 

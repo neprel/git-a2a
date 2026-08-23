@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/neprel/git-a2a/internal/adapter"
+	"github.com/neprel/git-a2a/internal/manifest"
 )
 
 func TestWireGoldenIdempotentUnwire(t *testing.T) {
@@ -51,6 +52,29 @@ func TestWireGoldenIdempotentUnwire(t *testing.T) {
 	_ = json.Unmarshal(original, &wantDoc)
 	if !deepEqual(gotDoc, wantDoc) {
 		t.Fatal("unwire did not restore dependency data")
+	}
+}
+
+func TestVendoredPathLifecycle(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "package.json"), []byte("{\"name\":\"consumer\"}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dep := adapter.Dependency{ID: "acme-lib", Vendor: &manifest.Vendor{Mode: "copy"}}
+	exp := adapter.Export{Ecosystem: "npm", Name: "@acme/lib", Path: "js"}
+	locked := adapter.Locked{Vendor: &manifest.LockedVendor{Mode: "copy", Path: "deps/acme-lib"}}
+	a := Adapter{}
+	if change, err := a.Wire(context.Background(), root, dep, exp, locked); err != nil || !change.Changed {
+		t.Fatalf("Wire=%#v %v", change, err)
+	}
+	if got := string(mustRead(t, filepath.Join(root, "package.json"))); !strings.Contains(got, `"@acme/lib": "file:deps/acme-lib/js"`) {
+		t.Fatalf("path wiring:\n%s", got)
+	}
+	if findings, err := a.Drift(context.Background(), root, dep, exp, locked); err != nil || len(findings) != 0 {
+		t.Fatalf("Drift=%v %v", findings, err)
+	}
+	if change, err := a.Unwire(context.Background(), root, dep, exp); err != nil || !change.Changed {
+		t.Fatalf("Unwire=%#v %v", change, err)
 	}
 }
 func TestDetectVariants(t *testing.T) {

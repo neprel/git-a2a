@@ -8,6 +8,8 @@ HTTP(S) and SSH Git dependencies use an explicit `git+` transport. In particular
 receives `git+ssh://...#commit=<sha>` (with SCP-style SSH URLs normalised first); bare `ssh://`
 and `https://` selectors are not valid Yarn Git dependencies. A native `git://` URL stays
 `git://` rather than becoming the invalid `git+git://` form.
+With a locked vendor the same dependency entry is `file:<vendor/export-path>` for npm, Yarn,
+pnpm, and Bun; no commit selector or Git URL remains.
 
 # decision npm refresh cannot run lifecycle scripts
 

@@ -31,11 +31,16 @@ func (Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp 
 	if err != nil {
 		return adapter.Change{}, err
 	}
-	pinKey, pinValue := "rev", locked.Commit
-	if dep.Track == "floating" {
-		pinKey, pinValue = "branch", dep.Ref
+	line := ""
+	if locked.Vendor != nil {
+		line = fmt.Sprintf("%s = { path = %q }", tomlKey(exp.Name), adapter.VendorSourcePath(exp, locked))
+	} else {
+		pinKey, pinValue := "rev", locked.Commit
+		if dep.Track == "floating" {
+			pinKey, pinValue = "branch", dep.Ref
+		}
+		line = fmt.Sprintf("%s = { git = %q, %s = %q }", tomlKey(exp.Name), dep.Git, pinKey, pinValue)
 	}
-	line := fmt.Sprintf("%s = { git = %q, %s = %q }", tomlKey(exp.Name), dep.Git, pinKey, pinValue)
 	next, changed := upsert(string(body), exp.Name, line)
 	if changed {
 		err = os.WriteFile(file, []byte(next), 0o644)
@@ -82,6 +87,13 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 	line := ""
 	if ok {
 		line = strings.TrimSpace(dependencyLine(exp.Name).FindString(string(body)[start:end]))
+	}
+	if locked.Vendor != nil {
+		want := fmt.Sprintf("path = %q", adapter.VendorSourcePath(exp, locked))
+		if line == "" || !strings.Contains(line, want) {
+			return []adapter.Finding{{File: "Cargo.toml", Entry: exp.Name, Want: want, Got: line}}, nil
+		}
+		return nil, nil
 	}
 	urlMatch := regexp.MustCompile(`git[ \t]*=[ \t]*["']([^"']+)["']`).FindStringSubmatch(line)
 	gotURL := ""

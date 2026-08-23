@@ -6,6 +6,7 @@ refs are the declared branch. It splices only that YAML entry, preserving every 
 Inline dependency maps are rejected as not wirable instead of being reformatted.
 If top-level `dependencies` is absent, the adapter creates a delimited mapping and removes the
 container as a unit on unwire.
+With a locked vendor the owned entry uses Pub's `path` descriptor and omits the Git mapping.
 
 # decision pubspec.lock stays downstream
 
