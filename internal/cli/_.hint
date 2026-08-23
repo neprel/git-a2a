@@ -42,3 +42,11 @@ version, PATH state, and the platform install hint; any required missing or inco
 exit 1. `status -v` exposes the same state. `add`, `wire`, `update`, and `set` preserve a completed
 manifest edit and warn when only downstream Refresh is unavailable; a direct adapter `Refresh`
 returns the shared actionable error.
+
+# decision Fetch restores cache from immutable lock state
+
+`git-a2a fetch [ID ...]` is the non-mutating durable-state repair command for `.git-a2a/cache`.
+It fetches each manifest at the exact lock commit, validates the manifest SHA-256, stages the
+cache, and atomically replaces only that dependency's cache. `--surface` also verifies the locked
+tree id. It never resolves the manifest ref, rewrites manifest/lock, snapshots cards, or invokes
+adapters; missing lock coordinates or hash mismatches exit 1 and preserve the old cache.

@@ -100,6 +100,8 @@ func (a *App) Run(args []string) int {
 		return a.remove(args[1:])
 	case "show":
 		return a.show(args[1:])
+	case "fetch":
+		return a.fetch(args[1:])
 	case "sync":
 		return a.sync(args[1:])
 	case "who":
@@ -127,7 +129,7 @@ func (a *App) Run(args []string) int {
 }
 
 func (a *App) usage() {
-	fmt.Fprintln(a.Out, "usage: git-a2a <init|validate|add|set|pin|unpin|wire|update|remove|show|sync|who|contact|status|card|catalog|fmt|doctor|version|upgrade> [options]")
+	fmt.Fprintln(a.Out, "usage: git-a2a <init|validate|add|set|pin|unpin|wire|update|remove|fetch|show|sync|who|contact|status|card|catalog|fmt|doctor|version|upgrade> [options]")
 }
 func (a *App) commandUsage(command string) {
 	usage := map[string]string{
@@ -137,6 +139,7 @@ func (a *App) commandUsage(command string) {
 		"pin": "git-a2a pin ID [COMMIT] [--no-refresh]", "unpin": "git-a2a unpin ID --ref REF [--track locked|floating] [--no-refresh]",
 		"wire": "git-a2a wire [ID] [--ecosystem NAME] [--no-refresh]", "update": "git-a2a update [ID ...] [--check] [--review|--no-review] [--follow-moves] [--no-refresh]",
 		"remove": "git-a2a remove ID [--keep-wiring]", "show": "git-a2a show [ID] [--json] [--surface]",
+		"fetch": "git-a2a fetch [ID ...] [--surface] [--json]",
 		"sync": "git-a2a sync [--check] [--brief] [--target FILE]", "who": "git-a2a who [ID] [--intent INTENT] [--path FILE] [--json]",
 		"contact": "git-a2a contact ID --intent INTENT --message FILE|- [--wait]", "ask": "git-a2a contact ID --intent INTENT --message FILE|- [--wait]",
 		"status": "git-a2a status [ID ...] [--offline] [--json] [-v]", "card": "git-a2a card <export|validate|verify|show> [options]",

@@ -48,6 +48,11 @@ feeding the entire stream to a general XML parser would reject valid HINT prose.
 On Windows, npm exposes the compiler through a `hint.cmd` shim; Python `CreateProcess` cannot
 execute that shim by the bare name. Invoke it through `cmd.exe /d /s /c hint spec` on Windows
 only. POSIX invokes `hint spec` directly and never adds a shell.
+Open and closed manifest vocabularies are compiler-owned `data_definition` tables in
+`spec/_.hint`. The generator injects those tables into every applicable field entry and fails on
+unresolved “See term”, “See root decision”, or “documented below” wording. Reference terms and
+root decisions are expanded to their normative bodies rather than leaving navigation instructions
+in the generated document.
 
 # test Release channels
 

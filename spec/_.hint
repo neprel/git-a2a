@@ -37,6 +37,61 @@ What an agent does for this module. Core tokens: `owner` (commits, merges, relea
 `maintainer` (commits under review), `spec` (owns specifications, tasks, sequencing; writes no
 product code), `reviewer`, `support`. The set is open.
 
+# data Known language tokens {#vocabulary_languages}
+
+| Known value | What the tool does | Consequence of changing it | Unknown value |
+| --- | --- | --- | --- |
+| `typescript` | Reports TypeScript as module metadata. | Changes discovery/documentation only; wiring still follows exports. | Accepted and preserved as informative metadata. |
+| `python` | Reports Python as module metadata. | Changes discovery/documentation only; wiring still follows exports. | Accepted and preserved as informative metadata. |
+| `go` | Reports Go as module metadata. | Changes discovery/documentation only; wiring still follows exports. | Accepted and preserved as informative metadata. |
+| `rust`, `swift`, `dart`, `ruby`, `php`, `elixir`, `haskell`, `zig`, `clojure`, `nix` | Reports the declared language as module metadata. | Changes discovery/documentation only; wiring still follows exports. | Accepted and preserved as informative metadata. |
+
+# data Known ecosystem tokens {#vocabulary_ecosystems}
+
+| Known value | What the tool does | Consequence of changing it | Unknown value |
+| --- | --- | --- | --- |
+| `npm` | Wires a Git dependency in package.json through npm/yarn/pnpm/bun. | Selects the JavaScript package name and adapter. | Accepted; without an adapter it remains published metadata and cannot be wired. |
+| `pypi` | Wires a Git dependency in pyproject.toml through uv. | Selects the Python distribution name and adapter. | Accepted; without an adapter it remains published metadata and cannot be wired. |
+| `golang` | Wires the Go module at the locked commit with go.mod edits. | Selects the Go import path and adapter. | Accepted; without an adapter it remains published metadata and cannot be wired. |
+| `cargo`, `swift`, `pub`, `gem`, `composer`, `hex`, `hackage`, `zig`, `clojure`, `nix` | Uses the matching native Git-dependency adapter. | Selects a different native manifest and package identity. | Accepted; without an adapter it remains published metadata and cannot be wired. |
+
+# data Known role tokens {#vocabulary_roles}
+
+| Known value | What the tool does | Consequence of changing it | Unknown value |
+| --- | --- | --- | --- |
+| `owner` | Default routing target; identifies the agent that commits, merges, and releases. | Requests using the default route select a different binding. | Accepted and routed when policy names the same token. |
+| `maintainer` | Routes intents mapped to a maintainer. | Changes which bindings match those intents. | Accepted and routed when policy names the same token. |
+| `spec` | Routes specification, task, or sequencing ownership. | Changes which bindings match policy entries such as `change: spec`. | Accepted and routed when policy names the same token. |
+| `reviewer` | Routes review ownership. | Changes which bindings match review policy. | Accepted and routed when policy names the same token. |
+| `support` | Routes support ownership. | Changes which bindings match support policy. | Accepted and routed when policy names the same token. |
+
+# data Known intent tokens {#vocabulary_intents}
+
+| Known value | What the tool does | Consequence of changing it | Unknown value |
+| --- | --- | --- | --- |
+| `question` | Routes a request for explanation; defaults to role `owner`. | Selects contacts declaring `question` or `*`. | Accepted; policy and contacts can route any matching token. |
+| `change` | Routes a proposed behavior/API change. | Selects contacts declaring `change` or `*`. | Accepted; policy and contacts can route any matching token. |
+| `bug` | Routes a defect report. | Selects contacts declaring `bug` or `*`. | Accepted; policy and contacts can route any matching token. |
+| `review` | Routes a review request. | Selects contacts declaring `review` or `*`. | Accepted; policy and contacts can route any matching token. |
+| `incident` | Routes an operational incident. | Selects contacts declaring `incident` or `*`. | Accepted; policy and contacts can route any matching token. |
+| `*` | Acts as a contact fallback after exact intent matches. | Broadens that contact to unmatched intents. | Accepted; any other unknown token is an exact-match intent. |
+
+# data Known consumer policy tokens {#vocabulary_consumers}
+
+| Known value | What the tool does | Consequence of changing it | Unknown value |
+| --- | --- | --- | --- |
+| `read-surface` | Tells consumers they may read the published surface. | Adding/removing it changes the rendered boundary only. | Accepted and rendered verbatim; git-a2a does not enforce authorization. |
+| `ask` | Tells consumers they may contact an owning agent. | Adding/removing it changes the rendered boundary only. | Accepted and rendered verbatim; git-a2a does not enforce authorization. |
+| `open-issue`, `propose-change` | Tells consumers they may request owner-side work. | Adding/removing it changes the rendered boundary only. | Accepted and rendered verbatim; git-a2a does not enforce authorization. |
+| `commit`, `edit-spec`, `release` | Common `may-not` boundaries for owner-controlled changes. | Adding/removing one changes the prohibition shown in the roster. | Accepted and rendered verbatim; downstream agents must obey it. |
+
+# data Dependency tracking modes {#vocabulary_track}
+
+| Value | What the tool does | Consequence of changing it | Unknown value |
+| --- | --- | --- | --- |
+| `locked` | Pins every supported ecosystem to the one commit recorded in the lock. | Switching to it replaces floating native refs with the resolved commit. | Rejected by validation. |
+| `floating` | Writes a branch/tag form where the adapter supports it while still recording the observed commit. | Switching to it lets native tools follow the declared ref independently. | Rejected by validation. |
+
 # entity a2amodule.yml {#manifest}
 
 Top-level keys, in canonical order. `schema`, `module` and `module.id` are required; everything
@@ -85,8 +140,9 @@ expects. Whitespace is normalised when rendered.
 
 ## field languages
 
-list of strings, informative (`typescript`, `python`, `go`, …). Not used for wiring; `exports`
-is.
+list of strings, open vocabulary and informative. Known tokens and their behavior are in
+`vocabulary_languages`. Not used for wiring; `exports` is. Changing it changes discovery metadata
+only; unknown values are accepted and preserved.
 
 ## field surface
 
@@ -174,9 +230,9 @@ One importable ecosystem representation in `module.exports`.
 
 ## field ecosystem
 
-string, required, open vocabulary. Known adapters include `npm`, `pypi`, `golang`, `cargo`,
-`swift`, `pub`, `gem`, `composer`, `hex`, `hackage`, `zig`, `clojure`, and `nix`. Changing it
-selects a different adapter and therefore a different native manifest.
+string, required, open vocabulary. Known values and adapter behavior are in
+`vocabulary_ecosystems`. Changing it selects a different adapter and therefore a different native
+manifest; an unknown value remains valid published metadata but has no wiring adapter.
 
 ## field name
 
@@ -209,7 +265,9 @@ on a bare name being globally unique.
 
 ## field role
 
-string, required. See term `role`.
+string, required, open vocabulary. A role says what the agent owns for this module; core values
+and routing consequences are in `vocabulary_roles`. Unknown roles are accepted and participate in
+routing when `policy.intents` names the same token.
 
 ## field scope
 
@@ -255,12 +313,14 @@ the remaining keys are valid only for the kinds listed in [#contact_kinds](#cont
 ## field intents
 
 list of strings, required and non-empty, open vocabulary; `"*"` is the fallback. Changing the
-list changes which requests may select this contact.
+list changes which requests may select this contact. Core values, fallback behavior, and unknown
+handling are in `vocabulary_intents`.
 
 ## field kind
 
 string, required, open vocabulary. Changing it selects another delivery driver or instruction
-renderer and changes which kind-specific fields are valid.
+renderer and changes which kind-specific fields are valid. Known values and unknown handling are
+in `contact_kinds`.
 
 ## field note
 
@@ -351,21 +411,20 @@ repository and agent name. The catalog never becomes a second description of an 
 
 # data Contact kinds known to the reference CLI {#contact_kinds}
 
-The kind vocabulary is open; these kinds have defined keys and, in later phases, drivers:
+The kind vocabulary is open; these kinds have defined keys and delivery behavior:
 
-* `a2a` — `url` (the A2A service URL from the card's `supportedInterfaces`), optional
-  `skill` (skill id to invoke). The only kind git-a2a can derive automatically from a card.
-* `email` — `address`, optional `subject-prefix`.
-* `github-issue` / `gitlab-issue` — `repo` (`owner/name`), optional `labels` (list),
-  `template` (issue form name).
-* `jira` — `url` (site), `project` (key), optional `issue-type`.
-* `mattermost` / `slack` / `discord` / `telegram` / `teams` — `channel` (human-readable
-  channel name or id), `handle` (how to address the agent, e.g. `@name`), optional `server`
-  (URL or workspace).
-* `url` — `url`, free `note`; the escape hatch for anything else.
+| Kind | Allowed kind-specific keys | Driver or instruction | Consequence of changing it | Unknown kind |
+| --- | --- | --- | --- | --- |
+| `a2a` | `url`, optional `skill` | Sends A2A `SendMessage` JSON-RPC 1.0; the only kind derivable from a card. | Changes the JSON-RPC endpoint or target skill. | Accepted, but no delivery driver is selected. |
+| `github-issue` | `repo`, optional `labels`, `template` | Creates an issue through `gh`, then GitHub REST fallback. | Changes the repository, labels, or issue template. | Accepted, but no delivery driver is selected. |
+| `gitlab-issue` | `repo`, optional `labels`, `template` | Prints an instruction; no reference delivery driver. | Changes the instructed issue destination. | Accepted, but no delivery driver is selected. |
+| `email` | `address`, optional `subject-prefix` | Prints an email instruction; does not send mail. | Changes the instructed recipient or subject. | Accepted, but no delivery driver is selected. |
+| `jira` | `url`, `project`, optional `issue-type` | Prints a Jira instruction. | Changes the instructed site, project, or issue type. | Accepted, but no delivery driver is selected. |
+| `mattermost`, `slack`, `discord`, `telegram`, `teams` | `channel`, `handle`, optional `server` | Prints a chat instruction. | Changes the instructed workspace, channel, or handle. | Accepted, but no delivery driver is selected. |
+| `url` | `url`, optional `note` | Prints the URL instruction. | Changes the instructed destination. | Accepted, but no delivery driver is selected. |
 
-A kind the CLI does not know is rendered as `kind: <value>` with all its keys listed, and is
-never a validation error.
+An unknown kind is rendered as `kind: <value>` with its extension keys, is never a validation
+error, and cannot be delivered by `contact` until a driver exists.
 
 # entity policy {#policy}
 
@@ -395,12 +454,13 @@ The open-vocabulary consumer boundary under `policy.consumers`.
 
 list of strings, optional, default `[read-surface, ask]`. Changing it changes the allowed actions
 rendered into consumer AGENTS.md rosters; the CLI reports the boundary but does not become an
-authorization service.
+authorization service. Known values and unknown handling are in `vocabulary_consumers`.
 
 ## field may-not
 
 list of strings, optional, default `[commit]`. Changing it changes the prohibited actions rendered
-into consumer rosters; downstream agents remain responsible for obeying the declaration.
+into consumer rosters; downstream agents remain responsible for obeying the declaration. Known
+values and unknown handling are in `vocabulary_consumers`.
 
 # entity dependency {#dependency}
 
@@ -433,7 +493,9 @@ string. Subdirectory containing the dependency's `a2amodule.yml` (monorepo). Def
 
 ## field track
 
-`locked` (default) or `floating`. See root decision `one_commit`.
+`locked` (default) or `floating`, a closed vocabulary described in `vocabulary_track`. Every mode
+still records one observed commit in the lock. Changing the mode rewrites supported native
+dependency forms; unknown values are rejected.
 
 ## field wire
 
@@ -468,8 +530,12 @@ Never committed (`init` appends `.git-a2a/` to `.gitignore`). Layout:
 `.git-a2a/cache/<dependency-id>/a2amodule.yml` (the fetched manifest at the locked commit),
 `…/cards/<agent-name>.json` (snapshots), `…/surface/` (sparse checkout of the published
 surface, fetched on demand), `…/meta.yml` (commit, fetch method). An implementation may keep its working clone under
-`…/.src/`. Deleting the directory loses nothing that `git-a2a update` cannot recreate from the
-manifest and lock.
+`…/.src/`. The cache is always reconstructible from `a2amodule.lock`: `git-a2a fetch [ID ...]`
+fetches manifests at the locked commits and verifies their byte hashes, while `--surface`
+additionally restores surfaces whose tree hashes are recorded in the lock. It does not resolve
+moving refs or change the manifest, lock, or adapter files; a missing lock/hash or mismatched
+content fails instead of accepting unpinned bytes. Deleting the directory therefore loses no
+durable state.
 
 # entity A2A projection {#a2a_projection}
 

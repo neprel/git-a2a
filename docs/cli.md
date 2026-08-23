@@ -117,6 +117,20 @@ $ git-a2a remove acme-lib
 removed acme-lib (cache deleted; it can be recreated by add)
 ```
 
+## fetch
+
+`git-a2a fetch [ID ...] [--surface] [--json]` restores disposable
+`.git-a2a/cache` content from the exact commits and hashes in `a2amodule.lock`. Without IDs it
+fetches every dependency; `--surface` also restores a declared surface whose tree hash is already
+recorded in the lock. It never resolves a moving ref and never changes the manifest, lock, or
+package-manager files. Missing/incomplete lock entries and hash mismatches exit `1`; invalid
+options or an empty dependency set exit `2`.
+
+```text
+$ git-a2a fetch --json
+[{"id":"acme-lib","commit":"ea1e8656ad1e6eaeef81759c10969e64defdd9ce","manifest":"sha256:…","method":"sparse"}]
+```
+
 ## show
 
 `git-a2a show [ID] [--json] [--surface]` prints the own or cached dependency manifest. With

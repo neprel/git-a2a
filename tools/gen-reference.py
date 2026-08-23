@@ -31,6 +31,18 @@ ROUTES = [
     ("dependency", "dependencies[].", ("$defs", "dependency")),
 ]
 
+VOCABULARIES = {
+    "module.languages": ("vocabulary_languages",),
+    "module.exports[].ecosystem": ("vocabulary_ecosystems",),
+    "agents[].role": ("vocabulary_roles",),
+    "agents[].contacts[].intents": ("vocabulary_intents",),
+    "agents[].contacts[].kind": ("contact_kinds",),
+    "policy.intents": ("vocabulary_intents", "vocabulary_roles"),
+    "policy.consumers.may": ("vocabulary_consumers",),
+    "policy.consumers.may-not": ("vocabulary_consumers",),
+    "dependencies[].track": ("vocabulary_track",),
+}
+
 DEFAULTS = {
     "schema": "exactly `1`",
     "module.name": "`module.id`",
@@ -54,12 +66,12 @@ def fail(message: str) -> None:
     raise SystemExit(f"manifest-reference: {message}")
 
 
-def compiled_hint() -> str:
-    command = ["hint", "spec"]
+def compiled_hint(target: str = "spec") -> str:
+    command = ["hint", target]
     if os.name == "nt":
         # npm exposes global executables as .cmd shims on Windows. CreateProcess cannot resolve
         # that shim directly, so let the platform command processor perform PATHEXT lookup.
-        command = ["cmd.exe", "/d", "/s", "/c", "hint", "spec"]
+        command = ["cmd.exe", "/d", "/s", "/c", "hint", target]
     result = subprocess.run(command, cwd=ROOT, check=True, capture_output=True, text=True)
     return result.stdout
 
@@ -87,6 +99,36 @@ def entity_fields(compiled: str) -> dict[str, dict[str, tuple[str, str]]]:
             fields[name] = (body, attribute(field_open, "source") or "spec/_.hint")
         result[entity_id] = fields
     return result
+
+
+def named_blocks(compiled: str, tag: str, key: str) -> dict[str, str]:
+    """Extract complete compiler-owned blocks by id or name."""
+    result: dict[str, str] = {}
+    pattern = re.compile(rf'(<{tag}\b[^>]*>)\n(.*?)\n</{tag}>', re.S)
+    for match in pattern.finditer(compiled):
+        opening, raw_body = match.groups()
+        identity = attribute(opening, key)
+        if identity:
+            result[identity] = textwrap.dedent(html.unescape(raw_body)).strip()
+    return result
+
+
+def inline_references(body: str, terms: dict[str, str], decisions: dict[str, str]) -> str:
+    """Replace terse HINT references with the normative text agents need at the field."""
+    def term(match: re.Match[str]) -> str:
+        name = match.group(1)
+        if name not in terms:
+            fail(f"field references unknown term {name}")
+        return terms[name]
+
+    def decision(match: re.Match[str]) -> str:
+        identity = match.group(1)
+        if identity not in decisions:
+            fail(f"field references unknown root decision {identity}")
+        return decisions[identity]
+
+    body = re.sub(r"See term `([^`]+)`\.?", term, body)
+    return re.sub(r"See root decision `([^`]+)`\.?", decision, body)
 
 
 def at_path(document: dict[str, object], path: tuple[str, ...]) -> dict[str, object]:
@@ -137,8 +179,8 @@ def constraints(schema: dict[str, object], node: dict[str, object], body: str) -
         values.append(f"minimum {target['minItems']} item(s)")
     lowered = body.lower()
     if "open vocabulary" in lowered or "set is open" in lowered:
-        values.append("open vocabulary; known values are documented below")
-    return "; ".join(values) if values else "schema type only; semantic constraints are documented below"
+        values.append("open vocabulary; see the known-values table in this entry")
+    return "; ".join(values) if values else "schema type plus the normative behavior in this entry"
 
 
 def source_link(source: str) -> str:
@@ -150,7 +192,11 @@ def source_link(source: str) -> str:
 
 def generate() -> str:
     schema = json.loads(SCHEMA_PATH.read_text())
-    hints = entity_fields(compiled_hint())
+    compiled = compiled_hint()
+    hints = entity_fields(compiled)
+    definitions = named_blocks(compiled, "data_definition", "id")
+    terms = named_blocks(compiled, "defined_term", "name")
+    decisions = named_blocks(compiled_hint("."), "settled_decision", "id")
     missing_entities = {entity_id for entity_id, _, _ in ROUTES} - hints.keys()
     if missing_entities:
         fail("compiled HINT lacks entities: " + ", ".join(sorted(missing_entities)))
@@ -186,6 +232,7 @@ def generate() -> str:
                 fail(f"duplicate rendered path: {path}")
             seen_paths.add(path)
             body, source = entity_hints[name]
+            body = inline_references(body, terms, decisions)
             body = re.sub(r"\]\(#[^)]+\)", "](../spec/_.hint)", body)
             required_text = "required" if name in required else "optional"
             default = DEFAULTS.get(path, "none declared")
@@ -203,6 +250,13 @@ def generate() -> str:
                 body,
                 "",
             ])
+            vocabularies = VOCABULARIES.get(path, ())
+            if vocabularies:
+                lines.extend(["Known values:", ""])
+                for vocabulary in vocabularies:
+                    if vocabulary not in definitions:
+                        fail(f"missing vocabulary definition {vocabulary} for {path}")
+                    lines.extend([definitions[vocabulary], ""])
     lines.extend([
         "## Extension fields",
         "",
@@ -222,6 +276,9 @@ def main() -> None:
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     rendered = generate()
+    for forbidden in ("See term `", "See root decision `", "documented below"):
+        if forbidden in rendered:
+            fail(f"generated reference contains unresolved wording: {forbidden}")
     if args.check:
         if not OUTPUT_PATH.exists() or OUTPUT_PATH.read_text() != rendered:
             fail("docs/manifest-reference.md is stale; run tools/gen-reference.py")

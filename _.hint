@@ -223,14 +223,14 @@ demonstrate one resolved commit across npm, uv, and Go, a managed AGENTS.md rost
 cards, an ARD catalog, and a deliverable GitHub Issue contact. The library keeps annotated
 `v1.0.0` and `v1.1.0` tags for ref-change exercises while `main` advances past the latest tag so
 Go records a commit-bearing pseudo-version and offline drift checks can prove the exact commit.
-The consumer CI runs `status --offline`, `update --check`, and all three language builds. These
+The consumer CI runs `fetch`, `status --offline`, `update --check`, and all three language builds. These
 repositories are examples and future screenshot/transcript sources, never a registry service.
-On a fresh CI checkout, run `update --no-refresh` followed by `git diff --exit-code` before
-`status --offline`: update restores the intentionally untracked `.git-a2a/cache`, the diff proves
-that restoration did not change durable state, and offline status then checks the cached manifest,
-wiring, and roster without another fetch. Run `update --check` after that proof. It cannot prime a
-missing cache because its truthful result is `restore cache`, exit 1. Committing `.git-a2a/` to
-make the offline command pass would violate the local-state boundary.
+On a fresh CI checkout, `git-a2a fetch` restores the intentionally untracked `.git-a2a/cache`
+from the exact commits and hashes in the lock without touching durable or ecosystem files; offline
+status then checks that cache, wiring, and roster without another fetch. Run `update --check` as a
+separate informational step with `continue-on-error`: a moving demo ref may advance legitimately,
+and the command truthfully exits 1 when it does. Committing `.git-a2a/` to make the offline command
+pass would violate the local-state boundary.
 
 # decision Documentation separates field lookup from owner workflow {#documentation_layers}
 
