@@ -51,6 +51,14 @@ func TestSetupDryRunInstallAndCheck(t *testing.T) {
 			t.Errorf("%s: %v", path, err)
 		}
 	}
+	for _, path := range []string{".agents/skills/git-a2a/references/README.md", ".claude/skills/git-a2a/references/README.md"} {
+		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(path))); err != nil {
+			t.Errorf("thin reference %s: %v", path, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(root, ".agents", "skills", "git-a2a", "references", "cli.md")); !os.IsNotExist(err) {
+		t.Fatalf("setup installed the full reference set: %v", err)
+	}
 	agents, _ := os.ReadFile(filepath.Join(root, "AGENTS.md"))
 	if !strings.HasPrefix(string(agents), "# Existing guidance\n") || strings.Count(string(agents), setupBegin) != 1 {
 		t.Fatalf("AGENTS.md:\n%s", agents)
@@ -141,10 +149,38 @@ func TestSetupClaudeCodeProjectConfig(t *testing.T) {
 	}
 }
 
-func TestSetupHermesAndOpenClawPrintGlobalMCPInstructions(t *testing.T) {
+func TestSetupHomeOnlyHarnessesAreReportedNotConfigured(t *testing.T) {
 	root, home := t.TempDir(), t.TempDir()
 	for _, marker := range []string{".hermes", ".openclaw"} {
 		if err := os.MkdirAll(filepath.Join(home, marker), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var out, errOut bytes.Buffer
+	app := New(&out, &errOut)
+	app.Root, app.Home = root, home
+	if code := app.Run([]string{"setup", "--dry-run"}); code != 0 {
+		t.Fatalf("setup exit %d: %s", code, errOut.String())
+	}
+	for _, expected := range []string{
+		"Hermes Agent detected on this machine; pass --harness hermes",
+		"OpenClaw detected on this machine; pass --harness openclaw",
+	} {
+		if !strings.Contains(errOut.String(), expected) {
+			t.Errorf("setup diagnostics missing %q:\n%s", expected, errOut.String())
+		}
+	}
+	for _, global := range []string{filepath.Join(home, ".hermes", "config.yaml"), filepath.Join(home, ".openclaw", "openclaw.json")} {
+		if _, err := os.Stat(global); !os.IsNotExist(err) {
+			t.Fatalf("setup wrote global harness config %s: %v", global, err)
+		}
+	}
+}
+
+func TestSetupRepoHermesAndOpenClawPrintGlobalMCPInstructions(t *testing.T) {
+	root, home := t.TempDir(), t.TempDir()
+	for _, marker := range []string{".hermes", ".openclaw"} {
+		if err := os.MkdirAll(filepath.Join(root, marker), 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -163,9 +199,27 @@ func TestSetupHermesAndOpenClawPrintGlobalMCPInstructions(t *testing.T) {
 			t.Errorf("setup diagnostics missing %q:\n%s", expected, errOut.String())
 		}
 	}
-	for _, global := range []string{filepath.Join(home, ".hermes", "config.yaml"), filepath.Join(home, ".openclaw", "openclaw.json")} {
-		if _, err := os.Stat(global); !os.IsNotExist(err) {
-			t.Fatalf("setup wrote global harness config %s: %v", global, err)
+}
+
+func TestSetupExplicitHarnessAndAll(t *testing.T) {
+	root, home := t.TempDir(), t.TempDir()
+	var out, errOut bytes.Buffer
+	app := New(&out, &errOut)
+	app.Root, app.Home = root, home
+	if code := app.Run([]string{"setup", "--harness", "codex", "--dry-run"}); code != 0 {
+		t.Fatalf("explicit setup exit %d: %s", code, errOut.String())
+	}
+	if !strings.Contains(out.String(), ".codex/config.toml") || strings.Contains(out.String(), ".claude/") {
+		t.Fatalf("explicit harness output:\n%s", out.String())
+	}
+	out.Reset()
+	errOut.Reset()
+	if code := app.Run([]string{"setup", "--all", "--dry-run"}); code != 0 {
+		t.Fatalf("all setup exit %d: %s", code, errOut.String())
+	}
+	for _, expected := range []string{".claude/skills/git-a2a/SKILL.md", ".cursor/mcp.json", ".codex/config.toml"} {
+		if !strings.Contains(out.String(), expected) {
+			t.Errorf("--all output missing %s:\n%s", expected, out.String())
 		}
 	}
 }

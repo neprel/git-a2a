@@ -13,6 +13,7 @@ pilot:
 	./scripts/pilot.sh
 
 docs-check:
+	go test ./internal/cli -run 'TestInitExamplesAreCompleteValidManifests'
 	python3 tools/gen-reference.py --check
 	python3 tools/sync-skill.py --check
 

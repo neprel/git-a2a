@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -67,8 +68,8 @@ func (a *App) Run(args []string) int {
 		a.usage()
 		return 2
 	}
-	if len(args) == 2 && (args[1] == "--help" || args[1] == "-h") {
-		a.commandUsage(args[0])
+	if len(args) >= 2 && (args[len(args)-1] == "--help" || args[len(args)-1] == "-h") {
+		a.commandUsage(strings.Join(args[:len(args)-1], " "))
 		return 0
 	}
 	if args[0] == "--version" {
@@ -158,35 +159,45 @@ func (a *App) usage() {
 func (a *App) commandUsage(command string) {
 	type help struct{ usage, example string }
 	helpByCommand := map[string]help{
-		"init":     {"git-a2a init [--id ID] [--description TEXT] [--surface DIR] [--export ECOSYSTEM=NAME] [--example lib|app]", "git-a2a init --id consumer-app --yes"},
-		"validate": {"git-a2a validate [FILE ...] [--json]", "git-a2a validate a2amodule.yml --json"},
-		"add":      {"git-a2a add URL [--id ID] [--path DIR] [--track locked|floating] [--wire LIST|--no-wire] [--no-refresh]", "git-a2a add https://github.com/acme/lib.git"},
-		"set":      {"git-a2a set ID [--git URL] [--ref REF] [--path DIR] [--track locked|floating] [--id NEW-ID] [--dry-run] [--no-refresh]", "git-a2a set acme-lib --ref v1.1.0 --dry-run"},
-		"pin":      {"git-a2a pin ID [COMMIT] [--no-refresh]", "git-a2a pin acme-lib"},
-		"unpin":    {"git-a2a unpin ID --ref REF [--track locked|floating] [--no-refresh]", "git-a2a unpin acme-lib --ref main"},
-		"wire":     {"git-a2a wire [ID] [--ecosystem NAME] [--no-refresh]", "git-a2a wire acme-lib --ecosystem npm"},
-		"update":   {"git-a2a update [ID ...] [--check] [--review|--no-review] [--follow-moves] [--no-refresh]", "git-a2a update --check"},
-		"remove":   {"git-a2a remove ID [--keep-wiring]", "git-a2a remove acme-lib"},
-		"show":     {"git-a2a show [ID] [--json] [--surface]", "git-a2a show acme-lib --surface"},
-		"fetch":    {"git-a2a fetch [ID ...] [--surface] [--json]", "git-a2a fetch acme-lib --surface --json"},
-		"sync":     {"git-a2a sync [--check] [--brief] [--target FILE]", "git-a2a sync --check"},
-		"who":      {"git-a2a who [ID] [--intent INTENT] [--path FILE] [--json]", "git-a2a who acme-lib --intent change --json"},
-		"contact":  {"git-a2a contact ID --intent INTENT --message FILE|- [--wait]", "git-a2a contact acme-lib --intent change --message request.md"},
-		"ask":      {"git-a2a contact ID --intent INTENT --message FILE|- [--wait]", "git-a2a contact acme-lib --intent change --message request.md"},
-		"status":   {"git-a2a status [ID ...] [--offline] [--json] [-v]", "git-a2a status --offline --json"},
-		"card":     {"git-a2a card <export|validate|verify|show> [options]", "git-a2a card export acme-owner --out agent-card.json"},
-		"catalog":  {"git-a2a catalog export [--out FILE]", "git-a2a catalog export --out ai-catalog.json"},
-		"fmt":      {"git-a2a fmt [--check] [PATH...]", "git-a2a fmt --check"},
-		"version":  {"git-a2a version [--check]", "git-a2a version --check"},
-		"upgrade":  {"git-a2a upgrade [--to VERSION]", "git-a2a upgrade --to 1.1.0"},
-		"doctor":   {"git-a2a doctor [--json]", "git-a2a doctor --json"},
-		"usage":    {"git-a2a usage [--prompt] [--json]", "git-a2a usage --prompt"},
-		"agent":    {"git-a2a agent <add|remove|list> [options]", "git-a2a agent list --json"},
-		"export":   {"git-a2a export add ECOSYSTEM NAME [--path PATH]", "git-a2a export add npm @acme/lib"},
-		"policy":   {"git-a2a policy set INTENT=ROLE [INTENT=ROLE ...]", "git-a2a policy set change=owner"},
-		"explain":  {"git-a2a explain PATH [--json]", "git-a2a explain agents.contacts.kind --json"},
-		"setup":    {"git-a2a setup [--check|--dry-run]", "git-a2a setup --dry-run"},
-		"mcp":      {"git-a2a mcp [--allow-write]", "git-a2a mcp"},
+		"init":           {"git-a2a init [--id ID] [--description TEXT] [--surface DIR] [--export ECOSYSTEM=NAME] [--example lib|app]", "git-a2a init --id consumer-app --yes"},
+		"validate":       {"git-a2a validate [FILE ...] [--json]", "git-a2a validate a2amodule.yml --json"},
+		"add":            {"git-a2a add URL [--id ID] [--path DIR] [--track locked|floating] [--wire LIST|--no-wire] [--no-refresh]", "git-a2a add https://github.com/acme/lib.git"},
+		"set":            {"git-a2a set ID [--git URL] [--ref REF] [--path DIR] [--track locked|floating] [--id NEW-ID] [--dry-run] [--no-refresh]", "git-a2a set acme-lib --ref v1.1.0 --dry-run"},
+		"pin":            {"git-a2a pin ID [COMMIT] [--no-refresh]", "git-a2a pin acme-lib"},
+		"unpin":          {"git-a2a unpin ID --ref REF [--track locked|floating] [--no-refresh]", "git-a2a unpin acme-lib --ref main"},
+		"wire":           {"git-a2a wire [ID] [--ecosystem NAME] [--no-refresh]", "git-a2a wire acme-lib --ecosystem npm"},
+		"update":         {"git-a2a update [ID ...] [--check] [--review|--no-review] [--follow-moves] [--no-refresh]", "git-a2a update --check"},
+		"remove":         {"git-a2a remove ID [--keep-wiring]", "git-a2a remove acme-lib"},
+		"show":           {"git-a2a show [ID] [--json] [--surface]", "git-a2a show acme-lib --surface"},
+		"fetch":          {"git-a2a fetch [ID ...] [--surface] [--json]", "git-a2a fetch acme-lib --surface --json"},
+		"sync":           {"git-a2a sync [--check] [--brief] [--target FILE]", "git-a2a sync --check"},
+		"who":            {"git-a2a who [ID] [--intent INTENT] [--path FILE] [--json]", "git-a2a who acme-lib --intent change --json"},
+		"contact":        {"git-a2a contact ID --intent INTENT --message FILE|- [--wait]", "git-a2a contact acme-lib --intent change --message request.md"},
+		"ask":            {"git-a2a contact ID --intent INTENT --message FILE|- [--wait]", "git-a2a contact acme-lib --intent change --message request.md"},
+		"status":         {"git-a2a status [ID ...] [--offline] [--json] [-v]", "git-a2a status --offline --json"},
+		"card":           {"git-a2a card <export|validate|verify|show> [options]", "git-a2a card export acme-owner --out agent-card.json"},
+		"catalog":        {"git-a2a catalog export [--out FILE]", "git-a2a catalog export --out ai-catalog.json"},
+		"fmt":            {"git-a2a fmt [--check] [PATH...]", "git-a2a fmt --check"},
+		"version":        {"git-a2a version [--check]", "git-a2a version --check"},
+		"upgrade":        {"git-a2a upgrade [--to VERSION]", "git-a2a upgrade --to 1.1.0"},
+		"doctor":         {"git-a2a doctor [--json]", "git-a2a doctor --json"},
+		"usage":          {"git-a2a usage [--prompt] [--json]", "git-a2a usage --prompt"},
+		"agent":          {"git-a2a agent <add|remove|list> [options]", "git-a2a agent list --json"},
+		"agent add":      {"git-a2a agent add NAME --role ROLE [--scope GLOB]... [--card URL] [--contact FIELDS]...", "git-a2a agent add acme-owner --role owner --scope '**'"},
+		"agent remove":   {"git-a2a agent remove NAME", "git-a2a agent remove acme-old-owner"},
+		"agent list":     {"git-a2a agent list [--json]", "git-a2a agent list --json"},
+		"export":         {"git-a2a export add ECOSYSTEM NAME [--path PATH]", "git-a2a export add npm @acme/lib"},
+		"export add":     {"git-a2a export add ECOSYSTEM NAME [--path PATH]", "git-a2a export add npm @acme/lib"},
+		"policy":         {"git-a2a policy set [INTENT=ROLE ...] [--may LIST] [--may-not LIST] [--notes TEXT]", "git-a2a policy set change=owner --may read-surface,ask --may-not commit"},
+		"policy set":     {"git-a2a policy set [INTENT=ROLE ...] [--may LIST] [--may-not LIST] [--notes TEXT]", "git-a2a policy set change=owner --may read-surface,ask --may-not commit"},
+		"card export":    {"git-a2a card export AGENT [--out FILE]", "git-a2a card export acme-owner --out agent-card.json"},
+		"card verify":    {"git-a2a card verify FILE|URL", "git-a2a card verify agent-card.json"},
+		"card validate":  {"git-a2a card validate FILE", "git-a2a card validate agent-card.json"},
+		"card show":      {"git-a2a card show FILE|URL", "git-a2a card show agent-card.json"},
+		"catalog export": {"git-a2a catalog export [--out FILE]", "git-a2a catalog export --out ai-catalog.json"},
+		"explain":        {"git-a2a explain PATH [--json]", "git-a2a explain agents.contacts.kind --json"},
+		"setup":          {"git-a2a setup [--check|--dry-run] [--harness LIST|--all]", "git-a2a setup --harness claude-code,codex --dry-run"},
+		"mcp":            {"git-a2a mcp [--allow-write]", "git-a2a mcp"},
 	}
 	if h, ok := helpByCommand[command]; ok {
 		fmt.Fprintln(a.Out, "usage: "+h.usage)
@@ -1167,7 +1178,11 @@ func (a *App) show(args []string) int {
 	}
 	m, err := manifest.Load(p)
 	if err != nil {
-		fmt.Fprintf(a.Err, "show: %v\n", err)
+		if id != "" && errors.Is(err, os.ErrNotExist) {
+			fmt.Fprintf(a.Err, "show: %v; run git-a2a fetch\n", err)
+		} else {
+			fmt.Fprintf(a.Err, "show: %v\n", err)
+		}
 		return 2
 	}
 	if jsonOut {

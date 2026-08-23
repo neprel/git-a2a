@@ -29,11 +29,12 @@ func TestValidatePrintsVerdictFirst(t *testing.T) {
 }
 
 func TestEveryCommandHasCommandSpecificHelp(t *testing.T) {
-	commands := []string{"init", "validate", "add", "set", "pin", "unpin", "wire", "update", "remove", "fetch", "show", "sync", "who", "contact", "status", "card", "catalog", "agent", "export", "policy", "explain", "fmt", "doctor", "usage", "setup", "mcp", "version", "upgrade"}
+	commands := []string{"init", "validate", "add", "set", "pin", "unpin", "wire", "update", "remove", "fetch", "show", "sync", "who", "contact", "status", "card", "catalog", "agent", "export", "policy", "explain", "fmt", "doctor", "usage", "setup", "mcp", "version", "upgrade", "agent add", "agent remove", "agent list", "export add", "policy set", "card export", "card verify", "card validate", "card show", "catalog export"}
 	for _, command := range commands {
 		t.Run(command, func(t *testing.T) {
+			parts := strings.Fields(command)
 			var out, errOut bytes.Buffer
-			if code := New(&out, &errOut).Run([]string{command, "--help"}); code != 0 {
+			if code := New(&out, &errOut).Run(append(parts, "--help")); code != 0 {
 				t.Fatalf("exit %d: %s", code, errOut.String())
 			}
 			if !strings.HasPrefix(out.String(), "usage: git-a2a "+command) {
@@ -46,7 +47,8 @@ func TestEveryCommandHasCommandSpecificHelp(t *testing.T) {
 				t.Fatalf("non-TTY help contains ANSI escapes: %q", out.String())
 			}
 			out.Reset()
-			if code := New(&out, &errOut).Run([]string{command, "--yes", "--help"}); code != 0 {
+			withYes := append(append([]string{}, parts...), "--yes", "--help")
+			if code := New(&out, &errOut).Run(withYes); code != 0 {
 				t.Fatalf("--yes help exit %d: %s", code, errOut.String())
 			}
 		})

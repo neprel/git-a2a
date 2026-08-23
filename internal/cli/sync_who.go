@@ -2,7 +2,9 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -45,7 +47,11 @@ func (a *App) sync(args []string) int {
 	}
 	block, err := render.Build(a.root(), own, l, brief)
 	if err != nil {
-		fmt.Fprintf(a.Err, "sync: %v\n", err)
+		if errors.Is(err, os.ErrNotExist) {
+			fmt.Fprintf(a.Err, "sync: %v; run git-a2a fetch\n", err)
+		} else {
+			fmt.Fprintf(a.Err, "sync: %v\n", err)
+		}
 		return 1
 	}
 	seen := map[string]bool{}
@@ -129,7 +135,11 @@ func (a *App) who(args []string) int {
 	}
 	m, err := manifest.Load(p)
 	if err != nil {
-		fmt.Fprintf(a.Err, "who: %v\n", err)
+		if id != "" && errors.Is(err, os.ErrNotExist) {
+			fmt.Fprintf(a.Err, "who: %v; run git-a2a fetch\n", err)
+		} else {
+			fmt.Fprintf(a.Err, "who: %v\n", err)
+		}
 		return 2
 	}
 	matches, role := routing.Resolve(m, intent, path)

@@ -25,13 +25,24 @@ func TestMCPToolDiscoveryAndRoundTrips(t *testing.T) {
 	readSession := connectMCP(t, ctx, app.newMCPServer(false))
 	defer readSession.Close()
 	readTools := listMCPTools(t, ctx, readSession)
-	if got, want := toolNames(readTools), []string{"doctor", "explain", "show", "status", "usage", "validate", "who"}; !reflect.DeepEqual(got, want) {
+	if got, want := toolNames(readTools), []string{"doctor", "explain", "fetch", "show", "status", "usage", "validate", "who"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("read tools = %v, want %v", got, want)
 	}
+	for _, tool := range readTools {
+		if tool.Name != "fetch" {
+			continue
+		}
+		if tool.Annotations == nil || tool.Annotations.ReadOnlyHint || tool.Annotations.DestructiveHint == nil || *tool.Annotations.DestructiveHint || !tool.Annotations.IdempotentHint || tool.Annotations.OpenWorldHint == nil || !*tool.Annotations.OpenWorldHint {
+			t.Fatalf("fetch annotations = %#v", tool.Annotations)
+		}
+	}
 	for name, arguments := range map[string]map[string]any{
-		"who": {}, "show": {}, "status": {"offline": true}, "validate": {}, "doctor": {},
+		"who": {}, "show": {}, "status": {"offline": true}, "validate": {}, "doctor": {}, "fetch": {},
 		"explain": {"path": "module.id"}, "usage": {},
 	} {
+		if name == "fetch" {
+			continue // the fixture has no dependencies; fetch behavior has its own e2e coverage
+		}
 		result := callMCPTool(t, ctx, readSession, name, arguments)
 		if result.IsError {
 			t.Errorf("%s unexpectedly failed: %v", name, result.Content)
@@ -52,8 +63,13 @@ func TestMCPToolDiscoveryAndRoundTrips(t *testing.T) {
 	writeSession := connectMCP(t, ctx, app.newMCPServer(true))
 	defer writeSession.Close()
 	writeTools := listMCPTools(t, ctx, writeSession)
-	if len(writeTools) != 13 {
+	if len(writeTools) != 14 {
 		t.Fatalf("write-enabled tool count = %d", len(writeTools))
+	}
+	for _, tool := range writeTools {
+		if tool.Name == "contact" && (tool.Annotations == nil || tool.Annotations.IdempotentHint) {
+			t.Fatalf("contact must be non-idempotent: %#v", tool.Annotations)
+		}
 	}
 	if os.Getenv("GITA2A_UPDATE_GOLDEN") == "1" {
 		body, _ := json.MarshalIndent(writeTools, "", "  ")
@@ -83,6 +99,52 @@ func TestMCPToolDiscoveryAndRoundTrips(t *testing.T) {
 		if result == nil {
 			t.Errorf("%s returned nil", name)
 		}
+	}
+}
+
+func TestMCPFetchRestoresCacheThenWhoWorks(t *testing.T) {
+	root, remote, commit, manifestRaw, surfaceTree := fetchFixture(t)
+	writeFetchConsumer(t, root, remote, commit, manifestRaw, surfaceTree)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	app := New(os.Stdout, os.Stderr)
+	app.Root = root
+	session := connectMCP(t, ctx, app.newMCPServer(false))
+	defer session.Close()
+	fetched := callMCPTool(t, ctx, session, "fetch", map[string]any{"ids": []string{"acme-lib"}})
+	assertMCPExitCode(t, "fetch", fetched, 0)
+	who := callMCPTool(t, ctx, session, "who", map[string]any{"id": "acme-lib", "intent": "question"})
+	assertMCPExitCode(t, "who", who, 0)
+	assertMCPDataContains(t, "who after fetch", who, "acme-lib-owner")
+}
+
+func TestMissingCacheErrorsRecommendFetch(t *testing.T) {
+	root, remote, commit, manifestRaw, surfaceTree := fetchFixture(t)
+	writeFetchConsumer(t, root, remote, commit, manifestRaw, surfaceTree)
+	for _, command := range [][]string{{"who", "acme-lib"}, {"show", "acme-lib"}, {"sync"}} {
+		var out, errOut strings.Builder
+		app := New(&out, &errOut)
+		app.Root = root
+		if code := app.Run(command); code == 0 {
+			t.Fatalf("%v unexpectedly succeeded", command)
+		}
+		if !strings.HasSuffix(errOut.String(), "run git-a2a fetch\n") {
+			t.Errorf("%v error lacks fetch repair suffix: %q", command, errOut.String())
+		}
+	}
+	var out, errOut strings.Builder
+	app := New(&out, &errOut)
+	app.Root = root
+	if code := app.Run([]string{"status", "--offline", "-v"}); code != 1 || !strings.Contains(out.String(), "cache missing — run git-a2a fetch") {
+		t.Fatalf("status exit/output = %d, %q, %q", code, out.String(), errOut.String())
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	session := connectMCP(t, ctx, app.newMCPServer(false))
+	defer session.Close()
+	_, err := session.ReadResource(ctx, &mcp.ReadResourceParams{URI: "a2amodule://roster"})
+	if err == nil || !strings.Contains(err.Error(), "run git-a2a fetch") {
+		t.Fatalf("roster cache error = %v", err)
 	}
 }
 

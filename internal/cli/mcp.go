@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -46,6 +47,11 @@ type mcpValidateInput struct {
 }
 type mcpDoctorInput struct {
 	Root string `json:"root,omitempty" jsonschema:"repository root; defaults to the server startup directory"`
+}
+type mcpFetchInput struct {
+	Root    string   `json:"root,omitempty" jsonschema:"repository root; defaults to the server startup directory"`
+	IDs     []string `json:"ids,omitempty" jsonschema:"dependency ids; omit for all locked dependencies"`
+	Surface bool     `json:"surface,omitempty" jsonschema:"also restore the owner-published surface recorded in the lock"`
 }
 type mcpExplainInput struct {
 	Path string `json:"path" jsonschema:"manifest field path such as agents.contacts.kind"`
@@ -184,6 +190,16 @@ func (a *App) newMCPServer(allowWrite bool) *mcp.Server {
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpDoctorInput) (*mcp.CallToolResult, mcpCommandResult, error) {
 		return mcpResult(a.runMCPCommand(ctx, in.Root, nil, []string{"doctor", "--json"}, true))
 	})
+	tool = &mcp.Tool{Name: "fetch", Description: "Restore disposable dependency cache content from exact lock coordinates."}
+	tool.Annotations = &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: boolPointer(false), IdempotentHint: true, OpenWorldHint: boolPointer(true)}
+	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpFetchInput) (*mcp.CallToolResult, mcpCommandResult, error) {
+		args := append([]string{"fetch"}, in.IDs...)
+		if in.Surface {
+			args = append(args, "--surface")
+		}
+		args = append(args, "--json")
+		return mcpResult(a.runMCPCommand(ctx, in.Root, nil, args, true))
+	})
 	tool = &mcp.Tool{Name: "explain", Description: "Read the normative generated reference entry for one manifest field."}
 	addTool(tool)
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpExplainInput) (*mcp.CallToolResult, mcpCommandResult, error) {
@@ -305,6 +321,7 @@ func (a *App) addMCPWriteTools(server *mcp.Server) {
 	})
 	contactAnnotations := *annotations
 	contactAnnotations.OpenWorldHint = boolPointer(true)
+	contactAnnotations.IdempotentHint = false
 	tool = &mcp.Tool{Name: "contact", Description: "Deliver a request through the owner's first supported declared contact.", Annotations: &contactAnnotations}
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpContactInput) (*mcp.CallToolResult, mcpCommandResult, error) {
 		args := []string{"contact", in.ID, "--intent", in.Intent, "--message", "-"}
@@ -338,7 +355,11 @@ func (a *App) addMCPResources(server *mcp.Server) {
 			if err != nil {
 				return "", err
 			}
-			return render.Build(a.root(), own, locked, false)
+			text, err := render.Build(a.root(), own, locked, false)
+			if errors.Is(err, os.ErrNotExist) {
+				return "", fmt.Errorf("%w; run git-a2a fetch", err)
+			}
+			return text, err
 		}},
 		{"a2amodule://reference", "reference", "Generated normative manifest field reference.", "text/markdown", func() (string, error) { return reference.Manifest, nil }},
 	}

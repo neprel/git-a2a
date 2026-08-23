@@ -233,8 +233,9 @@ exported 2 A2A catalog entrie(s)
 `intents` and `labels` use `|`, for example
 `intents=question|change,kind=github-issue,repo=acme/lib,labels=from-agent|change-request`.
 `git-a2a agent remove NAME [--yes]` removes it. `git-a2a agent list [--json] [--yes]` returns
-agents in stable name order. Mutations validate and atomically write canonical YAML, then update
-an existing AGENTS.md managed block. Invalid fields exit `2`; validation/write failures and
+agents in stable name order. Mutations preserve comments, key order, extension keys, and
+flow/block style of untouched YAML nodes, validate, write atomically, then update an existing
+AGENTS.md managed block. Invalid fields exit `2`; validation/write failures and
 duplicates exit `1`; an unknown removal or empty list exits `2`.
 
 ```text
@@ -258,13 +259,14 @@ added npm export @acme/lib
 
 ## policy
 
-`git-a2a policy set INTENT=ROLE [INTENT=ROLE ...] [--yes]` creates or updates intent routing
-without replacing consumer permissions, notes, extensions, or unrelated mappings. It writes
-canonical YAML atomically. Invalid mappings exit `2`; validation/write failures exit `1`.
+`git-a2a policy set [INTENT=ROLE ...] [--may LIST] [--may-not LIST] [--notes TEXT] [--yes]`
+creates or updates intent routing and, when supplied, replaces the comma-separated consumer
+permission lists or policy notes. Omitted fields and every unrelated YAML node remain untouched.
+Invalid mappings exit `2`; validation/write failures exit `1`.
 
 ```text
-$ git-a2a policy set question=owner change=spec
-set 2 policy intent(s)
+$ git-a2a policy set question=owner change=spec --may read-surface,ask --may-not commit
+updated policy (2 intent mapping(s))
 ```
 
 ## explain
@@ -276,6 +278,9 @@ invalid arguments exit `2`.
 
 ```text
 $ git-a2a explain module.id
+```
+
+```markdown
 ## `module.id`
 - Type: string; required.
 …
@@ -322,16 +327,22 @@ Exit 0: request completed or check clean.
 
 ## setup
 
-`git-a2a setup [--check|--dry-run]` detects Claude Code, Codex, Cursor, GitHub Copilot,
-Gemini CLI, OpenCode, Hermes Agent, and OpenClaw from repository and user markers. It always installs the bundled skill
-under `.agents/skills/git-a2a/`, also installs `.claude/skills/git-a2a/` when Claude Code is
-present, and adds a bounded pointer block to `AGENTS.md`. For detected harnesses it writes only
+`git-a2a setup [--check|--dry-run] [--harness LIST|--all]` detects Claude Code, Codex, Cursor,
+GitHub Copilot, Gemini CLI, OpenCode, Hermes Agent, and OpenClaw from repository markers. It
+always installs a thin skill (`SKILL.md` plus `references/README.md`) under
+`.agents/skills/git-a2a/`, also installs that thin copy under `.claude/skills/git-a2a/` when
+Claude Code is selected, and adds a bounded pointer block to `AGENTS.md`. For selected harnesses it writes only
 the project-scoped `git-a2a` MCP entry in `.mcp.json`, `.codex/config.toml`,
 `.cursor/mcp.json`, `.vscode/mcp.json`, `.gemini/settings.json`, or `opencode.json`, preserving
 unrelated configuration. It never installs or upgrades the `git-a2a` executable.
 Hermes Agent and OpenClaw only expose user-scoped MCP registries, so setup does not edit their
 home-directory files; it prints the exact `hermes mcp add` or `openclaw mcp set` command for the
 operator to run explicitly.
+
+A harness found only under the user's home directory is reported but not configured. Use
+`--harness codex,cursor` to select named harnesses even without repository markers, or `--all`
+to configure every supported repository integration. The full skill remains in the source/npm/site
+distribution; installed pointers use `git-a2a explain`, `git-a2a usage --prompt`, and the public URL.
 
 `--dry-run` prints the files that would change and exits `0`; `--check` writes nothing and exits
 `1` if any installed file or entry is missing/stale. An invalid existing config exits `1`; bad
@@ -347,7 +358,8 @@ setup: dry run; 5 file(s) would change
 ## mcp
 
 `git-a2a mcp [--allow-write]` runs a stateless MCP server over stdio. By default it exposes
-seven read-only tools (`who`, `show`, `status`, `validate`, `doctor`, `explain`, `usage`) and
+seven read-only tools (`who`, `show`, `status`, `validate`, `doctor`, `explain`, `usage`) plus
+the cache-restoring `fetch` tool, and
 four repository resources (`a2amodule://manifest`, `a2amodule://lock`,
 `a2amodule://roster`, `a2amodule://reference`). `--allow-write` additionally exposes `add`,
 `update`, `set`, `wire`, `sync`, and `contact`; `remove` remains CLI-only. The process opens no
@@ -357,7 +369,9 @@ options exit `2`.
 Repository-dependent tools accept an optional `root` path, defaulting to the server startup
 directory. One MCP client can use that field to work across repositories, or launch one stdio
 server per repository; instances have no listener or shared mutable server state. Fixed resources
-refer to the startup repository.
+refer to the startup repository. `root` may name any path reachable by the process. With
+`--allow-write`, that grants mutation at any such path: the harness/host is the trust boundary.
+A future `--roots` allow-list is deliberately deferred.
 
 Run `git-a2a setup` to write project-scoped configuration for detected harnesses, including
 Claude Code's `.mcp.json`, or copy an exact configuration from the [MCP guide](mcp.md).

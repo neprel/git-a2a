@@ -5,8 +5,9 @@ useful when an agent harness handles structured tools more reliably than shell o
 portable [Agent Skill](../skills/git-a2a/SKILL.md) and `git-a2a usage` remain the primary,
 lower-token guidance paths.
 
-Run the server from a repository containing `a2amodule.yml`. The default surface is read-only:
-`who`, `show`, `status`, `validate`, `doctor`, `explain`, and `usage`. It also exposes the current
+Run the server from a repository containing `a2amodule.yml`. The default surface contains seven
+read-only tools (`who`, `show`, `status`, `validate`, `doctor`, `explain`, and `usage`) plus
+`fetch`, which writes only recoverable `.git-a2a/cache` content from exact lock coordinates. It also exposes the current
 manifest, lock, freshly rendered roster, and generated field reference as `a2amodule://`
 resources. Starting it with `--allow-write` additionally exposes `add`, `update`, `set`, `wire`,
 `sync`, and `contact`. `remove` is deliberately CLI-only.
@@ -17,6 +18,10 @@ pass a different absolute or startup-relative `root` per call, or start one stdi
 repository. The processes do not share ports, mutable server state, or cache directories; each
 repository's recoverable cache remains under that repository's `.git-a2a/`. The fixed MCP
 resources describe the startup repository, so use the read tools with `root` when switching.
+There is intentionally no path sandbox inside the server: `root` may address any directory the
+stdio process can reach. If `--allow-write` is enabled, the server can mutate any such repository.
+The harness process and its host permissions are therefore the trust boundary. A `--roots`
+directory allow-list is deferred future hardening, not an implied current restriction.
 
 ## Automatic project setup
 
@@ -26,8 +31,11 @@ git-a2a setup
 git-a2a setup --check
 ```
 
-Setup detects supported harnesses and writes only repository-scoped files. For Claude Code it
-installs the skill under both `.agents/skills/git-a2a/` and `.claude/skills/git-a2a/`, then adds
+Setup detects repository markers and writes only repository-scoped files. A harness detected only
+under `$HOME` is reported with the corresponding `--harness` instruction and is not configured.
+`--harness a,b` explicitly selects named harnesses; `--all` selects every supported integration.
+For Claude Code it installs the thin pointer skill under both `.agents/skills/git-a2a/` and
+`.claude/skills/git-a2a/`, then adds
 the read-only server to the root `.mcp.json`. Existing guidance and unrelated configuration keys
 are preserved. Hermes Agent and OpenClaw keep MCP servers in user scope, so setup prints their
 registration commands instead of modifying files under the user's home directory.

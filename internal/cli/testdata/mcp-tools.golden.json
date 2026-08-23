@@ -95,7 +95,7 @@
   {
     "annotations": {
       "destructiveHint": false,
-      "idempotentHint": true,
+      "idempotentHint": false,
       "openWorldHint": true,
       "readOnlyHint": false
     },
@@ -245,6 +245,76 @@
       "type": "object"
     },
     "name": "explain",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "description": "structured command result for read tools"
+        },
+        "diagnostics": {
+          "description": "ordered stderr verdict and advisory lines",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "exitCode": {
+          "description": "git-a2a exit code: 0 success, 1 failure or drift, 2 invalid or unresolved input",
+          "type": "integer"
+        },
+        "records": {
+          "description": "ordered stdout records for write tools",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "exitCode"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": false
+    },
+    "description": "Restore disposable dependency cache content from exact lock coordinates.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "ids": {
+          "description": "dependency ids; omit for all locked dependencies",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "root": {
+          "description": "repository root; defaults to the server startup directory",
+          "type": "string"
+        },
+        "surface": {
+          "description": "also restore the owner-published surface recorded in the lock",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "name": "fetch",
     "outputSchema": {
       "additionalProperties": false,
       "properties": {

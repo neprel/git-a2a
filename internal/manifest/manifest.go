@@ -313,6 +313,163 @@ func Format(original []byte) ([]byte, error) {
 	return encodeDocument(&document)
 }
 
+// AppendAgent edits only the agents sequence. Existing YAML nodes are retained so their
+// comments, ordering, scalar spelling, and flow/block collection styles remain owned by the
+// author rather than by the Go encoder.
+func AppendAgent(original []byte, agent Agent) ([]byte, error) {
+	return editDocument(original, func(root *yaml.Node) error {
+		sequence, err := ensureSequence(root, "agents")
+		if err != nil {
+			return err
+		}
+		var item yaml.Node
+		if err := item.Encode(agent); err != nil {
+			return err
+		}
+		sequence.Content = append(sequence.Content, &item)
+		return nil
+	})
+}
+
+// RemoveAgent removes one matching agents item without rebuilding the remaining sequence.
+func RemoveAgent(original []byte, name string) ([]byte, error) {
+	return editDocument(original, func(root *yaml.Node) error {
+		_, sequence := mappingEntry(root, "agents")
+		if sequence == nil || sequence.Kind != yaml.SequenceNode {
+			return fmt.Errorf("agents must be a sequence")
+		}
+		kept := sequence.Content[:0]
+		for _, item := range sequence.Content {
+			if mappingScalar(item, "name") != name {
+				kept = append(kept, item)
+			}
+		}
+		sequence.Content = kept
+		return nil
+	})
+}
+
+// AppendExport edits only module.exports and retains every pre-existing module node.
+func AppendExport(original []byte, export Export) ([]byte, error) {
+	return editDocument(original, func(root *yaml.Node) error {
+		_, module := mappingEntry(root, "module")
+		if module == nil || module.Kind != yaml.MappingNode {
+			return fmt.Errorf("module must be a mapping")
+		}
+		sequence, err := ensureSequence(module, "exports")
+		if err != nil {
+			return err
+		}
+		var item yaml.Node
+		if err := item.Encode(export); err != nil {
+			return err
+		}
+		sequence.Content = append(sequence.Content, &item)
+		return nil
+	})
+}
+
+// UpdatePolicy changes only the explicitly supplied policy fields. Nil pointers mean leave the
+// field untouched; non-nil slices replace that consumer vocabulary list, including with empty.
+func UpdatePolicy(original []byte, intents [][2]string, may, mayNot *[]string, notes *string) ([]byte, error) {
+	return editDocument(original, func(root *yaml.Node) error {
+		policy, err := ensureMapping(root, "policy")
+		if err != nil {
+			return err
+		}
+		if len(intents) > 0 {
+			intentNode, err := ensureMapping(policy, "intents")
+			if err != nil {
+				return err
+			}
+			for _, pair := range intents {
+				setScalarNode(intentNode, pair[0], pair[1])
+			}
+		}
+		if may != nil || mayNot != nil {
+			consumers, err := ensureMapping(policy, "consumers")
+			if err != nil {
+				return err
+			}
+			if may != nil {
+				setEncodedNode(consumers, "may", *may)
+			}
+			if mayNot != nil {
+				setEncodedNode(consumers, "may-not", *mayNot)
+			}
+		}
+		if notes != nil {
+			setScalarNode(policy, "notes", *notes)
+		}
+		return nil
+	})
+}
+
+func editDocument(original []byte, edit func(*yaml.Node) error) ([]byte, error) {
+	var document yaml.Node
+	if err := yaml.Unmarshal(original, &document); err != nil {
+		return nil, err
+	}
+	if len(document.Content) != 1 || document.Content[0].Kind != yaml.MappingNode {
+		return nil, fmt.Errorf("manifest root must be a mapping")
+	}
+	if err := edit(document.Content[0]); err != nil {
+		return nil, err
+	}
+	return encodeDocument(&document)
+}
+
+func ensureMapping(parent *yaml.Node, key string) (*yaml.Node, error) {
+	_, value := mappingEntry(parent, key)
+	if value == nil {
+		value = &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+		parent.Content = append(parent.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key}, value)
+	}
+	if value.Kind != yaml.MappingNode {
+		return nil, fmt.Errorf("%s must be a mapping", key)
+	}
+	return value, nil
+}
+
+func ensureSequence(parent *yaml.Node, key string) (*yaml.Node, error) {
+	_, value := mappingEntry(parent, key)
+	if value == nil {
+		value = &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
+		parent.Content = append(parent.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key}, value)
+	}
+	if value.Kind != yaml.SequenceNode {
+		return nil, fmt.Errorf("%s must be a sequence", key)
+	}
+	return value, nil
+}
+
+func setScalarNode(mapping *yaml.Node, key, value string) {
+	_, current := mappingEntry(mapping, key)
+	if current == nil {
+		mapping.Content = append(mapping.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value})
+		return
+	}
+	current.Kind, current.Tag, current.Value = yaml.ScalarNode, "!!str", value
+}
+
+func setEncodedNode(mapping *yaml.Node, key string, value any) {
+	_, current := mappingEntry(mapping, key)
+	var encoded yaml.Node
+	_ = encoded.Encode(value)
+	if current == nil {
+		mapping.Content = append(mapping.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key}, &encoded)
+		return
+	}
+	style := current.Style
+	*current = encoded
+	current.Style = style
+}
+
 func encodeDocument(document *yaml.Node) ([]byte, error) {
 	var out bytes.Buffer
 	encoder := yaml.NewEncoder(&out)

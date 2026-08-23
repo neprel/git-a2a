@@ -27,7 +27,10 @@ Use [.agents/skills/git-a2a/SKILL.md](.agents/skills/git-a2a/SKILL.md) for git m
 module ownership, a2amodule.yml, and the managed dependency roster. Run ` + "`git-a2a usage`" + ` for the compact CLI briefing.
 ` + setupEnd + "\n")
 
-type setupOptions struct{ check, dryRun bool }
+type setupOptions struct {
+	check, dryRun, all bool
+	harnesses          []string
+}
 type setupFile struct {
 	path, purpose string
 	body          []byte
@@ -35,14 +38,27 @@ type setupFile struct {
 
 func (a *App) setup(args []string) int {
 	o := setupOptions{}
-	for _, arg := range args {
-		switch arg {
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
 		case "--check":
 			o.check = true
 		case "--dry-run":
 			o.dryRun = true
+		case "--all":
+			o.all = true
+		case "--harness":
+			if i+1 >= len(args) {
+				fmt.Fprintln(a.Err, "setup: --harness needs a comma-separated value")
+				return 2
+			}
+			i++
+			o.harnesses = append(o.harnesses, strings.Split(args[i], ",")...)
 		default:
-			fmt.Fprintf(a.Err, "setup: unknown option %s\n", arg)
+			if strings.HasPrefix(args[i], "--harness=") {
+				o.harnesses = append(o.harnesses, strings.Split(strings.TrimPrefix(args[i], "--harness="), ",")...)
+				continue
+			}
+			fmt.Fprintf(a.Err, "setup: unknown option %s\n", args[i])
 			return 2
 		}
 	}
@@ -50,7 +66,23 @@ func (a *App) setup(args []string) int {
 		fmt.Fprintln(a.Err, "setup: --check and --dry-run cannot be combined")
 		return 2
 	}
-	files, harnesses, err := a.setupFiles()
+	if o.all && len(o.harnesses) > 0 {
+		fmt.Fprintln(a.Err, "setup: --all and --harness cannot be combined")
+		return 2
+	}
+	repoHarnesses, homeHarnesses := detectHarnesses(a.root(), a.home())
+	harnesses := repoHarnesses
+	if o.all {
+		harnesses = allHarnessNames()
+	} else if len(o.harnesses) > 0 {
+		var selectErr error
+		harnesses, selectErr = resolveHarnessNames(o.harnesses)
+		if selectErr != nil {
+			fmt.Fprintf(a.Err, "setup: %v\n", selectErr)
+			return 2
+		}
+	}
+	files, err := a.setupFiles(harnesses)
 	if err != nil {
 		fmt.Fprintf(a.Err, "setup: %v\n", err)
 		return 1
@@ -59,6 +91,12 @@ func (a *App) setup(args []string) int {
 		fmt.Fprintln(a.Err, "setup: no supported harness detected; installing cross-agent guidance only")
 	} else {
 		fmt.Fprintf(a.Err, "setup: detected %s\n", strings.Join(harnesses, ", "))
+	}
+	for _, name := range homeHarnesses {
+		if contains(repoHarnesses, name) || contains(harnesses, name) {
+			continue
+		}
+		fmt.Fprintf(a.Err, "setup: %s detected on this machine; pass --harness %s to configure it in this repository\n", name, harnessSlug(name))
 	}
 	for _, instruction := range externalMCPInstructions(harnesses) {
 		fmt.Fprintf(a.Err, "setup: %s\n", instruction)
@@ -108,16 +146,11 @@ func (a *App) setup(args []string) int {
 	return 0
 }
 
-func (a *App) setupFiles() ([]setupFile, []string, error) {
+func (a *App) setupFiles(harnesses []string) ([]setupFile, error) {
 	root := a.root()
-	home := a.Home
-	if home == "" {
-		home, _ = os.UserHomeDir()
-	}
-	harnesses := detectHarnesses(root, home)
 	files := make([]setupFile, 0, 12)
 	addSkill := func(target, purpose string) error {
-		return fs.WalkDir(setupskill.Files, "files", func(name string, entry fs.DirEntry, err error) error {
+		return fs.WalkDir(setupskill.Files, "thin", func(name string, entry fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
@@ -128,22 +161,22 @@ func (a *App) setupFiles() ([]setupFile, []string, error) {
 			if readErr != nil {
 				return readErr
 			}
-			rel, _ := filepath.Rel("files", name)
+			rel, _ := filepath.Rel("thin", name)
 			files = append(files, setupFile{filepath.Join(root, target, rel), purpose, body})
 			return nil
 		})
 	}
 	if err := addSkill(filepath.FromSlash(".agents/skills/git-a2a"), "cross-agent skill"); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if contains(harnesses, "Claude Code") {
 		if err := addSkill(filepath.FromSlash(".claude/skills/git-a2a"), "Claude Code skill"); err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	}
 	agents, err := managedSetupFile(filepath.Join(root, "AGENTS.md"), setupPointer)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	files = append(files, setupFile{filepath.Join(root, "AGENTS.md"), "skill pointer", agents})
 	configs := []struct {
@@ -158,7 +191,7 @@ func (a *App) setupFiles() ([]setupFile, []string, error) {
 		path := filepath.Join(root, ".mcp.json")
 		body, mergeErr := mergeJSONConfig(path, []string{"mcpServers"}, stdioConfig())
 		if mergeErr != nil {
-			return nil, nil, fmt.Errorf(".mcp.json: %w", mergeErr)
+			return nil, fmt.Errorf(".mcp.json: %w", mergeErr)
 		}
 		purpose := "GitHub Copilot CLI MCP server"
 		if contains(harnesses, "Claude Code") && contains(harnesses, "GitHub Copilot") {
@@ -175,7 +208,7 @@ func (a *App) setupFiles() ([]setupFile, []string, error) {
 		path := filepath.Join(root, filepath.FromSlash(config.path))
 		body, mergeErr := mergeJSONConfig(path, []string{config.key}, config.value)
 		if mergeErr != nil {
-			return nil, nil, fmt.Errorf("%s: %w", config.path, mergeErr)
+			return nil, fmt.Errorf("%s: %w", config.path, mergeErr)
 		}
 		files = append(files, setupFile{path, config.harness + " MCP server", body})
 	}
@@ -183,7 +216,7 @@ func (a *App) setupFiles() ([]setupFile, []string, error) {
 		path := filepath.Join(root, ".codex", "config.toml")
 		body, mergeErr := managedTextFile(path, "# git-a2a:mcp:begin", "# git-a2a:mcp:end", []byte("# git-a2a:mcp:begin\n[mcp_servers.git-a2a]\ncommand = \"git-a2a\"\nargs = [\"mcp\"]\n# git-a2a:mcp:end\n"))
 		if mergeErr != nil {
-			return nil, nil, mergeErr
+			return nil, mergeErr
 		}
 		files = append(files, setupFile{path, "Codex MCP server", body})
 	}
@@ -191,41 +224,97 @@ func (a *App) setupFiles() ([]setupFile, []string, error) {
 		path := filepath.Join(root, "opencode.json")
 		body, mergeErr := mergeJSONConfig(path, []string{"mcp", "servers"}, map[string]any{"type": "local", "command": []any{"git-a2a", "mcp"}})
 		if mergeErr != nil {
-			return nil, nil, fmt.Errorf("opencode.json: %w", mergeErr)
+			return nil, fmt.Errorf("opencode.json: %w", mergeErr)
 		}
 		files = append(files, setupFile{path, "OpenCode MCP server", body})
 	}
 	sort.SliceStable(files, func(i, j int) bool { return files[i].path < files[j].path })
-	return files, harnesses, nil
+	return files, nil
 }
 
 func stdioConfig() map[string]any { return map[string]any{"command": "git-a2a", "args": []any{"mcp"}} }
 
-func detectHarnesses(root, home string) []string {
-	type candidate struct {
-		name    string
-		markers []string
+type harnessSpec struct {
+	slug, name string
+	repo, home []string
+}
+
+var harnessSpecs = []harnessSpec{
+	{"claude-code", "Claude Code", []string{".claude", "CLAUDE.md"}, []string{".claude"}},
+	{"codex", "Codex", []string{".codex"}, []string{".codex"}},
+	{"cursor", "Cursor", []string{".cursor", ".cursorrules"}, []string{".cursor"}},
+	{"copilot", "GitHub Copilot", []string{filepath.Join(".github", "copilot-instructions.md"), filepath.Join(".github", "agents"), filepath.Join(".vscode", "mcp.json")}, []string{".copilot", filepath.Join(".config", "github-copilot")}},
+	{"gemini", "Gemini CLI", []string{".gemini", "GEMINI.md"}, []string{".gemini"}},
+	{"opencode", "OpenCode", []string{".opencode", "opencode.json", "opencode.jsonc"}, []string{filepath.Join(".config", "opencode")}},
+	{"hermes", "Hermes Agent", []string{".hermes"}, []string{".hermes"}},
+	{"openclaw", "OpenClaw", []string{".openclaw"}, []string{".openclaw"}},
+}
+
+func (a *App) home() string {
+	if a.Home != "" {
+		return a.Home
 	}
-	candidates := []candidate{
-		{"Claude Code", []string{filepath.Join(root, ".claude"), filepath.Join(root, "CLAUDE.md"), filepath.Join(home, ".claude")}},
-		{"Codex", []string{filepath.Join(root, ".codex"), filepath.Join(home, ".codex")}},
-		{"Cursor", []string{filepath.Join(root, ".cursor"), filepath.Join(root, ".cursorrules"), filepath.Join(home, ".cursor")}},
-		{"GitHub Copilot", []string{filepath.Join(root, ".github", "copilot-instructions.md"), filepath.Join(root, ".github", "agents"), filepath.Join(home, ".copilot"), filepath.Join(home, ".config", "github-copilot")}},
-		{"Gemini CLI", []string{filepath.Join(root, ".gemini"), filepath.Join(root, "GEMINI.md"), filepath.Join(home, ".gemini")}},
-		{"OpenCode", []string{filepath.Join(root, ".opencode"), filepath.Join(root, "opencode.json"), filepath.Join(root, "opencode.jsonc"), filepath.Join(home, ".config", "opencode")}},
-		{"Hermes Agent", []string{filepath.Join(root, ".hermes"), filepath.Join(root, "HERMES.md"), filepath.Join(home, ".hermes")}},
-		{"OpenClaw", []string{filepath.Join(root, ".openclaw"), filepath.Join(root, "openclaw.json"), filepath.Join(home, ".openclaw")}},
+	home, _ := os.UserHomeDir()
+	return home
+}
+
+func detectHarnesses(root, home string) (repoFound, homeFound []string) {
+	for _, candidate := range harnessSpecs {
+		if anyMarker(root, candidate.repo) {
+			repoFound = append(repoFound, candidate.name)
+		}
+		if anyMarker(home, candidate.home) {
+			homeFound = append(homeFound, candidate.name)
+		}
 	}
-	var found []string
-	for _, candidate := range candidates {
-		for _, marker := range candidate.markers {
-			if _, err := os.Stat(marker); err == nil {
-				found = append(found, candidate.name)
+	return repoFound, homeFound
+}
+
+func anyMarker(base string, markers []string) bool {
+	for _, marker := range markers {
+		if _, err := os.Stat(filepath.Join(base, marker)); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+func resolveHarnessNames(values []string) ([]string, error) {
+	var resolved []string
+	for _, raw := range values {
+		wanted := strings.ToLower(strings.TrimSpace(raw))
+		found := ""
+		for _, candidate := range harnessSpecs {
+			if wanted == candidate.slug || wanted == strings.ToLower(candidate.name) {
+				found = candidate.name
 				break
 			}
 		}
+		if found == "" {
+			return nil, fmt.Errorf("unknown harness %q", raw)
+		}
+		if !contains(resolved, found) {
+			resolved = append(resolved, found)
+		}
 	}
-	return found
+	return resolved, nil
+}
+
+func allHarnessNames() []string {
+	result := make([]string, 0, len(harnessSpecs))
+	for _, candidate := range harnessSpecs {
+		result = append(result, candidate.name)
+	}
+	return result
+}
+
+func harnessSlug(name string) string {
+	for _, candidate := range harnessSpecs {
+		if candidate.name == name {
+			return candidate.slug
+		}
+	}
+	return name
 }
 
 func externalMCPInstructions(harnesses []string) []string {

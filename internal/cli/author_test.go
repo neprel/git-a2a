@@ -23,7 +23,7 @@ func TestAuthoringHelpersBuildValidManifest(t *testing.T) {
 	commands := [][]string{
 		{"agent", "add", "acme-owner", "--role", "owner", "--scope", "src/**", "--card", "https://agent.example/.well-known/agent-card.json", "--contact", "intents=question|change,kind=github-issue,repo=acme/example,labels=from-agent|change-request"},
 		{"export", "add", "npm", "@acme/example", "--path", "packages/js"},
-		{"policy", "set", "question=owner", "change=owner"},
+		{"policy", "set", "question=owner", "change=owner", "--may", "read-surface,ask", "--may-not", "commit,release", "--notes", "Ask the owner first."},
 	}
 	for _, args := range commands {
 		out.Reset()
@@ -44,6 +44,9 @@ func TestAuthoringHelpersBuildValidManifest(t *testing.T) {
 	}
 	if m.Policy == nil || m.Policy.Intents["question"] != "owner" {
 		t.Fatalf("policy = %#v", m.Policy)
+	}
+	if got := strings.Join(m.Policy.Consumers.May, ","); got != "read-surface,ask" || strings.Join(m.Policy.Consumers.MayNot, ",") != "commit,release" || m.Policy.Notes != "Ask the owner first." {
+		t.Fatalf("consumer policy = %#v", m.Policy)
 	}
 	roster, err := os.ReadFile(filepath.Join(root, "AGENTS.md"))
 	if err != nil || !strings.Contains(string(roster), "acme-owner") {
@@ -68,6 +71,51 @@ func TestAuthoringHelpersBuildValidManifest(t *testing.T) {
 	m, err = manifest.Load(filepath.Join(root, "a2amodule.yml"))
 	if err != nil || len(m.Agents) != 0 {
 		t.Fatalf("agents after remove = %#v, %v", m.Agents, err)
+	}
+}
+
+func TestAuthoringHelpersPreserveCommentsOrderAndStyles(t *testing.T) {
+	root := t.TempDir()
+	var out, errOut bytes.Buffer
+	app := New(&out, &errOut)
+	app.Root = root
+	if code := app.Run([]string{"init", "--example", "lib", "--id", "acme-lib"}); code != 0 {
+		t.Fatalf("init exit %d: %s", code, errOut.String())
+	}
+	before, err := os.ReadFile(filepath.Join(root, "a2amodule.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	comments := []string{
+		"# yaml-language-server: $schema=https://git-a2a.com/schema/a2amodule.v1.json",
+		"# Describe the reusable code and the exact native import names consumers should wire.",
+		"# Bind ownership and contact routes; the Agent Card remains the agent's description.",
+		"# Route each request intent to a role and state the consumer boundary.",
+	}
+	for _, comment := range comments {
+		if strings.Count(string(before), comment) != 1 {
+			t.Fatalf("template does not contain comment %q exactly once:\n%s", comment, before)
+		}
+	}
+	out.Reset()
+	errOut.Reset()
+	if code := app.Run([]string{"agent", "add", "acme-reviewer", "--role", "reviewer", "--scope", "docs/**"}); code != 0 {
+		t.Fatalf("agent add exit %d: %s", code, errOut.String())
+	}
+	after, err := os.ReadFile(filepath.Join(root, "a2amodule.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, comment := range comments {
+		if strings.Count(string(after), comment) != 1 {
+			t.Errorf("comment changed or moved out of document: %q\n%s", comment, after)
+		}
+	}
+	if !strings.Contains(string(after), `scope: ["**"]`) {
+		t.Fatalf("original flow-style scope was rewritten:\n%s", after)
+	}
+	if strings.Index(string(after), "name: acme-lib-owner") > strings.Index(string(after), "name: acme-reviewer") {
+		t.Fatalf("new agent was not appended:\n%s", after)
 	}
 }
 
@@ -108,6 +156,18 @@ func TestInitExamplesAreCompleteValidManifests(t *testing.T) {
 			}
 			if !strings.HasPrefix(string(body), "# yaml-language-server:") || len(m.Agents) == 0 || m.Policy == nil {
 				t.Fatalf("incomplete example:\n%s", body)
+			}
+			known := map[string]bool{"read-surface": true, "ask": true, "open-issue": true, "propose-change": true, "commit": true, "edit-spec": true, "release": true}
+			for _, token := range append(append([]string{}, m.Policy.Consumers.May...), m.Policy.Consumers.MayNot...) {
+				if !known[token] {
+					t.Errorf("example uses consumer token absent from the spec vocabulary: %s", token)
+				}
+			}
+			if got := strings.Join(m.Policy.Consumers.May, ","); got != "read-surface,ask,open-issue,propose-change" {
+				t.Errorf("may vocabulary = %s", got)
+			}
+			if got := strings.Join(m.Policy.Consumers.MayNot, ","); got != "commit,edit-spec,release" {
+				t.Errorf("may-not vocabulary = %s", got)
 			}
 		})
 	}

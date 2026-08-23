@@ -92,7 +92,21 @@ func fetchFixture(t *testing.T) (root, remote, commit string, manifestRaw []byte
 	if err := os.MkdirAll(filepath.Join(source, "surface"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	manifestRaw = []byte("schema: 1\nmodule:\n  id: acme-lib\n  surface: surface\n")
+	manifestRaw = []byte(`schema: 1
+module:
+  id: acme-lib
+  surface: surface
+agents:
+  - name: acme-lib-owner
+    role: owner
+    contacts:
+      - intents: [question]
+        kind: url
+        url: https://example.com/acme-lib
+policy:
+  intents:
+    question: owner
+`)
 	if err := os.WriteFile(filepath.Join(source, "a2amodule.yml"), manifestRaw, 0o644); err != nil {
 		t.Fatal(err)
 	}

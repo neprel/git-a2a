@@ -13,7 +13,7 @@ import tempfile
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SKILL = ROOT / "skills/git-a2a"
 SITE_SKILL = ROOT / "sites/git-a2a.com/.well-known/skills/git-a2a"
-EMBEDDED_SKILL = ROOT / "internal/setupskill/files"
+THIN_SKILL = ROOT / "internal/setupskill/thin"
 INDEX = ROOT / "sites/git-a2a.com/.well-known/skills/index.json"
 REFERENCES = {
     "cli.md": ROOT / "docs/cli.md",
@@ -88,6 +88,23 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         rendered = pathlib.Path(temporary)
         build(rendered)
+        # The CLI embeds only a thin pointer skill; keep its metadata version synchronized
+        # without copying the full reference set into every configured repository.
+        expected_version = (ROOT / "internal/version/VERSION").read_text().strip()
+        thin_md = THIN_SKILL / "SKILL.md"
+        thin_body = thin_md.read_text()
+        thin_current = re.sub(
+            r"(^\s+version:\s*)[^\n]+",
+            rf"\g<1>{expected_version}",
+            thin_body,
+            count=1,
+            flags=re.M,
+        )
+        thin_expected = {
+            path.relative_to(THIN_SKILL) for path in THIN_SKILL.rglob("*") if path.is_file()
+        }
+        if thin_expected != {pathlib.Path("SKILL.md"), pathlib.Path("references/README.md")}:
+            fail("thin setup skill must contain only SKILL.md and references/README.md")
         if args.check:
             if not SITE_SKILL.exists() or not same_tree(rendered / "skill", SITE_SKILL):
                 fail("site skill copy is stale; run tools/sync-skill.py")
@@ -96,9 +113,9 @@ def main() -> None:
             references = SKILL / "references"
             if not references.exists() or not same_tree(rendered / "skill" / "references", references):
                 fail("skill references are stale; run tools/sync-skill.py")
-            if not EMBEDDED_SKILL.exists() or not same_tree(rendered / "skill", EMBEDDED_SKILL):
-                fail("embedded setup skill is stale; run tools/sync-skill.py")
-            print("skill-sync: references, site copy, embedded setup copy, index, and tool version are current")
+            if thin_body != thin_current:
+                fail("thin setup skill version is stale; run tools/sync-skill.py")
+            print("skill-sync: references, site copy, thin setup copy, index, and tool version are current")
             return
         references = SKILL / "references"
         if references.exists():
@@ -108,13 +125,10 @@ def main() -> None:
             shutil.rmtree(SITE_SKILL)
         SITE_SKILL.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(rendered / "skill", SITE_SKILL)
-        if EMBEDDED_SKILL.exists():
-            shutil.rmtree(EMBEDDED_SKILL)
-        EMBEDDED_SKILL.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(rendered / "skill", EMBEDDED_SKILL)
+        thin_md.write_text(thin_current)
         INDEX.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(rendered / "index.json", INDEX)
-        print("skill-sync: wrote references, site and embedded setup copies, and discovery index")
+        print("skill-sync: wrote references, site copy, thin setup metadata, and discovery index")
 
 
 if __name__ == "__main__":

@@ -62,15 +62,16 @@ func (a *App) agentAdd(args []string) int {
 		parsedContacts = append(parsedContacts, contact)
 	}
 	name := fs.Arg(0)
+	added := manifest.Agent{Name: name, Role: *role, Scope: scopes, Card: *card, Contacts: parsedContacts}
 	return a.mutateManifest("agent add", func(m *manifest.Manifest) error {
 		for _, current := range m.Agents {
 			if current.Name == name {
 				return fmt.Errorf("agent %s already exists", name)
 			}
 		}
-		m.Agents = append(m.Agents, manifest.Agent{Name: name, Role: *role, Scope: scopes, Card: *card, Contacts: parsedContacts})
+		m.Agents = append(m.Agents, added)
 		return nil
-	}, fmt.Sprintf("added agent %s", name))
+	}, func(original []byte) ([]byte, error) { return manifest.AppendAgent(original, added) }, fmt.Sprintf("added agent %s", name))
 }
 
 func (a *App) agentRemove(args []string) int {
@@ -98,7 +99,7 @@ func (a *App) agentRemove(args []string) int {
 		}
 		m.Agents = kept
 		return nil
-	}, fmt.Sprintf("removed agent %s", name))
+	}, func(original []byte) ([]byte, error) { return manifest.RemoveAgent(original, name) }, fmt.Sprintf("removed agent %s", name))
 	return code
 }
 
@@ -148,15 +149,16 @@ func (a *App) export(args []string) int {
 		return 2
 	}
 	ecosystem, name := fs.Arg(0), fs.Arg(1)
+	added := manifest.Export{Ecosystem: ecosystem, Name: name, Path: *path}
 	return a.mutateManifest("export add", func(m *manifest.Manifest) error {
 		for _, current := range m.Module.Exports {
 			if current.Ecosystem == ecosystem && current.Name == name && current.Path == *path {
 				return fmt.Errorf("export %s %s already exists", ecosystem, name)
 			}
 		}
-		m.Module.Exports = append(m.Module.Exports, manifest.Export{Ecosystem: ecosystem, Name: name, Path: *path})
+		m.Module.Exports = append(m.Module.Exports, added)
 		return nil
-	}, fmt.Sprintf("added %s export %s", ecosystem, name))
+	}, func(original []byte) ([]byte, error) { return manifest.AppendExport(original, added) }, fmt.Sprintf("added %s export %s", ecosystem, name))
 }
 
 func (a *App) policy(args []string) int {
@@ -167,19 +169,39 @@ func (a *App) policy(args []string) int {
 	fs := flag.NewFlagSet("policy set", flag.ContinueOnError)
 	fs.SetOutput(a.Err)
 	_ = fs.Bool("yes", false, "accept inputs (no-op)")
-	ordered, orderErr := interspersedArgs(args[1:], nil)
-	if orderErr != nil || fs.Parse(ordered) != nil || fs.NArg() == 0 {
-		fmt.Fprintln(a.Err, "policy set: at least one INTENT=ROLE is required")
+	mayRaw := fs.String("may", "", "comma-separated allowed consumer actions")
+	mayNotRaw := fs.String("may-not", "", "comma-separated forbidden consumer actions")
+	notes := fs.String("notes", "", "policy notes")
+	ordered, orderErr := interspersedArgs(args[1:], map[string]bool{"may": true, "may-not": true, "notes": true})
+	if orderErr != nil || fs.Parse(ordered) != nil {
+		fmt.Fprintln(a.Err, "policy set: expected INTENT=ROLE mappings or --may/--may-not/--notes")
 		return 2
 	}
-	values := map[string]string{}
+	if fs.NArg() == 0 && !flagPresent(args[1:], "may") && !flagPresent(args[1:], "may-not") && !flagPresent(args[1:], "notes") {
+		fmt.Fprintln(a.Err, "policy set: expected INTENT=ROLE mappings or --may/--may-not/--notes")
+		return 2
+	}
+	values := make([][2]string, 0, fs.NArg())
 	for _, raw := range fs.Args() {
 		intent, role, ok := strings.Cut(raw, "=")
 		if !ok || intent == "" || role == "" {
 			fmt.Fprintf(a.Err, "policy set: invalid mapping %q\n", raw)
 			return 2
 		}
-		values[intent] = role
+		values = append(values, [2]string{intent, role})
+	}
+	var may, mayNot *[]string
+	if flagPresent(args[1:], "may") {
+		parsed := splitList(*mayRaw)
+		may = &parsed
+	}
+	if flagPresent(args[1:], "may-not") {
+		parsed := splitList(*mayNotRaw)
+		mayNot = &parsed
+	}
+	var notesValue *string
+	if flagPresent(args[1:], "notes") {
+		notesValue = notes
 	}
 	return a.mutateManifest("policy set", func(m *manifest.Manifest) error {
 		if m.Policy == nil {
@@ -188,16 +210,32 @@ func (a *App) policy(args []string) int {
 		if m.Policy.Intents == nil {
 			m.Policy.Intents = map[string]string{}
 		}
-		for intent, role := range values {
-			m.Policy.Intents[intent] = role
+		for _, pair := range values {
+			m.Policy.Intents[pair[0]] = pair[1]
+		}
+		if may != nil || mayNot != nil {
+			if m.Policy.Consumers == nil {
+				m.Policy.Consumers = &manifest.Consumers{}
+			}
+			if may != nil {
+				m.Policy.Consumers.May = *may
+			}
+			if mayNot != nil {
+				m.Policy.Consumers.MayNot = *mayNot
+			}
+		}
+		if notesValue != nil {
+			m.Policy.Notes = *notesValue
 		}
 		return nil
-	}, fmt.Sprintf("set %d policy intent(s)", len(values)))
+	}, func(original []byte) ([]byte, error) {
+		return manifest.UpdatePolicy(original, values, may, mayNot, notesValue)
+	}, fmt.Sprintf("updated policy (%d intent mapping(s))", len(values)))
 }
 
 var errNotFound = fmt.Errorf("not found")
 
-func (a *App) mutateManifest(command string, mutate func(*manifest.Manifest) error, success string) int {
+func (a *App) mutateManifest(command string, mutate func(*manifest.Manifest) error, edit func([]byte) ([]byte, error), success string) int {
 	path := filepath.Join(a.root(), "a2amodule.yml")
 	original, err := os.ReadFile(path)
 	if err != nil {
@@ -220,7 +258,7 @@ func (a *App) mutateManifest(command string, mutate func(*manifest.Manifest) err
 		fmt.Fprintf(a.Err, "%s: %v\n", command, err)
 		return 1
 	}
-	body, err := manifest.Marshal(m)
+	body, err := edit(original)
 	if err != nil {
 		fmt.Fprintf(a.Err, "%s: %v\n", command, err)
 		return 1
@@ -237,6 +275,27 @@ func (a *App) mutateManifest(command string, mutate func(*manifest.Manifest) err
 	}
 	fmt.Fprintln(a.Out, success)
 	return 0
+}
+
+func splitList(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return []string{}
+	}
+	parts := strings.Split(raw, ",")
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+	return parts
+}
+
+func flagPresent(args []string, name string) bool {
+	prefix := "--" + name
+	for _, arg := range args {
+		if arg == prefix || strings.HasPrefix(arg, prefix+"=") {
+			return true
+		}
+	}
+	return false
 }
 
 func parseContact(raw string) (manifest.Contact, error) {
@@ -326,8 +385,8 @@ policy:
     change: owner
     bug: owner
   consumers:
-    may: [import, inspect-surface, contact]
-    may-not: [read-internals, modify-upstream]
+    may: [read-surface, ask, open-issue, propose-change]
+    may-not: [commit, edit-spec, release]
 `, id))
 	}
 	return []byte(fmt.Sprintf(`# yaml-language-server: $schema=https://git-a2a.com/schema/a2amodule.v1.json
@@ -356,8 +415,8 @@ policy:
     change: owner
     bug: owner
   consumers:
-    may: [contact]
-    may-not: [modify-without-review]
+    may: [read-surface, ask, open-issue, propose-change]
+    may-not: [commit, edit-spec, release]
 `, id))
 }
 

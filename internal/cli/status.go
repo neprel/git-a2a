@@ -100,6 +100,7 @@ func (a *App) status(args []string) int {
 		if loadErr != nil {
 			row.Manifest = "missing"
 			row.failed = true
+			row.Details = append(row.Details, "cache missing — run git-a2a fetch")
 		} else {
 			sum := sha256.Sum256(cached)
 			actual := "sha256:" + hex.EncodeToString(sum[:])
