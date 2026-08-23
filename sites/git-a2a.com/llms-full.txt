@@ -55,6 +55,16 @@ git-a2a status
 git-a2a update --review
 ```
 
+## Vendored dependencies
+
+A consumer can materialize a locked dependency inside its repository with `add --vendor
+submodule` or `add --vendor copy`; `set --vendor` changes that choice later. The lock still names
+one Git commit for every ecosystem, while native npm, Cargo, Go, Pub, Mix, uv, and Composer wiring
+and generated CMake, Gradle, MSBuild, Maven, or Meson integrations resolve through the vendored
+directory. `git-a2a fetch` restores missing cache and vendored content from the lock in a fresh
+checkout without resolving a new commit. See the [consumer workflow](docs/consuming.md#keep-source-in-the-consumer-repository)
+and the live [`consumer-app`](https://github.com/neprel/git-a2a-demo-acme-app) submodule example.
+
 ## Installation
 
 Go-native channels are the simplest and come first. Every checkmark means the channel was

@@ -119,3 +119,16 @@ this manual check covers the live executable-replacement path that a unit test c
    downloaded release binary.
 5. Create the stable tag on the exact reviewed commit only after the release-candidate path is
    clean. If any source changed, run a new release candidate first.
+
+## Deferred release work
+
+These items are intentionally not implied by a successful stable release and require separate
+design, credentials, or platform acceptance:
+
+- winget publication, after the package identity and publisher workflow are settled;
+- Apple signing and notarization, before replacing the checksum-verified Homebrew formula with a
+  cask or claiming direct-download Gatekeeper compatibility;
+- MCP `--roots` capability negotiation and an enforceable root allow-list beyond the current
+  process/per-call `root` trust boundary;
+- further card/dependency trust hardening beyond the current JWS, JWKS cache, and documented
+  process/repository boundary.
