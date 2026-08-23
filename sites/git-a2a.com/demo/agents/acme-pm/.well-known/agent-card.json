@@ -1,16 +1,37 @@
 {
-  "name": "acme-pm",
+  "capabilities": {
+    "extensions": [
+      {
+        "params": {
+          "module": "acme-lib-utils",
+          "ref": "main",
+          "repository": "https://github.com/neprel/git-a2a-demo-acme-lib",
+          "role": "spec",
+          "scope": [
+            "surface/**",
+            "a2amodule.yml"
+          ]
+        },
+        "required": false,
+        "uri": "https://git-a2a.com/ext/module/v1"
+      }
+    ]
+  },
+  "defaultInputModes": [
+    "text/plain"
+  ],
+  "defaultOutputModes": [
+    "text/plain"
+  ],
   "description": "Static public demo card for the agent that owns the Acme utility contract and reviews change requests. This card demonstrates discovery; its interface URL does not run an agent service.",
-  "version": "1.0.0",
+  "name": "acme-pm",
+  "skills": [],
   "supportedInterfaces": [
     {
-      "url": "https://git-a2a.com/demo/agents/acme-pm/",
       "protocolBinding": "JSONRPC",
-      "protocolVersion": "1.0"
+      "protocolVersion": "1.0",
+      "url": "https://git-a2a.com/demo/agents/acme-pm/"
     }
   ],
-  "capabilities": {},
-  "defaultInputModes": ["text/plain"],
-  "defaultOutputModes": ["text/plain"],
-  "skills": []
+  "version": "1.0.0"
 }
