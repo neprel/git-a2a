@@ -26,7 +26,7 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	if attributes := read(".gitattributes"); !strings.Contains(attributes, "* text=auto eol=lf") {
 		t.Error("repository text files must retain LF line endings on every runner")
 	}
-	for _, required := range []string{"needs: test", "permissions: {}", "contents: write", "packages: write", "id-token: write", "--skip=homebrew", "--skip=scoop", "node-version: '24'", "npm@11.5.1", "docker/setup-buildx-action@", "docker logout ghcr.io", "workflow_dispatch:", "GORELEASER_CURRENT_TAG", "RELEASE_TAG: ${{ inputs.tag || github.ref_name }}"} {
+	for _, required := range []string{"needs: test", "permissions: {}", "contents: write", "packages: write", "id-token: write", "--skip=homebrew", "--skip=scoop", "node-version: '24'", "npm@11.5.1", `npm publish "./$package" --access public`, "npm publish ./npm-packages/git-a2a --access public", "docker/setup-buildx-action@", "docker logout ghcr.io", "workflow_dispatch:", "GORELEASER_CURRENT_TAG", "RELEASE_TAG: ${{ inputs.tag || github.ref_name }}"} {
 		if !strings.Contains(workflow, required) {
 			t.Errorf("release workflow missing %q", required)
 		}

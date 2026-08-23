@@ -98,8 +98,8 @@ jobs:
       - run: python3 dist/npm/build_packages.py --artifacts release-artifacts --version "${RELEASE_TAG#v}" --out npm-packages
       - name: Publish platform packages and launcher
         run: |
-          for package in npm-packages/darwin-* npm-packages/linux-* npm-packages/windows-*; do npm publish "$package" --access public; done
-          npm publish npm-packages/git-a2a --access public
+          for package in npm-packages/darwin-* npm-packages/linux-* npm-packages/windows-*; do npm publish "./$package" --access public; done
+          npm publish ./npm-packages/git-a2a --access public
   pypi:
     needs: goreleaser
     runs-on: ubuntu-latest
