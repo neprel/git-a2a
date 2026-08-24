@@ -88,9 +88,17 @@ therefore quarantined and Gatekeeper rejects its first launch. The tap publishes
 verified formula instead: after Homebrew verifies the immutable release SHA-256, its install step
 removes `com.apple.quarantine` from that one binary. `brew test neprel/tap/git-a2a` must exercise
 the first launch. Apple signing/notarization remains required before publishing a cask or claiming
-that direct downloads are Gatekeeper-clean.
-The Scoop bucket is automated. winget submission is deliberately deferred until the stable
-package identity and publisher account exist; it is not part of the first automated release.
+that direct downloads are Gatekeeper-clean. The account-owner enrollment, certificate, API-key,
+and exact secret checklist is in [Apple signing preparation](apple-signing.md); adding those
+secrets does not activate signing without a separately reviewed RC.
+
+The Scoop bucket is automated. The first winget package identity is fixed as
+`Neprel.GitA2A`; its manually validated 1.4.0 manifest is under moderation in
+[microsoft/winget-pkgs#423457](https://github.com/microsoft/winget-pkgs/pull/423457). Stable-release
+automation and the live installer check remain inert until that PR merges and the dedicated fork
+token is configured. Windows binaries are not Authenticode-signed; the cost, custody, eligibility,
+and SmartScreen tradeoffs are recorded in [Windows Authenticode options](windows-signing.md), and
+no signing hook is activated until the publisher selects an option.
 Run `gh workflow run installers.yml -f live_channels=true` after publishing a stable manifest;
 the `scoop-live` job installs from the public bucket on `windows-latest` and asserts the exact
 version, target, and `channel=scoop`. Wine under amd64 QEMU on Apple Silicon is not an equivalent
@@ -171,9 +179,12 @@ this manual check covers the live executable-replacement path that a unit test c
 These items are intentionally not implied by a successful stable release and require separate
 design, credentials, or platform acceptance:
 
-- winget publication, after the package identity and publisher workflow are settled;
+- winget stable-release automation and its live installer gate, after the accepted
+  `Neprel.GitA2A` manifest is merged and the fork token is configured;
 - Apple signing and notarization, before replacing the checksum-verified Homebrew formula with a
   cask or claiming direct-download Gatekeeper compatibility;
+- Windows Authenticode signing, after the publisher chooses Azure Artifact Signing or an OV
+  certificate and reviews the resulting identity;
 - operating-system keystore integration for signing keys (current keys remain ordinary Git/JWKS
   material selected by repository policy);
 - central identity federation or a certificate authority, which remains outside the product

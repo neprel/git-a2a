@@ -146,8 +146,11 @@ npm uses token-less trusted publishing from `release.yml` on Node 24 with npm 11
 one publisher binding per launcher/platform package, `id-token: write`, and repository metadata
 matching `neprel/git-a2a`; npm prereleases use dist-tag `next` and stable releases use `latest`.
 PyPI uses its protected GitHub environment and OIDC. winget is
-not automated in the first release: add it only after a stable package identity and publisher
-account exist. Prerelease tags are GitHub prereleases and never the `latest` release.
+not automated in the first release. Its frozen public identity is `Neprel.GitA2A`; the first
+portable x64/arm64 manifest was natively validated and submitted manually as
+`microsoft/winget-pkgs#423457`. Do not enable stable-release updates or a live winget gate until
+that PR is merged and a dedicated fine-grained token for the `neprel/winget-pkgs` fork exists.
+Prerelease tags are GitHub prereleases and never the `latest` release.
 Recovery dispatches rebuild from the immutable tag with SCM artifact upload disabled, so existing
 GitHub assets are never overwritten while downstream npm, PyPI, Homebrew and Scoop publishers can
 be retried from the existing release. Homebrew and Scoop are rendered from the already-published
