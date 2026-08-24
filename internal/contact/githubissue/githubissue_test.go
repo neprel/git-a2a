@@ -115,3 +115,30 @@ func TestDeliverRESTSuppressesHTMLResponseBody(t *testing.T) {
 		t.Fatalf("HTML leaked into error: %q", err)
 	}
 }
+
+func TestDeliverUsesGHESDerivedAPIAndDegradesToDeepLink(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v3/repos/acme/lib/issues" {
+			t.Errorf("path=%q", r.URL.Path)
+		}
+		fmt.Fprint(w, `{"html_url":"https://github.acme.test/acme/lib/issues/3","number":3}`)
+	}))
+	defer server.Close()
+	host := strings.TrimPrefix(server.URL, "https://")
+	driver := Driver{Client: server.Client(), LookPath: func(string) (string, error) { return "", errors.New("missing") }, Getenv: func(name string) string {
+		if name == "GH_TOKEN" {
+			return "secret"
+		}
+		return ""
+	}}
+	record, err := driver.Deliver(context.Background(), contact.Request{Agent: "owner", Message: "Change", Contact: manifest.Contact{Repo: "acme/lib", Server: host}})
+	if err != nil || record.Driver != "github-rest" {
+		t.Fatalf("record=%#v err=%v", record, err)
+	}
+
+	driver.Getenv = func(string) string { return "" }
+	record, err = driver.Deliver(context.Background(), contact.Request{Agent: "owner", Message: "Change & review", Contact: manifest.Contact{Repo: "acme/lib", Server: "github.acme.test"}})
+	if err != nil || record.State != "instruction" || record.Driver != "instruction" || !strings.Contains(record.ID, "issues/new?body=") {
+		t.Fatalf("record=%#v err=%v", record, err)
+	}
+}

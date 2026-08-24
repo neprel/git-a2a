@@ -192,16 +192,24 @@ acme-lib change → owner → library-owner
 
 ## contact
 
-`git-a2a contact ID --intent INTENT --message FILE|- [--wait] [--external-ok]` uses the first supported routed
-contact. A2A sends `SendMessage`; GitHub Issue uses `gh` then REST; URL/email/chat contacts print
-instructions. An owner declaration `accepts-external: false` refuses a different organisation;
+`git-a2a contact [ID] [--intent INTENT --message FILE|-] [--wait] [--external-ok] [--dry-run]
+[--list-drivers]` uses the first routed contact. Resolution is consumer plugin, built-in driver,
+consumer-consented `http`/`exec`, then an exact instruction. GitHub, GitLab, and Gitea-family issue
+drivers prefer `gh`, `glab`, or `tea`, then their REST API using consumer environment credentials;
+without either they print a prefilled issue deep link. `--wait` selects A2A streaming. `--dry-run`
+keeps delivery at the instruction layer. `--list-drivers` needs no message and shows the selected
+layer globally or for one dependency's declared kinds. An owner declaration
+`accepts-external: false` refuses a different organisation;
 only the CLI exposes `--external-ok`, so a human can explicitly approve and record the override.
-MCP has no bypass. Each delivery writes one record and stores no conversation state. `ask` is an
-alias. Exit `1` means delivery failed; exit `2` means routing/input resolved nothing.
+MCP has no bypass. Each delivery writes one record including `driver=...` and stores no
+conversation state. Consumer-installed kinds use the versioned [contact plugin
+protocol](contact-plugins.md). Owner-described invocations never add credentials or use a shell;
+MCP always refuses declared `exec`. `ask` is an alias. Exit `1` means delivery failed; exit `2`
+means routing/input resolved nothing.
 
 ```text
 $ printf 'Please review the API.' | git-a2a contact acme-lib --intent review --message -
-acme-lib owner github-issue issue=https://github.com/acme/lib/issues/42
+agent="owner" kind=github-issue id="https://github.com/acme/lib/issues/42" state=created driver=gh
 ```
 
 ## status

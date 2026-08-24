@@ -355,6 +355,19 @@ JWKS retrieval, and GitHub REST fallback. A body whose trimmed form starts with 
 Content-Type is `text/html`, is fully suppressed and reported as
 `HTTP <code> <status> (html response, N bytes, suppressed)`. Other bodies have control characters
 removed and whitespace collapsed before at most 200 Unicode characters are printed.
+An owner-described invocation (`http`, `exec`) is data about how to call something, never
+permission to call it: rendering it as an instruction is always safe; executing it requires the
+consumer's own allowlist, attaches no credentials from the declaration, substitutes only the
+closed placeholder set with context escaping, and never passes through a shell.
+
+# decision Contact delivery is layered and consumer-controlled {#contact_layers}
+
+For every contact kind the CLI resolves, in order: consumer plugin (`git-a2a-contact-<kind>`
+on PATH, JSON request on stdin, JSON record on stdout, exit 0/1/2, 60s timeout), built-in
+driver (native CLI first, REST with the ecosystem's own env credentials second), declared
+`http`/`exec` invocation gated by `settings.contact`, and the instruction renderer, which
+never fails. Owners declare data; consumers own credentials, executables, and consent. The
+resolution chosen is always visible in the delivery record and `contact --list-drivers`.
 
 # rule Unknown is not an error where the standard says it is open {#open_vocabularies}
 

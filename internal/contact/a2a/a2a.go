@@ -128,7 +128,7 @@ func (r rpcResult) record(agent string) contact.Record {
 	if state == "" {
 		state = "unknown"
 	}
-	return contact.Record{Agent: agent, Kind: "a2a", ID: id, State: state}
+	return contact.Record{Agent: agent, Kind: "a2a", Driver: "a2a", ID: id, State: state}
 }
 
 func decodeStream(reader io.Reader) (rpcResult, error) {

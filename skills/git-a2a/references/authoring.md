@@ -111,9 +111,12 @@ agents:
         note: Describe the consumer, the need, and the affected languages.
 ```
 
-`a2a` and `github-issue` have delivery drivers. `url`, `email`, and chat kinds print an exact
-instruction; they do not pretend delivery occurred. The kind-specific keys and delivery behavior
-are listed in the [field reference](manifest-reference.md).
+`a2a`, `github-issue`, `gitlab-issue`, and `gitea-issue` have built-in delivery drivers with
+instruction fallback. Open kinds can use a consumer-side [contact plugin](contact-plugins.md).
+Owner-described `http` and `exec` values remain instructions unless the consumer allowlists the
+origin or bare binary in its own `settings.contact`; an owner declaration is never consent.
+`url`, `email`, and chat kinds print an exact instruction and do not pretend delivery occurred.
+The kind-specific keys and behavior are listed in the [field reference](manifest-reference.md).
 
 ## 6. State routing and the consumer boundary
 

@@ -152,6 +152,20 @@ func (m *Manifest) Validate() error {
 				errs = append(errs, fmt.Errorf("settings.organisation[%d]: must not be empty", i))
 			}
 		}
+		if m.Settings.Contact != nil {
+			validateExtensions("settings.contact", m.Settings.Contact.Extensions, &errs)
+			for i, origin := range m.Settings.Contact.AllowHTTP {
+				parsed, err := url.Parse(origin)
+				if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+					errs = append(errs, fmt.Errorf("settings.contact.allow-http[%d]: must be an https origin", i))
+				}
+			}
+			for i, name := range m.Settings.Contact.AllowExec {
+				if strings.TrimSpace(name) == "" || strings.ContainsAny(name, `/\\`) {
+					errs = append(errs, fmt.Errorf("settings.contact.allow-exec[%d]: must be a bare binary name", i))
+				}
+			}
+		}
 	}
 	seen := map[string]bool{}
 	vendorPaths := map[string]string{}
@@ -219,17 +233,22 @@ func (m *Manifest) Validate() error {
 
 func validateContact(path string, contact Contact, errs *[]error) {
 	allowed := map[string]map[string]bool{
-		"a2a":          {"url": true, "skill": true},
-		"email":        {"address": true, "subject-prefix": true},
-		"github-issue": {"repo": true, "labels": true, "template": true},
-		"gitlab-issue": {"repo": true, "labels": true, "template": true},
-		"jira":         {"url": true, "project": true, "issue-type": true},
-		"mattermost":   {"channel": true, "handle": true, "server": true},
-		"slack":        {"channel": true, "handle": true, "server": true},
-		"discord":      {"channel": true, "handle": true, "server": true},
-		"telegram":     {"channel": true, "handle": true, "server": true},
-		"teams":        {"channel": true, "handle": true, "server": true},
-		"url":          {"url": true},
+		"a2a":             {"url": true, "skill": true},
+		"email":           {"address": true, "subject-prefix": true},
+		"github-issue":    {"repo": true, "server": true, "labels": true, "template": true},
+		"gitlab-issue":    {"repo": true, "server": true, "labels": true, "template": true},
+		"gitea-issue":     {"repo": true, "server": true, "labels": true},
+		"bitbucket-issue": {"repo": true, "labels": true},
+		"azure-boards":    {"organization": true, "project": true, "issue-type": true},
+		"http":            {"url": true, "method": true, "headers": true, "content-type": true, "body": true},
+		"exec":            {"command": true, "args": true, "stdin": true},
+		"jira":            {"url": true, "project": true, "issue-type": true},
+		"mattermost":      {"channel": true, "handle": true, "server": true},
+		"slack":           {"channel": true, "handle": true, "server": true},
+		"discord":         {"channel": true, "handle": true, "server": true},
+		"telegram":        {"channel": true, "handle": true, "server": true},
+		"teams":           {"channel": true, "handle": true, "server": true},
+		"url":             {"url": true},
 	}
 	kindAllowed, known := allowed[contact.Kind]
 	if !known {
@@ -244,12 +263,97 @@ func validateContact(path string, contact Contact, errs *[]error) {
 		"url": contact.URL != "", "skill": contact.Skill != "", "address": contact.Address != "",
 		"subject-prefix": contact.SubjectPrefix != "", "repo": contact.Repo != "", "labels": len(contact.Labels) > 0,
 		"template": contact.Template != "", "project": contact.Project != "", "issue-type": contact.IssueType != "",
-		"channel": contact.Channel != "", "handle": contact.Handle != "", "server": contact.Server != "",
+		"organization": contact.Organization != "", "channel": contact.Channel != "", "handle": contact.Handle != "", "server": contact.Server != "",
+		"method": contact.Method != "", "headers": len(contact.Headers) > 0, "content-type": contact.ContentType != "", "body": contact.Body != "",
+		"command": len(contact.Command) > 0, "args": len(contact.Args) > 0, "stdin": contact.Stdin != "",
 	}
 	for key, present := range set {
 		if present && !kindAllowed[key] {
 			*errs = append(*errs, fmt.Errorf("%s.%s: not valid for contact kind %s", path, key, contact.Kind))
 		}
+	}
+	validateContactRequirements(path, contact, errs)
+}
+
+func validateContactRequirements(path string, contact Contact, errs *[]error) {
+	switch contact.Kind {
+	case "github-issue", "gitlab-issue", "bitbucket-issue":
+		if strings.TrimSpace(contact.Repo) == "" {
+			*errs = append(*errs, fmt.Errorf("%s.repo: required for contact kind %s", path, contact.Kind))
+		}
+	case "gitea-issue":
+		if strings.TrimSpace(contact.Repo) == "" {
+			*errs = append(*errs, fmt.Errorf("%s.repo: required for contact kind gitea-issue", path))
+		}
+		if contact.Server == "" {
+			*errs = append(*errs, fmt.Errorf("%s.server: required for contact kind gitea-issue", path))
+		}
+	case "azure-boards":
+		if contact.Organization == "" || contact.Project == "" {
+			*errs = append(*errs, fmt.Errorf("%s: organization and project are required for contact kind azure-boards", path))
+		}
+	case "http":
+		parsed, err := url.Parse(contact.URL)
+		if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+			*errs = append(*errs, fmt.Errorf("%s.url: must be an https URL for contact kind http", path))
+		}
+		if parsed != nil && (containsPlaceholder(parsed.Scheme) || containsPlaceholder(parsed.Host) || containsPlaceholder(parsed.Path) || containsPlaceholder(parsed.Fragment)) {
+			*errs = append(*errs, fmt.Errorf("%s.url: placeholders are allowed only in query values", path))
+		}
+		for name, value := range contact.Headers {
+			if containsPlaceholder(value) {
+				*errs = append(*errs, fmt.Errorf("%s.headers.%s: placeholders are not allowed", path, name))
+			}
+		}
+		validateTemplate(path+".url", contact.URL, false, errs)
+		validateTemplate(path+".body", contact.Body, true, errs)
+	case "exec":
+		if len(contact.Command) == 0 || strings.TrimSpace(contact.Command[0]) == "" {
+			*errs = append(*errs, fmt.Errorf("%s.command: required for contact kind exec", path))
+		} else if strings.ContainsAny(contact.Command[0], `/\\`) {
+			*errs = append(*errs, fmt.Errorf("%s.command[0]: must be a bare binary name", path))
+		}
+		for i, value := range contact.Command {
+			if containsPlaceholder(value) {
+				*errs = append(*errs, fmt.Errorf("%s.command[%d]: placeholders are not allowed", path, i))
+			}
+		}
+		for i, value := range contact.Args {
+			validateTemplate(fmt.Sprintf("%s.args[%d]", path, i), value, false, errs)
+		}
+		validateTemplate(path+".stdin", contact.Stdin, true, errs)
+	}
+}
+
+func containsPlaceholder(value string) bool {
+	return strings.Contains(value, "{") || strings.Contains(value, "}")
+}
+
+func validateTemplate(path, value string, allowMessage bool, errs *[]error) {
+	remaining := value
+	for {
+		start := strings.IndexByte(remaining, '{')
+		if start < 0 {
+			if strings.Contains(remaining, "}") {
+				*errs = append(*errs, fmt.Errorf("%s: malformed placeholder", path))
+			}
+			return
+		}
+		if strings.Contains(remaining[:start], "}") {
+			*errs = append(*errs, fmt.Errorf("%s: malformed placeholder", path))
+			return
+		}
+		end := strings.IndexByte(remaining[start:], '}')
+		if end < 0 {
+			*errs = append(*errs, fmt.Errorf("%s: malformed placeholder", path))
+			return
+		}
+		placeholder := remaining[start : start+end+1]
+		allowed := placeholder == "{intent}" || placeholder == "{module}" || placeholder == "{origin}" || (allowMessage && placeholder == "{message}")
+		if !allowed {
+			*errs = append(*errs, fmt.Errorf("%s: unsupported placeholder %s", path, placeholder))
+		}
+		remaining = remaining[start+end+1:]
 	}
 }
 

@@ -70,8 +70,12 @@ the ignored `.git-a2a/cache` from that lock after a fresh clone. `sync` projects
 module, surface, policy, ownership, and contact data into a bounded AGENTS.md block. `status`
 checks the locked cache, native wiring, upstream movement, cards/trust, and roster; `update`,
 `set`, `pin`, `unpin`, and `wire` change the dependency deliberately and transactionally.
-`who` resolves an owner route and `contact` either delivers through a supported driver or prints
-the declared instruction. The [consumer guide](../docs/consuming.md) gives the complete sequence
+`who` resolves an owner route and `contact` chooses a consumer PATH plugin, built-in A2A/forge
+driver, consent-gated declared invocation, or exact instruction—in that order. GitLab and
+Gitea/Forgejo/Codeberg repositories use the same core lifecycle as GitHub or a bare Git server;
+only issue delivery differs. The [contact-kind reference](../docs/contact-kinds.md) and
+[plugin protocol](../docs/contact-plugins.md) define that boundary. The
+[consumer guide](../docs/consuming.md) gives the complete sequence
 and the non-mutating CI pattern.
 
 ## Routing

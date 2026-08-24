@@ -91,5 +91,12 @@ not appoint a global authority or turn a discovery service into an identity prov
 ## What happens to an unknown role, intent, contact kind, or ecosystem?
 
 Those vocabularies are open. Unknown values are preserved and rendered; matching role/intent
-tokens still route. An unknown contact kind has no delivery driver, and an unknown ecosystem has
-no adapter, so the CLI reports the limitation instead of rejecting the manifest vocabulary.
+tokens still route. An unknown contact kind uses a consumer-installed `git-a2a-contact-<kind>`
+plugin when present and otherwise prints its declaration as an instruction. An unknown ecosystem
+has no adapter, so the CLI reports the limitation instead of rejecting the manifest vocabulary.
+
+## My dependency is on GitLab, Forgejo, or Codeberg. Does the workflow change?
+
+No. Git fetch, lock, vendoring, status, cards, and trust are forge-agnostic. Only issue delivery
+differs: GitLab uses `glab` or its v4 REST API; Gitea, Forgejo, and Codeberg use `tea` or the Gitea
+v1 API. Without a consumer CLI or token, `contact` prints a prefilled deep link instead of failing.

@@ -320,9 +320,10 @@ func parseContact(raw string) (manifest.Contact, error) {
 		Intents: list("intents"), Kind: values["kind"], Note: values["note"], URL: values["url"],
 		Skill: values["skill"], Address: values["address"], SubjectPrefix: values["subject-prefix"],
 		Repo: values["repo"], Labels: list("labels"), Template: values["template"], Project: values["project"],
-		IssueType: values["issue-type"], Channel: values["channel"], Handle: values["handle"], Server: values["server"],
+		Organization: values["organization"], IssueType: values["issue-type"], Channel: values["channel"], Handle: values["handle"], Server: values["server"],
+		Method: values["method"], ContentType: values["content-type"], Body: values["body"], Command: list("command"), Args: list("args"), Stdin: values["stdin"],
 	}
-	known := map[string]bool{"intents": true, "kind": true, "note": true, "url": true, "skill": true, "address": true, "subject-prefix": true, "repo": true, "labels": true, "template": true, "project": true, "issue-type": true, "channel": true, "handle": true, "server": true}
+	known := map[string]bool{"intents": true, "kind": true, "note": true, "url": true, "skill": true, "address": true, "subject-prefix": true, "repo": true, "labels": true, "template": true, "project": true, "organization": true, "issue-type": true, "channel": true, "handle": true, "server": true, "method": true, "content-type": true, "body": true, "command": true, "args": true, "stdin": true}
 	for key, value := range values {
 		if known[key] {
 			continue

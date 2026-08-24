@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://git-a2a.com/schema/a2amodule.v1.json
+schema: 1
+module:
+  id: acme-gitlab-lib
+  name: Acme GitLab Library
+  description: Forge-agnostic module with GitLab issue ownership.
+  repository: https://gitlab.example.com/acme/platform/acme-gitlab-lib.git
+  languages: [go]
+  exports:
+    - ecosystem: golang
+      name: gitlab.example.com/acme/platform/acme-gitlab-lib
+agents:
+  - name: acme-gitlab-owner
+    role: owner
+    scope: ["**"]
+    contacts:
+      - intents: [question, change, bug]
+        kind: gitlab-issue
+        repo: acme/platform/acme-gitlab-lib
+        server: gitlab.example.com
+        labels: [from-agent]
+policy:
+  intents:
+    question: owner
+    change: owner
+    bug: owner
+  consumers:
+    may: [read-surface, ask, open-issue, propose-change]
+    may-not: [commit, release]

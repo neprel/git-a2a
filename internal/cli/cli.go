@@ -38,13 +38,14 @@ var Target = runtime.GOOS + "/" + runtime.GOARCH
 var Channel = "go"
 
 type App struct {
-	In       io.Reader
-	Out, Err io.Writer
-	Root     string
-	Home     string
-	Timeout  time.Duration
-	Runner   gitx.Runner
-	ctx      context.Context
+	In            io.Reader
+	Out, Err      io.Writer
+	Root          string
+	Home          string
+	Timeout       time.Duration
+	Runner        gitx.Runner
+	ctx           context.Context
+	mcpInvocation bool
 }
 
 func New(out, errOut io.Writer) *App {
@@ -177,7 +178,7 @@ func (a *App) commandUsage(command string) {
 		"trust show":     {"git-a2a trust show [ID] [--json]", "git-a2a trust show acme-lib --json"},
 		"sync":           {"git-a2a sync [--check] [--brief] [--target FILE]", "git-a2a sync --check"},
 		"who":            {"git-a2a who [ID] [--intent INTENT] [--path FILE] [--json]", "git-a2a who acme-lib --intent change --json"},
-		"contact":        {"git-a2a contact ID --intent INTENT --message FILE|- [--wait] [--external-ok]", "git-a2a contact acme-lib --intent change --message request.md"},
+		"contact":        {"git-a2a contact [ID] [--intent INTENT --message FILE|-] [--wait] [--external-ok] [--dry-run] [--list-drivers]", "git-a2a contact acme-lib --list-drivers"},
 		"ask":            {"git-a2a contact ID --intent INTENT --message FILE|- [--wait] [--external-ok]", "git-a2a contact acme-lib --intent change --message request.md"},
 		"status":         {"git-a2a status [ID ...] [--offline] [--json] [-v]", "git-a2a status --offline --json"},
 		"card":           {"git-a2a card <export|validate|verify|show> [options]", "git-a2a card export acme-owner --out agent-card.json"},

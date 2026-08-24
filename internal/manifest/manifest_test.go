@@ -3,6 +3,7 @@ package manifest
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -162,6 +163,73 @@ func TestKnownContactKindRejectsAnotherKindsKeys(t *testing.T) {
 	raw := []byte("schema: 1\nmodule: {id: consumer}\nagents:\n  - name: owner\n    role: owner\n    contacts:\n      - intents: [question]\n        kind: email\n        address: owner@example.test\n        project: WRONG\n")
 	if _, err := Parse(raw); err == nil || !strings.Contains(err.Error(), "project: not valid for contact kind email") {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestDeclaredContactInvocationValidation(t *testing.T) {
+	base := `schema: 1
+module: {id: consumer}
+agents:
+  - name: owner
+    role: owner
+    contacts:
+      - intents: [change]
+        %s
+`
+	tests := map[string]struct {
+		contact string
+		want    string
+	}{
+		"header placeholder":    {"kind: http\n        url: https://tracker.example.test/issues\n        headers: {Authorization: 'Bearer {message}'}", "headers.Authorization: placeholders are not allowed"},
+		"message in URL":        {"kind: http\n        url: https://tracker.example.test/issues?q={message}", "unsupported placeholder {message}"},
+		"placeholder in path":   {"kind: http\n        url: https://tracker.example.test/{module}", "placeholders are allowed only in query values"},
+		"non HTTPS":             {"kind: http\n        url: http://tracker.example.test/issues", "must be an https URL"},
+		"exec path":             {"kind: exec\n        command: [./acme-tracker]", "command[0]: must be a bare binary name"},
+		"exec command template": {"kind: exec\n        command: ['acme-{module}']", "command[0]: placeholders are not allowed"},
+		"unknown placeholder":   {"kind: exec\n        command: [acme-tracker]\n        stdin: '{secret}'", "unsupported placeholder {secret}"},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := Parse([]byte(fmt.Sprintf(base, test.contact)))
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error = %v, want %q", err, test.want)
+			}
+		})
+	}
+
+	valid := fmt.Sprintf(base, "kind: exec\n        command: [acme-tracker]\n        args: ['--module', '{module}', '--intent', '{intent}']\n        stdin: '{message}'")
+	if _, err := Parse([]byte(valid)); err != nil {
+		t.Fatalf("valid exec contact: %v", err)
+	}
+}
+
+func TestContactSettingsRequireConsumerSafeAllowlistValues(t *testing.T) {
+	raw := []byte(`schema: 1
+module: {id: consumer}
+settings:
+  contact:
+    allow-http: [https://tracker.example.test]
+    allow-exec: [acme-tracker]
+`)
+	if _, err := Parse(raw); err != nil {
+		t.Fatal(err)
+	}
+	for name, replacement := range map[string]string{
+		"HTTP origin": "http://tracker.example.test",
+		"HTTP path":   "https://tracker.example.test/api",
+		"exec path":   "./acme-tracker",
+	} {
+		t.Run(name, func(t *testing.T) {
+			candidate := string(raw)
+			if strings.HasPrefix(name, "HTTP") {
+				candidate = strings.Replace(candidate, "https://tracker.example.test", replacement, 1)
+			} else {
+				candidate = strings.Replace(candidate, "acme-tracker", replacement, 1)
+			}
+			if _, err := Parse([]byte(candidate)); err == nil {
+				t.Fatal("manifest unexpectedly valid")
+			}
+		})
 	}
 }
 

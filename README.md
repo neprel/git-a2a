@@ -31,7 +31,7 @@ See the feature end to end in the public
 | Source changes | `set`, `pin`, and `unpin` transactionally change URL, ref, monorepo path, tracking, or identity. |
 | Owners and contacts | `who` routes an intent and path to the declared role, scoped agent, and ordered contacts. |
 | Agent roster | `sync` maintains a bounded dependency/owner block in `AGENTS.md` or another target. |
-| Contact delivery | `contact` sends through A2A or GitHub Issues; URL, email, and chat kinds print exact instructions. |
+| Contact delivery | `contact` sends through A2A or GitHub/GitLab/Gitea-family issues; any tracker can use exact instructions or a consumer plugin. |
 | Vendoring and build systems | `--vendor submodule` or `--vendor copy` plus CMake/Gradle/MSBuild/Maven/Meson generated includes keep source at the lock commit. |
 | Fresh-checkout restore | `fetch` reconstructs cache and vendored trees from the lock without resolving a new commit. |
 | Cards, catalog, and trust | `card`, `catalog`, and `trust show` verify A2A cards, key/origin pins, signed commits, and ARD catalogs. |
@@ -72,6 +72,7 @@ and the live [`consumer-app`](https://github.com/neprel/git-a2a-demo-acme-app) s
 | Build systems | CMake, Gradle, Maven, MSBuild, Meson — one generated include/import for vendored source. |
 | Agent harnesses | Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI, OpenCode, Hermes Agent, OpenClaw. |
 | Standards | A2A, AGENTS.md, Agent Skills, ARD catalogs, MCP (listed in the MCP Registry). |
+| Issue delivery | GitHub, GitLab, Gitea, Forgejo, Codeberg, and any tracker through instructions or plugins. |
 
 ## Installation
 
@@ -125,6 +126,7 @@ Maintainer setup is in [docs/releasing.md](docs/releasing.md).
 - [Trust guide](docs/trust.md): pinned cards, signed commits, origins, rotation, and external delivery policy.
 - [Agent/operator guide](docs/agents.md): usage, skill installation, setup by harness, MCP roots, and machine-output safety.
 - [Contact kinds](docs/contact-kinds.md): generated allowed fields and delivery/instruction behavior for every known kind.
+- [Contact plugins](docs/contact-plugins.md): consumer-side JSON protocol for open contact kinds.
 - [FAQ](docs/faq.md): design boundaries, offline operation, A2A, MCP, Agent Skills, and disposable cache.
 - [Consumer demo](docs/demo.md): inspect the public polyglot library and app end to end.
 - [CLI reference](docs/cli.md): exact commands, flags, outputs, and exit codes.

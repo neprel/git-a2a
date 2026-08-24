@@ -11,6 +11,7 @@ Canonical behavior is defined by the repository specification and schemas; the w
 - [Authoring guide](https://github.com/neprel/git-a2a/blob/main/docs/authoring.md)
 - [Consumer guide](https://github.com/neprel/git-a2a/blob/main/docs/consuming.md)
 - [Contact kinds](https://github.com/neprel/git-a2a/blob/main/docs/contact-kinds.md)
+- [Contact plugins](https://github.com/neprel/git-a2a/blob/main/docs/contact-plugins.md)
 - [FAQ](https://github.com/neprel/git-a2a/blob/main/docs/faq.md)
 - [CLI reference](https://github.com/neprel/git-a2a/blob/main/docs/cli.md)
 - [MCP server](https://github.com/neprel/git-a2a/blob/main/docs/mcp.md)

@@ -70,7 +70,10 @@ mutation refresh an existing block.
 3. With authorization for the external side effect, put a concise request in a file and run
    `git-a2a contact ID --intent INTENT --message FILE`.
 
-`contact` may create an A2A task or GitHub Issue. URL, email, and chat kinds print instructions;
+`contact` may create an A2A task or an issue on GitHub, GitLab, or a Gitea-family forge. Run
+`git-a2a contact [ID] --list-drivers` before automation when transport availability matters.
+Unknown kinds use a consumer-installed `git-a2a-contact-<kind>` plugin or print instructions;
+URL, email, and chat kinds print instructions;
 do not invent delivery or store conversation state.
 
 ## Outcomes

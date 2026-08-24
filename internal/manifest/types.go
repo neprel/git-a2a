@@ -62,22 +62,30 @@ type Agent struct {
 }
 
 type Contact struct {
-	Intents       []string       `yaml:"intents" json:"intents"`
-	Kind          string         `yaml:"kind" json:"kind"`
-	Note          string         `yaml:"note,omitempty" json:"note,omitempty"`
-	URL           string         `yaml:"url,omitempty" json:"url,omitempty"`
-	Skill         string         `yaml:"skill,omitempty" json:"skill,omitempty"`
-	Address       string         `yaml:"address,omitempty" json:"address,omitempty"`
-	SubjectPrefix string         `yaml:"subject-prefix,omitempty" json:"subject-prefix,omitempty"`
-	Repo          string         `yaml:"repo,omitempty" json:"repo,omitempty"`
-	Labels        []string       `yaml:"labels,omitempty" json:"labels,omitempty"`
-	Template      string         `yaml:"template,omitempty" json:"template,omitempty"`
-	Project       string         `yaml:"project,omitempty" json:"project,omitempty"`
-	IssueType     string         `yaml:"issue-type,omitempty" json:"issue-type,omitempty"`
-	Channel       string         `yaml:"channel,omitempty" json:"channel,omitempty"`
-	Handle        string         `yaml:"handle,omitempty" json:"handle,omitempty"`
-	Server        string         `yaml:"server,omitempty" json:"server,omitempty"`
-	Extensions    map[string]any `yaml:",inline" json:"-"`
+	Intents       []string          `yaml:"intents" json:"intents"`
+	Kind          string            `yaml:"kind" json:"kind"`
+	Note          string            `yaml:"note,omitempty" json:"note,omitempty"`
+	URL           string            `yaml:"url,omitempty" json:"url,omitempty"`
+	Skill         string            `yaml:"skill,omitempty" json:"skill,omitempty"`
+	Address       string            `yaml:"address,omitempty" json:"address,omitempty"`
+	SubjectPrefix string            `yaml:"subject-prefix,omitempty" json:"subject-prefix,omitempty"`
+	Repo          string            `yaml:"repo,omitempty" json:"repo,omitempty"`
+	Labels        []string          `yaml:"labels,omitempty" json:"labels,omitempty"`
+	Template      string            `yaml:"template,omitempty" json:"template,omitempty"`
+	Project       string            `yaml:"project,omitempty" json:"project,omitempty"`
+	Organization  string            `yaml:"organization,omitempty" json:"organization,omitempty"`
+	IssueType     string            `yaml:"issue-type,omitempty" json:"issue-type,omitempty"`
+	Channel       string            `yaml:"channel,omitempty" json:"channel,omitempty"`
+	Handle        string            `yaml:"handle,omitempty" json:"handle,omitempty"`
+	Server        string            `yaml:"server,omitempty" json:"server,omitempty"`
+	Method        string            `yaml:"method,omitempty" json:"method,omitempty"`
+	Headers       map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
+	ContentType   string            `yaml:"content-type,omitempty" json:"content-type,omitempty"`
+	Body          string            `yaml:"body,omitempty" json:"body,omitempty"`
+	Command       []string          `yaml:"command,omitempty" json:"command,omitempty"`
+	Args          []string          `yaml:"args,omitempty" json:"args,omitempty"`
+	Stdin         string            `yaml:"stdin,omitempty" json:"stdin,omitempty"`
+	Extensions    map[string]any    `yaml:",inline" json:"-"`
 }
 
 func (c Contact) MarshalJSON() ([]byte, error) {
@@ -122,10 +130,17 @@ type Consumers struct {
 }
 
 type Settings struct {
-	VendorDir    string         `yaml:"vendor-dir,omitempty" json:"vendor-dir,omitempty"`
-	SyncTargets  []string       `yaml:"sync-targets,omitempty" json:"sync-targets,omitempty"`
-	Organisation []string       `yaml:"organisation,omitempty" json:"organisation,omitempty"`
-	Extensions   map[string]any `yaml:",inline" json:"-"`
+	VendorDir    string           `yaml:"vendor-dir,omitempty" json:"vendor-dir,omitempty"`
+	SyncTargets  []string         `yaml:"sync-targets,omitempty" json:"sync-targets,omitempty"`
+	Organisation []string         `yaml:"organisation,omitempty" json:"organisation,omitempty"`
+	Contact      *ContactSettings `yaml:"contact,omitempty" json:"contact,omitempty"`
+	Extensions   map[string]any   `yaml:",inline" json:"-"`
+}
+
+type ContactSettings struct {
+	AllowHTTP  []string       `yaml:"allow-http,omitempty" json:"allow-http,omitempty"`
+	AllowExec  []string       `yaml:"allow-exec,omitempty" json:"allow-exec,omitempty"`
+	Extensions map[string]any `yaml:",inline" json:"-"`
 }
 
 type Vendor struct {

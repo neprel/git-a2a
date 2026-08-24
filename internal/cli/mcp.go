@@ -440,6 +440,7 @@ func (a *App) runMCPCommand(ctx context.Context, roots *mcpRoots, root string, i
 	command.Timeout = a.Timeout
 	command.Runner = a.Runner
 	command.ctx = ctx
+	command.mcpInvocation = true
 	if in != nil {
 		command.In = in
 	}

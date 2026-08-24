@@ -114,8 +114,11 @@ git-a2a contact acme-lib-utils --intent change --message request.md
 ```
 
 Routing is intent → policy role → most specific matching agent scope → declared contacts in
-order. `contact` delivers through A2A or GitHub Issues when configured; other known kinds print
-an exact instruction. See the generated [contact-kind reference](contact-kinds.md). Delivery
+order. `contact` delivers through A2A and GitHub, GitLab, or Gitea-family issues when a consumer
+CLI or token is available; otherwise it prints an exact deep-link instruction. A dependency on
+GitLab or Codeberg uses the same `add`, `fetch`, `status`, lock, and vendoring workflows as any
+other Git remote—only issue delivery differs. Open kinds can use a consumer-installed
+[contact plugin](contact-plugins.md). See the generated [contact-kind reference](contact-kinds.md). Delivery
 history is not stored.
 An owner with `accepts-external: false` refuses a consumer from another organisation. Only a
 human CLI invocation can approve the exception with `--external-ok`; MCP cannot bypass it.

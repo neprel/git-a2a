@@ -12,8 +12,13 @@ The kind vocabulary is open; these kinds have defined keys and delivery behavior
 | Kind | Allowed kind-specific keys | Driver or instruction | Consequence of changing it | Unknown kind |
 | --- | --- | --- | --- | --- |
 | `a2a` | `url`, optional `skill` | Sends A2A `SendMessage` JSON-RPC 1.0; the only kind derivable from a card. | Changes the JSON-RPC endpoint or target skill. | Accepted, but no delivery driver is selected. |
-| `github-issue` | `repo`, optional `labels`, `template` | Creates an issue through `gh`, then GitHub REST fallback. | Changes the repository, labels, or issue template. | Accepted, but no delivery driver is selected. |
-| `gitlab-issue` | `repo`, optional `labels`, `template` | Prints an instruction; no reference delivery driver. | Changes the instructed issue destination. | Accepted, but no delivery driver is selected. |
+| `github-issue` | `repo`, optional `server`, `labels`, `template` | Creates an issue through `gh`, then GitHub REST fallback (`server` selects a GitHub Enterprise host; API base `https://<server>/api/v3` unless `GITHUB_API_URL` overrides). | Changes the repository, host, labels, or issue template. | Accepted, but no delivery driver is selected. |
+| `gitlab-issue` | `repo`, optional `server` (default `gitlab.com`), `labels`, `template` | Creates an issue through `glab`, then GitLab REST fallback (`POST /api/v4/projects/<url-encoded path>/issues`, token from `GITLAB_TOKEN`/`GLAB_TOKEN`). | Changes the project, host, labels, or template. | Accepted, but no delivery driver is selected. |
+| `gitea-issue` | `repo`, `server` (required), optional `labels` | Creates an issue through `tea`, then Gitea/Forgejo REST fallback (`POST /api/v1/repos/<owner>/<repo>/issues`, token from `GITEA_TOKEN`/`FORGEJO_TOKEN`). Covers Gitea, Forgejo and Codeberg. | Changes the instance or repository. | Accepted, but no delivery driver is selected. |
+| `bitbucket-issue` | `repo` (`workspace/slug`), optional `labels` | Prints an instruction with a prefilled deep link; Bitbucket Cloud only — Data Center has no issue tracker. | Changes the instructed destination. | Accepted, but no delivery driver is selected. |
+| `azure-boards` | `organization`, `project`, optional `issue-type` | Prints an `az boards work-item create` instruction. | Changes the instructed organization, project, or type. | Accepted, but no delivery driver is selected. |
+| `http` | `url` (https), optional `method` (default `POST`), `headers` (static literals), `content-type`, `body` | Owner-described request. Instruction by default (rendered as the exact final request); delivered only when the consumer allows the origin in `settings.contact.allow-http`; no credential is ever attached from the declaration. | Changes the described endpoint or payload. | — |
+| `exec` | `command` (argv, bare binary name first), optional `args`, `stdin` (default `{message}`) | Owner-described local invocation. Instruction by default; executed only when the binary name is in the consumer's `settings.contact.allow-exec` and resolves on PATH; argv exec, never a shell; CLI-only — the MCP `contact` tool refuses `exec`. | Changes the described invocation. | — |
 | `email` | `address`, optional `subject-prefix` | Prints an email instruction; does not send mail. | Changes the instructed recipient or subject. | Accepted, but no delivery driver is selected. |
 | `jira` | `url`, `project`, optional `issue-type` | Prints a Jira instruction. | Changes the instructed site, project, or issue type. | Accepted, but no delivery driver is selected. |
 | `mattermost`, `slack`, `discord`, `telegram`, `teams` | `channel`, `handle`, optional `server` | Prints a chat instruction. | Changes the instructed workspace, channel, or handle. | Accepted, but no delivery driver is selected. |
@@ -22,7 +27,44 @@ The kind vocabulary is open; these kinds have defined keys and delivery behavior
 An unknown kind is rendered as `kind: <value>` with its extension keys, is never a validation
 error, and cannot be delivered by `contact` until a driver exists.
 
+Issue-kind instructions include a prefilled deep link (`…/issues/new?title=…&body=…`,
+URL-encoded, length-capped) when the forge supports one, so a driverless contact is one click
+for a human and one request for an agent. Forges without a tracker (Gerrit, Bitbucket Data
+Center, bare git hosting) are served by `email`, `jira`, `url`, or a chat kind — contacts bind
+to intents, not to where the code is hosted.
+
+Driver resolution per contact, in order: a consumer-installed plugin executable
+`git-a2a-contact-<kind>` on PATH; the built-in driver; a declared `http`/`exec` invocation the
+consumer has consented to; the rendered instruction. The chosen path is named in the delivery
+record and by `contact --list-drivers`.
+
+## Driver resolution
+
+For every contact kind the CLI resolves, in order: consumer plugin (`git-a2a-contact-<kind>`
+on PATH, JSON request on stdin, JSON record on stdout, exit 0/1/2, 60s timeout), built-in
+driver (native CLI first, REST with the ecosystem's own env credentials second), declared
+`http`/`exec` invocation gated by `settings.contact`, and the instruction renderer, which
+never fails. Owners declare data; consumers own credentials, executables, and consent. The
+resolution chosen is always visible in the delivery record and `contact --list-drivers`.
+
+| Order | Layer | Selected when | Delivery record |
+| --- | --- | --- | --- |
+| 1 | Consumer plugin | `git-a2a-contact-<kind>` resolves on consumer `PATH`. | `plugin:<name>` |
+| 2 | Built-in | A2A or supported forge driver is available. | Concrete CLI/REST/A2A driver |
+| 3 | Declared invocation | Consumer manifest allowlists the HTTP origin or executable. | `http` or `exec:<name>` |
+| 4 | Instruction | No executable delivery path is available or consent is absent. | `instruction` |
+
+## Declared-invocation placeholders
+
+Templates in `http.url` query values, `http.body`, `exec.args`, and `exec.stdin` may use exactly
+`{intent}`, `{module}`, `{origin}`, and — in `http.body` and `exec.stdin` only — `{message}`.
+Each placeholder is escaped for its context: URL query encoding in `url`, JSON string encoding
+inside a JSON body, verbatim in a plain-text body or stdin. A placeholder anywhere in
+`http.headers`, `{message}` outside body/stdin, a non-https `http.url`, or a path separator in
+`exec.command[0]` is a validation error.
+
 The vocabulary is open. Unknown kinds and `x-*` extension keys remain valid data, but
-the reference CLI does not invent a delivery mechanism for them. See the
+the reference CLI executes them only through a consumer-installed plugin; otherwise it
+prints their declaration as an instruction. See the [plugin protocol](contact-plugins.md),
 [consumer guide](consuming.md#ask-the-owner), [authoring guide](authoring.md), and
 [manifest fields](manifest-reference.md#agentscontactskind).

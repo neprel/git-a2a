@@ -113,13 +113,56 @@
         "labels": { "type": "array", "items": { "type": "string" } },
         "template": { "type": "string" },
         "project": { "type": "string" },
+        "organization": { "type": "string" },
         "issue-type": { "type": "string" },
         "channel": { "type": "string" },
         "handle": { "type": "string" },
-        "server": { "type": "string" }
+        "server": { "type": "string" },
+        "method": { "type": "string" },
+        "headers": { "type": "object", "additionalProperties": { "type": "string" } },
+        "content-type": { "type": "string" },
+        "body": { "type": "string" },
+        "command": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "args": { "type": "array", "items": { "type": "string" } },
+        "stdin": { "type": "string" }
       },
       "patternProperties": { "^x-": {} },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "enum": ["github-issue", "gitlab-issue", "bitbucket-issue"] } }, "required": ["kind"] },
+          "then": { "required": ["repo"] }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "gitea-issue" } }, "required": ["kind"] },
+          "then": { "required": ["repo", "server"] }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "azure-boards" } }, "required": ["kind"] },
+          "then": { "required": ["organization", "project"] }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "http" } }, "required": ["kind"] },
+          "then": {
+            "required": ["url"],
+            "properties": { "url": { "type": "string", "pattern": "^https://" } }
+          }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "exec" } }, "required": ["kind"] },
+          "then": {
+            "required": ["command"],
+            "properties": {
+              "command": {
+                "type": "array",
+                "minItems": 1,
+                "prefixItems": [{ "type": "string", "minLength": 1, "pattern": "^[^/\\\\{}]+$" }],
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      ]
     },
     "trust": {
       "type": "object",
@@ -167,7 +210,23 @@
       "properties": {
         "vendor-dir": { "$ref": "#/$defs/relativePath" },
         "sync-targets": { "type": "array", "items": { "$ref": "#/$defs/relativePath" } },
-        "organisation": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        "organisation": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "contact": { "$ref": "#/$defs/contactSettings" }
+      },
+      "patternProperties": { "^x-": {} },
+      "additionalProperties": false
+    },
+    "contactSettings": {
+      "type": "object",
+      "properties": {
+        "allow-http": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^https://[^/?#]+$" }
+        },
+        "allow-exec": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "pattern": "^[^/\\\\]+$" }
+        }
       },
       "patternProperties": { "^x-": {} },
       "additionalProperties": false

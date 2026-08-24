@@ -1,8 +1,10 @@
-# decision Contact delivery is stateless and ordered
+# decision Contact delivery is stateless, layered and ordered
 
 `contact` resolves intent through the same router as `who`, then selects the first declared
-contact whose kind has a driver. A delivery emits exactly one stdout record containing the
-agent, kind, remote identifier, and state; git-a2a writes no conversation or delivery state.
+contact whose kind has a driver. Resolution checks the consumer's PATH plugin before a built-in,
+then consent-gated declared invocations, then an instruction. A delivery emits exactly one stdout
+record containing the agent, kind, chosen driver, remote identifier, and state; git-a2a writes no
+conversation or delivery state.
 
 # decision A2A uses the native version 1.0 JSON-RPC binding
 
@@ -21,12 +23,37 @@ does the driver call the GitHub Issues REST API, using `GH_TOKEN` then `GITHUB_T
 `GITHUB_API_URL` for GitHub Enterprise. A present but failing `gh` is reported, not silently
 replayed through REST, so one request cannot create two issues.
 
+# decision Forge issue drivers share degradation and request construction
+
+GitHub, GitLab, and Gitea-family issue contacts share bounded title/body construction, label
+handling, deep-link rendering, and remote-response sanitization. Each prefers its native CLI;
+only an absent CLI may fall back to that forge's REST API and consumer-local environment token.
+A present but failing CLI is never replayed through REST. GitLab project paths are encoded as one
+path component so nested groups survive. Gitea, Forgejo, and Codeberg use the same Gitea API kind.
+
 # decision Passive contacts print an actionable record
 
 `url`, `email`, Mattermost, Slack, Discord, Telegram, and Teams do not cause external delivery.
 Their drivers emit a one-line instruction naming the declared destination and referring to the
 supplied message without copying multiline message content into stdout. Because instruction
 kinds are real drivers, their declaration order relative to active drivers is preserved.
+
+# decision PATH plugins implement the open contact vocabulary
+
+Before any built-in, contact looks up exactly `git-a2a-contact-<kind>` on the consumer's PATH;
+kind values containing path separators never participate in discovery. Protocol v1 is one JSON
+request on stdin and one JSON record on stdout. Exit 0 delivers, 1 fails, 2 refuses; stderr is
+prefixed and forwarded, and the process is killed after 60 seconds. The record names
+`plugin:<executable-name>`. MCP delegates to this same resolver.
+
+# decision Declared invocations are instructions until the consumer consents
+
+The `http` and `exec` drivers substitute only the normative closed placeholder set. HTTP executes
+only for an origin in the consumer manifest's `settings.contact.allow-http`; exec executes only
+for an allowlisted bare binary that resolves on consumer PATH. Exec is argv-only with inherited
+consumer environment and no expansion or shell. MCP refuses declared exec before plugin or
+built-in resolution. Without consent both render the exact request or argv/stdin as a successful
+instruction. HTTP failures use the shared bounded remote-response sanitizer.
 
 # test Contact drivers
 
@@ -35,3 +62,8 @@ kinds are real drivers, their declaration order relative to active drivers is pr
 - Delivery leaves the consumer repository byte-for-byte unchanged.
 - A fake `gh` receives the repository, first non-empty message line as title, full message on
   stdin, and every declared label; REST fallback is exercised by an httptest server.
+- TLS httptest servers exercise GitLab v4 nested-project encoding and Gitea v1 label payloads,
+  success and sanitized 4xx responses; fake `glab` and `tea` prove CLI preference.
+- Plugin tests cover JSON round-trip, refusal, timeout, prefixed stderr, CLI/MCP parity, and a
+  Windows `.cmd` PATH stub. Declared invocation tests prove context escaping, allowlist gating,
+  argv-not-shell behavior, and MCP exec refusal.

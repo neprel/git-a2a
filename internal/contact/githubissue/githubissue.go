@@ -9,10 +9,10 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"path"
 	"strings"
 
 	"github.com/neprel/git-a2a/internal/contact"
+	"github.com/neprel/git-a2a/internal/contact/forge"
 	"github.com/neprel/git-a2a/internal/remotehttp"
 )
 
@@ -37,7 +37,11 @@ func (d Driver) Deliver(ctx context.Context, request contact.Request) (contact.R
 }
 
 func (d Driver) deliverGH(ctx context.Context, executable string, request contact.Request) (contact.Record, error) {
-	args := []string{"issue", "create", "--repo", request.Contact.Repo, "--title", title(request.Message), "--body-file", "-"}
+	repository := request.Contact.Repo
+	if request.Contact.Server != "" && request.Contact.Server != "github.com" {
+		repository = strings.TrimPrefix(strings.TrimPrefix(request.Contact.Server, "https://"), "http://") + "/" + repository
+	}
+	args := []string{"issue", "create", "--repo", repository, "--title", forge.Title(request.Message), "--body-file", "-"}
 	for _, label := range request.Contact.Labels {
 		args = append(args, "--label", label)
 	}
@@ -53,7 +57,7 @@ func (d Driver) deliverGH(ctx context.Context, executable string, request contac
 	if id == "" {
 		return contact.Record{}, fmt.Errorf("github-issue: gh returned no issue URL")
 	}
-	return contact.Record{Agent: request.Agent, Kind: d.Kind(), ID: id, State: "created"}, nil
+	return contact.Record{Agent: request.Agent, Kind: d.Kind(), Driver: "gh", ID: id, State: "created", URL: id}, nil
 }
 
 func (d Driver) deliverREST(ctx context.Context, request contact.Request) (contact.Record, error) {
@@ -66,18 +70,25 @@ func (d Driver) deliverREST(ctx context.Context, request contact.Request) (conta
 		token = getenv("GITHUB_TOKEN")
 	}
 	if token == "" {
-		return contact.Record{}, fmt.Errorf("github-issue: gh is unavailable and GH_TOKEN or GITHUB_TOKEN is not set")
+		return forge.Instruction(request.Agent, d.Kind(), request.Contact, request.Message), nil
 	}
 	apiURL := strings.TrimSuffix(getenv("GITHUB_API_URL"), "/")
 	if apiURL == "" {
-		apiURL = "https://api.github.com"
+		server := strings.TrimSuffix(request.Contact.Server, "/")
+		if server == "" || server == "github.com" {
+			apiURL = "https://api.github.com"
+		} else if strings.HasPrefix(server, "https://") {
+			apiURL = server + "/api/v3"
+		} else {
+			apiURL = "https://" + server + "/api/v3"
+		}
 	}
 	parsed, err := url.Parse(apiURL)
 	if err != nil {
 		return contact.Record{}, fmt.Errorf("github-issue: API URL: %w", err)
 	}
-	parsed.Path = path.Join(parsed.Path, "repos", request.Contact.Repo, "issues")
-	payload, _ := json.Marshal(map[string]any{"title": title(request.Message), "body": request.Message, "labels": request.Contact.Labels})
+	parsed.Path = strings.TrimSuffix(parsed.Path, "/") + "/repos/" + request.Contact.Repo + "/issues"
+	payload, _ := json.Marshal(map[string]any{"title": forge.Title(request.Message), "body": forge.Body(request.Message), "labels": request.Contact.Labels})
 	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, parsed.String(), bytes.NewReader(payload))
 	if err != nil {
 		return contact.Record{}, err
@@ -112,31 +123,9 @@ func (d Driver) deliverREST(ctx context.Context, request contact.Request) (conta
 	if id == "" {
 		return contact.Record{}, fmt.Errorf("github-issue: REST returned no issue identifier")
 	}
-	return contact.Record{Agent: request.Agent, Kind: d.Kind(), ID: id, State: "created"}, nil
-}
-
-func title(message string) string {
-	for _, line := range strings.Split(message, "\n") {
-		line = strings.TrimSpace(strings.TrimLeft(line, "#"))
-		if line == "" {
-			continue
-		}
-		if len(line) > 80 {
-			return line[:77] + "..."
-		}
-		return line
-	}
-	return "git-a2a contact request"
+	return contact.Record{Agent: request.Agent, Kind: d.Kind(), Driver: "github-rest", ID: id, State: "created", URL: created.URL}, nil
 }
 
 func runCommand(ctx context.Context, executable string, args []string, input string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, executable, args...)
-	cmd.Stdin = strings.NewReader(input)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-	}
-	return stdout.Bytes(), nil
+	return forge.Run(ctx, executable, args, input, nil)
 }
