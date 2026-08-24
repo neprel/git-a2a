@@ -20,6 +20,10 @@ surfaces outside the live cache. They snapshot every package-manager file they c
 write manifest and lock atomically, and only then replace the live cache by rename. Any wiring,
 metadata, or cache replacement failure restores package-manager files and the previous
 manifest/lock/cache; a command must not report success over a partial mutation.
+When a dependency requires signed commits, verification is part of that staging gate and runs
+before any durable or adapter write. The `allowed_signers` path is repository-relative after
+both lexical and symlink resolution; an escape outside the consumer repository is rejected.
+An explicit signer bypass is recorded as `verified: skipped`, never presented as verification.
 
 # decision Standalone Windows upgrades replace around the running executable
 
