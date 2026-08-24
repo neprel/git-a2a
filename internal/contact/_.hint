@@ -9,6 +9,9 @@ agent, kind, remote identifier, and state; git-a2a writes no conversation or del
 The A2A driver sends JSON-RPC 2.0 method `SendMessage` with the `A2A-Version: 1.0` header and a
 version 1.0 user `Message`. `--wait` uses `SendStreamingMessage` and consumes its SSE events.
 Both paths report the returned task id/state, or the returned message id when no task exists.
+A non-2xx response reports `HTTP <code> <status>` followed by at most 200 characters of its
+body after control characters are removed. The remote body is diagnostic data, never terminal
+control or an unbounded error payload.
 
 # decision GitHub issues prefer the authenticated CLI
 

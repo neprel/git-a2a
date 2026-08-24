@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/neprel/git-a2a/internal/contact"
@@ -39,6 +40,31 @@ func TestDeliverSendMessage(t *testing.T) {
 	})
 	if err != nil || record.ID != "task-7" || record.State != "TASK_STATE_SUBMITTED" {
 		t.Fatalf("record=%#v err=%v", record, err)
+	}
+}
+
+func TestDeliverBoundsAndSanitizesHTTPErrorBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+		fmt.Fprint(w, "<html>failure\x00\r\n"+strings.Repeat("x", 240)+"</html>")
+	}))
+	defer server.Close()
+	_, err := (Driver{Client: server.Client()}).Deliver(context.Background(), contact.Request{
+		Agent: "owner", Contact: manifest.Contact{Kind: "a2a", URL: server.URL}, Message: "please review",
+	})
+	if err == nil {
+		t.Fatal("non-2xx response unexpectedly succeeded")
+	}
+	const prefix = "a2a: HTTP 502 Bad Gateway: "
+	if !strings.HasPrefix(err.Error(), prefix) {
+		t.Fatalf("error=%q, want prefix %q", err, prefix)
+	}
+	excerpt := strings.TrimPrefix(err.Error(), prefix)
+	if got := len([]rune(excerpt)); got != 200 {
+		t.Fatalf("excerpt length=%d, want 200: %q", got, excerpt)
+	}
+	if strings.ContainsAny(excerpt, "\x00\r\n") || !strings.HasPrefix(excerpt, "<html>failure") {
+		t.Fatalf("excerpt was not sanitized: %q", excerpt)
 	}
 }
 
