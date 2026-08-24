@@ -74,7 +74,7 @@ func TestSignedCommitRequirementGuardsLockAndAllowsExplicitSkip(t *testing.T) {
 	runFetchGit(t, source, "push", "file://"+remote, "main")
 	out.Reset()
 	errOut.Reset()
-	if code := app.Run([]string{"update", "acme-lib", "--no-refresh", "--no-review"}); code != 1 || !strings.Contains(errOut.String(), "commit signature") {
+	if code := app.Run([]string{"update", "acme-lib", "--no-refresh", "--no-review"}); code != 1 || !strings.Contains(errOut.String(), " is not signed; allowed signers: ") {
 		t.Fatalf("unsigned update exit=%d out=%s err=%s", code, out.String(), errOut.String())
 	}
 	locked, _ = lockfile.Load(consumer)
