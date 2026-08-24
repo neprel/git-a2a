@@ -125,7 +125,17 @@
       "type": "object",
       "properties": {
         "signatures": { "type": "boolean" },
-        "accepts-external": { "type": "boolean" }
+        "accepts-external": { "type": "boolean" },
+        "jwks": {
+          "type": "array",
+          "items": { "type": "string", "format": "uri", "pattern": "^https://" }
+        },
+        "keys": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "origins": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://[^/]+$" }
+        },
+        "jwks-max-age": { "type": "string", "minLength": 1 }
       },
       "patternProperties": { "^x-": {} },
       "additionalProperties": false
@@ -156,7 +166,8 @@
       "type": "object",
       "properties": {
         "vendor-dir": { "$ref": "#/$defs/relativePath" },
-        "sync-targets": { "type": "array", "items": { "$ref": "#/$defs/relativePath" } }
+        "sync-targets": { "type": "array", "items": { "$ref": "#/$defs/relativePath" } },
+        "organisation": { "type": "array", "items": { "type": "string", "minLength": 1 } }
       },
       "patternProperties": { "^x-": {} },
       "additionalProperties": false
@@ -171,7 +182,8 @@
         "path": { "$ref": "#/$defs/relativePath" },
         "track": { "enum": ["locked", "floating"] },
         "wire": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-        "vendor": { "$ref": "#/$defs/vendor" }
+        "vendor": { "$ref": "#/$defs/vendor" },
+        "require": { "$ref": "#/$defs/require" }
       },
       "patternProperties": { "^x-": {} },
       "additionalProperties": false
@@ -185,6 +197,23 @@
       },
       "patternProperties": { "^x-": {} },
       "additionalProperties": false
+    },
+    "require": {
+      "type": "object",
+      "properties": {
+        "commits": { "enum": ["any", "signed"] },
+        "signers": { "$ref": "#/$defs/relativePath" },
+        "cards": { "enum": ["any", "signed"] },
+        "card-origin": { "type": "boolean" }
+      },
+      "patternProperties": { "^x-": {} },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "commits": { "const": "signed" } }, "required": ["commits"] },
+          "then": { "required": ["signers"] }
+        }
+      ]
     }
   }
 }

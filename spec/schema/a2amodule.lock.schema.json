@@ -34,6 +34,11 @@
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/sha256" }
         },
+        "cards-keys": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/cardKey" }
+        },
+        "verified": { "enum": ["signed", "skipped"] },
         "surface": { "type": "string", "pattern": "^tree:[0-9a-f]{40}$" },
         "vendor": { "$ref": "#/$defs/lockedVendor" }
       },
@@ -47,6 +52,18 @@
         "mode": { "enum": ["submodule", "copy"] },
         "path": { "$ref": "#/$defs/relativePath" },
         "tree": { "type": "string", "pattern": "^tree:[0-9a-f]{40}$" }
+      },
+      "patternProperties": { "^x-": {} },
+      "additionalProperties": false
+    },
+    "cardKey": {
+      "type": "object",
+      "required": ["kid", "thumbprint", "first-seen"],
+      "properties": {
+        "kid": { "type": "string", "minLength": 1 },
+        "thumbprint": { "type": "string", "minLength": 1 },
+        "jwks": { "type": "string", "format": "uri" },
+        "first-seen": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
       },
       "patternProperties": { "^x-": {} },
       "additionalProperties": false

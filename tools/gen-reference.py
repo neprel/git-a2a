@@ -34,6 +34,7 @@ ROUTES = [
     ("consumers", "policy.consumers.", ("$defs", "consumers")),
     ("settings", "settings.", ("$defs", "settings")),
     ("dependency", "dependencies[].", ("$defs", "dependency")),
+    ("require", "dependencies[].require.", ("$defs", "require")),
     ("vendor", "dependencies[].vendor.", ("$defs", "vendor")),
 ]
 
@@ -58,6 +59,10 @@ DEFAULTS = {
     "agents[].scope": "`[\"**\"]`",
     "agents[].trust.signatures": "`false`",
     "agents[].trust.accepts-external": "unstated",
+    "agents[].trust.jwks": "no pinned JWKS sources",
+    "agents[].trust.keys": "no pinned key thumbprints",
+    "agents[].trust.origins": "repository/card binding rules",
+    "agents[].trust.jwks-max-age": "`24h`",
     "policy.intents": "unlisted intents route to `owner`",
     "policy.consumers.may": "`[read-surface, ask]`",
     "policy.consumers.may-not": "`[commit]`",
@@ -65,6 +70,9 @@ DEFAULTS = {
     "dependencies[].path": "`.`",
     "dependencies[].track": "`locked`",
     "dependencies[].wire": "all matching detected ecosystems",
+    "dependencies[].require.commits": "`any`",
+    "dependencies[].require.cards": "`any`",
+    "dependencies[].require.card-origin": "`false`",
     "settings.vendor-dir": "`deps`",
     "dependencies[].vendor.mode": "`submodule`",
     "dependencies[].vendor.path": "`<settings.vendor-dir>/<dependency-id>`",

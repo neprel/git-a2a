@@ -150,6 +150,13 @@ explicit `vendor.path` values remain unchanged. It obeys all vendored-path safet
 list of relative paths, optional. Additional files whose managed roster block `sync` maintains.
 Changing the list changes sync destinations, not dependency resolution or vendoring.
 
+## field organisation
+
+list of strings, optional. Origins or `origin/owner` prefixes that count as "our organisation"
+for `accepts-external` decisions, e.g. `["https://github.com/neprel", "ssh://git.internal"]`.
+Default: the origin host and first path segment of `module.repository`. Changing it changes only
+the external-contact boundary used by `contact`.
+
 ## field x-*
 
 extension keys, preserved.
@@ -330,15 +337,26 @@ on"), plus kind-specific keys. Order expresses preference within an intent.
 
 ## field trust
 
-object, optional: `signatures` (boolean, whether the card is JWS-signed and must verify),
-`accepts-external` (boolean, whether requests from agents outside the owner's organisation are
-welcome), `x-*`. Defaults: no verification required, external not stated.
+object, optional: `signatures` (boolean), `accepts-external` (boolean), `jwks` (list of https
+URLs), `keys` (list of JWK SHA-256 thumbprints, RFC 7638), `origins` (list of origins
+`scheme://host[:port]`), `jwks-max-age` (duration, default `24h`), `x-*`. Defaults: no
+verification required, external not stated, nothing pinned.
 
-When `signatures: true`, at least one A2A Agent Card detached JWS signature must verify over the
-RFC 8785 canonical card with the top-level `signatures` member excluded. The protected header
-identifies the algorithm, key id, and JWKS URL. An unsigned card, an invalid signature, or an
-unavailable key with no local cache makes `status` fail; `update` retains the dependency update
-but prints a trust warning. JWKS responses are timeout-bounded and cached only in `.git-a2a/`.
+Verification when `signatures: true`: at least one detached JWS over the RFC 8785 canonical card
+(top-level `signatures` excluded) must verify with a key that is (a) in a JWKS whose URL is listed
+in `jwks`, or (b) whose thumbprint is listed in `keys`, or — only when both lists are empty — (c)
+served by a `jku` with the same origin as the card URL, in which case `validate` and `doctor`
+report "unpinned key source". The first verified `kid` and thumbprint are recorded in the lock
+(`cards-keys`); a different key later is a `status` failure `trust: key changed` until the
+consumer accepts it with `update --accept-keys`. Keys missing from a freshly fetched JWKS no
+longer verify. An unsigned, invalid or unverifiable card makes `status` fail; `update` retains
+the dependency update but prints a trust warning.
+
+Origin check (always on, severity depends on `signatures`): the card URL and every
+`supportedInterfaces[].url` must be in `origins` when declared; otherwise their origin must equal
+the origin of `module.repository`, or the card's git-a2a extension `params.repository` must equal
+the dependency's canonical `git`. A mismatch is a failure when `signatures: true` or when the
+consumer requires `card-origin`, a warning otherwise.
 
 # entity contact {#contact}
 
@@ -433,8 +451,32 @@ cards make `status` fail and make `update` warn while retaining the dependency u
 
 ## field accepts-external
 
-boolean, optional, default unstated. Declares whether outside agents are welcome. Changing it
-changes published contact policy only; the reference CLI does not enforce organisation identity.
+boolean, optional, default unstated. `false` is enforced by `contact`: a consumer whose
+organisation differs from the owner's is refused (exit 2) unless `--external-ok`; `who` marks the
+agent "(external requests not accepted)". Organisation = origin host plus first path segment of
+`module.repository`, or the values of `settings.organisation` when declared.
+
+## field jwks
+
+list of HTTPS URLs, optional. A card signature may use a key served by one of these pinned JWKS
+sources. Changing the list changes the accepted key authorities; a newly selected key is still
+subject to lock key-change review.
+
+## field keys
+
+list of RFC 7638 JWK SHA-256 thumbprints, optional. A card signature may use a key matching one
+of these pins regardless of JWKS URL. Changing the list changes the exact accepted public keys.
+
+## field origins
+
+list of `scheme://host[:port]` origins, optional. When present, card and interface URLs must use
+one of these origins. Changing it changes the allowed network identity of the agent binding.
+
+## field jwks-max-age
+
+duration string, optional, default `24h`. Online status refreshes older JWKS cache entries;
+offline status reports their age. Changing it changes refresh freshness, never the cache's
+recoverable status.
 
 # decision ARD catalogs index native Agent Cards
 
@@ -548,6 +590,42 @@ dependency is a state the tool can always see and always fix, never one it hides
 object, optional, see [#vendor](#vendor). Its presence explicitly asks the tool to materialise
 the locked source tree in this consumer; a dependency is never vendored implicitly.
 
+## field require
+
+object, optional, see [#require](#require). It states consumer-side checks that must pass before
+locking or contacting this dependency. Defaults preserve the permissive behavior.
+
+## field x-*
+
+extension keys, preserved.
+
+# entity dependency requirements {#require}
+
+What this consumer insists on before it locks or contacts one dependency.
+
+## field commits
+
+`any` (default) or `signed`. With `signed`, `add`, `update`, `fetch`, and `set` verify the
+resolved commit or tag with Git against `signers` before changing the lock. Changing it re-runs
+the check on the next mutation and on `status`; unknown values are rejected.
+
+## field signers
+
+repository-relative path to a Git `allowed_signers` file, required when `commits: signed`.
+Changing it changes the trusted SSH/GPG signer set. A failed check leaves the lock untouched;
+`--insecure-skip-signers` is the explicit override and records `verified: skipped`.
+
+## field cards
+
+`any` (default) or `signed`. `signed` treats every agent binding in the dependency as if it
+declared `trust.signatures: true`. Changing it changes whether unsigned or unverifiable cards
+are accepted; unknown values are rejected.
+
+## field card-origin
+
+boolean, optional, default `false`. When true, a card or interface origin mismatch is a failure
+rather than a warning. Changing it changes mismatch severity, not the origin comparison.
+
 ## field x-*
 
 extension keys, preserved.
@@ -587,7 +665,9 @@ extension keys, preserved.
 YAML, written only by the CLI. `schema: 1`; `dependencies:` map keyed by dependency id with
 `git`, `ref`, `path`, `commit` (40-hex, the resolved ref), `manifest` (`sha256:<hex>` of the
 fetched `a2amodule.yml` bytes), `cards` (map agent name → `sha256:<hex>` of the snapshotted
-card, present only for agents with a `card`), `surface` (`tree:<40-hex>`, the git tree object id of the surface directory at `commit`,
+card, present only for agents with a `card`), `cards-keys` (map agent name → `{kid,
+thumbprint, jwks, first-seen}` recording the first accepted signature key), `verified` (`signed`
+or `skipped`, absent when commit verification was not required), `surface` (`tree:<40-hex>`, the git tree object id of the surface directory at `commit`,
 recorded whenever the surface is fetched), and `vendor` for a vendored dependency: `mode`,
 resolved `path`, and, for copy mode, `tree` (`tree:<40-hex>` for the copied repository or module
 subtree). Checkout strategies obtain surface ids with
@@ -595,6 +675,10 @@ subtree). Checkout strategies obtain surface ids with
 the archived entries. Keys sorted; no timestamps, no absolute
 paths, no hostnames beyond what the manifest already contains. A lock entry without a
 matching manifest dependency is stale and `status` reports it.
+
+`cards-keys` and `verified` are written by `add`, `update`, and `set`, never by `status`. A
+different card key is rejected until `update --accept-keys`; `verified: skipped` records the
+explicit `--insecure-skip-signers` override rather than implying a successful signature check.
 
 # decision Vendoring is explicit, consumer-decided, and submodule-first {#vendoring}
 

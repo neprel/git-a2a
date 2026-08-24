@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -99,6 +101,28 @@ func (m *Manifest) Validate() error {
 		validateExtensions(p, a.Extensions, &errs)
 		if a.Trust != nil {
 			validateExtensions(p+".trust", a.Trust.Extensions, &errs)
+			for j, source := range a.Trust.JWKS {
+				parsed, err := url.Parse(source)
+				if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+					errs = append(errs, fmt.Errorf("%s.trust.jwks[%d]: must be an https URL", p, j))
+				}
+			}
+			for j, key := range a.Trust.Keys {
+				if strings.TrimSpace(key) == "" {
+					errs = append(errs, fmt.Errorf("%s.trust.keys[%d]: must not be empty", p, j))
+				}
+			}
+			for j, origin := range a.Trust.Origins {
+				parsed, err := url.Parse(origin)
+				if err != nil || parsed.Scheme == "" || parsed.Host == "" || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+					errs = append(errs, fmt.Errorf("%s.trust.origins[%d]: must be scheme://host[:port]", p, j))
+				}
+			}
+			if a.Trust.JWKSMaxAge != "" {
+				if duration, err := time.ParseDuration(a.Trust.JWKSMaxAge); err != nil || duration <= 0 {
+					errs = append(errs, fmt.Errorf("%s.trust.jwks-max-age: must be a positive duration", p))
+				}
+			}
 		}
 		for j, c := range a.Contacts {
 			cp := fmt.Sprintf("%s.contacts[%d]", p, j)
@@ -122,6 +146,11 @@ func (m *Manifest) Validate() error {
 		validateVendorPath("settings.vendor-dir", m.Settings.VendorDir, &errs)
 		for i, target := range m.Settings.SyncTargets {
 			validateRelative(fmt.Sprintf("settings.sync-targets[%d]", i), target, &errs)
+		}
+		for i, organisation := range m.Settings.Organisation {
+			if strings.TrimSpace(organisation) == "" {
+				errs = append(errs, fmt.Errorf("settings.organisation[%d]: must not be empty", i))
+			}
 		}
 	}
 	seen := map[string]bool{}
@@ -169,6 +198,19 @@ func (m *Manifest) Validate() error {
 				}
 			}
 			vendorPaths[resolved] = d.ID
+		}
+		if d.Require != nil {
+			if d.Require.Commits != "" && d.Require.Commits != "any" && d.Require.Commits != "signed" {
+				errs = append(errs, fmt.Errorf("%s.require.commits: must be any or signed", p))
+			}
+			if d.Require.Commits == "signed" && d.Require.Signers == "" {
+				errs = append(errs, fmt.Errorf("%s.require.signers: required when commits is signed", p))
+			}
+			validateRelative(p+".require.signers", d.Require.Signers, &errs)
+			if d.Require.Cards != "" && d.Require.Cards != "any" && d.Require.Cards != "signed" {
+				errs = append(errs, fmt.Errorf("%s.require.cards: must be any or signed", p))
+			}
+			validateExtensions(p+".require", d.Require.Extensions, &errs)
 		}
 		validateExtensions(p, d.Extensions, &errs)
 	}
@@ -246,6 +288,22 @@ func (l *Lock) Validate() error {
 			if !hashPattern.MatchString(hash) {
 				errs = append(errs, fmt.Errorf("%s.cards.%s: invalid sha256 hash", p, name))
 			}
+		}
+		for name, key := range d.CardsKeys {
+			kp := fmt.Sprintf("%s.cards-keys.%s", p, name)
+			if key.KeyID == "" {
+				errs = append(errs, fmt.Errorf("%s.kid: required", kp))
+			}
+			if key.Thumbprint == "" {
+				errs = append(errs, fmt.Errorf("%s.thumbprint: required", kp))
+			}
+			if !commitPattern.MatchString(key.FirstSeen) {
+				errs = append(errs, fmt.Errorf("%s.first-seen: must be 40 lowercase hex characters", kp))
+			}
+			validateExtensions(kp, key.Extensions, &errs)
+		}
+		if d.Verified != "" && d.Verified != "signed" && d.Verified != "skipped" {
+			errs = append(errs, fmt.Errorf("%s.verified: must be signed or skipped", p))
 		}
 		if d.Surface != "" && !treePattern.MatchString(d.Surface) {
 			errs = append(errs, fmt.Errorf("%s.surface: invalid tree id", p))

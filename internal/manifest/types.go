@@ -101,6 +101,10 @@ func (c Contact) MarshalJSON() ([]byte, error) {
 type Trust struct {
 	Signatures      bool           `yaml:"signatures,omitempty" json:"signatures,omitempty"`
 	AcceptsExternal *bool          `yaml:"accepts-external,omitempty" json:"accepts-external,omitempty"`
+	JWKS            []string       `yaml:"jwks,omitempty" json:"jwks,omitempty"`
+	Keys            []string       `yaml:"keys,omitempty" json:"keys,omitempty"`
+	Origins         []string       `yaml:"origins,omitempty" json:"origins,omitempty"`
+	JWKSMaxAge      string         `yaml:"jwks-max-age,omitempty" json:"jwks-max-age,omitempty"`
 	Extensions      map[string]any `yaml:",inline" json:"-"`
 }
 
@@ -118,9 +122,10 @@ type Consumers struct {
 }
 
 type Settings struct {
-	VendorDir   string         `yaml:"vendor-dir,omitempty" json:"vendor-dir,omitempty"`
-	SyncTargets []string       `yaml:"sync-targets,omitempty" json:"sync-targets,omitempty"`
-	Extensions  map[string]any `yaml:",inline" json:"-"`
+	VendorDir    string         `yaml:"vendor-dir,omitempty" json:"vendor-dir,omitempty"`
+	SyncTargets  []string       `yaml:"sync-targets,omitempty" json:"sync-targets,omitempty"`
+	Organisation []string       `yaml:"organisation,omitempty" json:"organisation,omitempty"`
+	Extensions   map[string]any `yaml:",inline" json:"-"`
 }
 
 type Vendor struct {
@@ -138,6 +143,15 @@ type Dependency struct {
 	Track      string         `yaml:"track,omitempty" json:"track,omitempty"`
 	Wire       *[]string      `yaml:"wire,omitempty" json:"wire,omitempty"`
 	Vendor     *Vendor        `yaml:"vendor,omitempty" json:"vendor,omitempty"`
+	Require    *Require       `yaml:"require,omitempty" json:"require,omitempty"`
+	Extensions map[string]any `yaml:",inline" json:"-"`
+}
+
+type Require struct {
+	Commits    string         `yaml:"commits,omitempty" json:"commits,omitempty"`
+	Signers    string         `yaml:"signers,omitempty" json:"signers,omitempty"`
+	Cards      string         `yaml:"cards,omitempty" json:"cards,omitempty"`
+	CardOrigin bool           `yaml:"card-origin,omitempty" json:"card-origin,omitempty"`
 	Extensions map[string]any `yaml:",inline" json:"-"`
 }
 
@@ -148,15 +162,25 @@ type Lock struct {
 }
 
 type LockedDependency struct {
-	Git        string            `yaml:"git" json:"git"`
-	Ref        string            `yaml:"ref" json:"ref"`
-	Path       string            `yaml:"path" json:"path"`
-	Commit     string            `yaml:"commit" json:"commit"`
-	Manifest   string            `yaml:"manifest" json:"manifest"`
-	Cards      map[string]string `yaml:"cards,omitempty" json:"cards,omitempty"`
-	Surface    string            `yaml:"surface,omitempty" json:"surface,omitempty"`
-	Vendor     *LockedVendor     `yaml:"vendor,omitempty" json:"vendor,omitempty"`
-	Extensions map[string]any    `yaml:",inline" json:"-"`
+	Git        string                   `yaml:"git" json:"git"`
+	Ref        string                   `yaml:"ref" json:"ref"`
+	Path       string                   `yaml:"path" json:"path"`
+	Commit     string                   `yaml:"commit" json:"commit"`
+	Manifest   string                   `yaml:"manifest" json:"manifest"`
+	Cards      map[string]string        `yaml:"cards,omitempty" json:"cards,omitempty"`
+	CardsKeys  map[string]LockedCardKey `yaml:"cards-keys,omitempty" json:"cards-keys,omitempty"`
+	Verified   string                   `yaml:"verified,omitempty" json:"verified,omitempty"`
+	Surface    string                   `yaml:"surface,omitempty" json:"surface,omitempty"`
+	Vendor     *LockedVendor            `yaml:"vendor,omitempty" json:"vendor,omitempty"`
+	Extensions map[string]any           `yaml:",inline" json:"-"`
+}
+
+type LockedCardKey struct {
+	KeyID      string         `yaml:"kid" json:"kid"`
+	Thumbprint string         `yaml:"thumbprint" json:"thumbprint"`
+	JWKS       string         `yaml:"jwks,omitempty" json:"jwks,omitempty"`
+	FirstSeen  string         `yaml:"first-seen" json:"first-seen"`
+	Extensions map[string]any `yaml:",inline" json:"-"`
 }
 
 type LockedVendor struct {
