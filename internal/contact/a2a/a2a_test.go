@@ -44,9 +44,11 @@ func TestDeliverSendMessage(t *testing.T) {
 }
 
 func TestDeliverBoundsAndSanitizesHTTPErrorBody(t *testing.T) {
+	body := "<html>failure\x00\r\n" + strings.Repeat("x", 240) + "</html>"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusBadGateway)
-		fmt.Fprint(w, "<html>failure\x00\r\n"+strings.Repeat("x", 240)+"</html>")
+		fmt.Fprint(w, body)
 	}))
 	defer server.Close()
 	_, err := (Driver{Client: server.Client()}).Deliver(context.Background(), contact.Request{
@@ -55,16 +57,13 @@ func TestDeliverBoundsAndSanitizesHTTPErrorBody(t *testing.T) {
 	if err == nil {
 		t.Fatal("non-2xx response unexpectedly succeeded")
 	}
-	const prefix = "a2a: HTTP 502 Bad Gateway: "
-	if !strings.HasPrefix(err.Error(), prefix) {
-		t.Fatalf("error=%q, want prefix %q", err, prefix)
+	want := fmt.Sprintf("a2a: HTTP 502 Bad Gateway (html response, %d bytes, suppressed)", len(body))
+	t.Log(err)
+	if err.Error() != want {
+		t.Fatalf("error=%q, want %q", err, want)
 	}
-	excerpt := strings.TrimPrefix(err.Error(), prefix)
-	if got := len([]rune(excerpt)); got != 200 {
-		t.Fatalf("excerpt length=%d, want 200: %q", got, excerpt)
-	}
-	if strings.ContainsAny(excerpt, "\x00\r\n") || !strings.HasPrefix(excerpt, "<html>failure") {
-		t.Fatalf("excerpt was not sanitized: %q", excerpt)
+	if strings.Contains(err.Error(), "<") {
+		t.Fatalf("HTML leaked into error: %q", err)
 	}
 }
 

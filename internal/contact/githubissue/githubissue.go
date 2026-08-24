@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -14,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/neprel/git-a2a/internal/contact"
+	"github.com/neprel/git-a2a/internal/remotehttp"
 )
 
 type Driver struct {
@@ -96,8 +96,7 @@ func (d Driver) deliverREST(ctx context.Context, request contact.Request) (conta
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		body, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
-		return contact.Record{}, fmt.Errorf("github-issue: REST HTTP %s: %s", response.Status, strings.TrimSpace(string(body)))
+		return contact.Record{}, fmt.Errorf("github-issue: REST %s", remotehttp.ErrorResponse(response))
 	}
 	var created struct {
 		URL    string `json:"html_url"`

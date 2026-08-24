@@ -11,6 +11,8 @@ The protected JWS header supplies `alg`, `kid`, and `jku`; an unprotected key lo
 trust anchor. The reference CLI supports ES256, RS256, and EdDSA with Go's standard crypto
 library. JWKS retrieval has a three-second default timeout and a two-megabyte response limit.
 Remote key URLs use HTTPS, except loopback HTTP used for local agents and tests.
+Non-success card and JWKS responses use the shared remote-response sanitizer; HTML bodies are
+suppressed rather than copied into errors.
 
 # decision JWKS cache is local fallback state
 

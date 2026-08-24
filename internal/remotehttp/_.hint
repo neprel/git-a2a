@@ -1,0 +1,6 @@
+# invariant Remote HTTP bodies are untrusted text
+
+Every non-success remote response rendered to a user goes through `ErrorResponse`. A body whose
+trimmed form begins with `<`, or whose Content-Type is `text/html`, is never rendered; the error
+reports only the HTTP status and `(html response, N bytes, suppressed)`. Other bodies have control
+characters removed, whitespace collapsed, and their excerpt limited to 200 Unicode characters.

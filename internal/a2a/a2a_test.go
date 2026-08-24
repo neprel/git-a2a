@@ -2,14 +2,35 @@ package a2a
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/neprel/git-a2a/internal/manifest"
 )
+
+func TestReadSuppressesHTMLResponseBody(t *testing.T) {
+	body := "<!doctype html><p>secret</p>"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = fmt.Fprint(w, body)
+	}))
+	defer server.Close()
+
+	_, _, err := Read(server.URL, "")
+	want := fmt.Sprintf("%s: HTTP 403 Forbidden (html response, %d bytes, suppressed)", server.URL, len(body))
+	if err == nil || err.Error() != want {
+		t.Fatalf("Read() error = %q, want %q", err, want)
+	}
+	if strings.Contains(err.Error(), "<") {
+		t.Fatalf("HTML leaked into error: %q", err)
+	}
+}
 
 func TestReadV1AndLegacy(t *testing.T) {
 	for _, name := range []string{"v1.json", "v0.3.json"} {

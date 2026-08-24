@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/neprel/git-a2a/internal/manifest"
+	"github.com/neprel/git-a2a/internal/remotehttp"
 )
 
 const ExtensionURI = "https://git-a2a.com/ext/module/v1"
@@ -102,7 +103,7 @@ func Read(location, base string) (map[string]any, []byte, error) {
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			return nil, nil, &LocationError{Location: location, Err: fmt.Errorf("HTTP %d", resp.StatusCode)}
+			return nil, nil, &LocationError{Location: location, Err: fmt.Errorf("%s", remotehttp.ErrorResponse(resp))}
 		}
 		b, err = io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 	} else {

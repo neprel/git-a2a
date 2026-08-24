@@ -24,6 +24,8 @@ import (
 	"time"
 	"unicode/utf16"
 	"unicode/utf8"
+
+	"github.com/neprel/git-a2a/internal/remotehttp"
 )
 
 const maxJWKSSize = 2 << 20
@@ -184,7 +186,7 @@ func readJWKS(location string, options VerifyOptions) (map[string]any, time.Dura
 					requestErr = fmt.Errorf("JWKS exceeds %d bytes", maxJWKSSize)
 				}
 			} else {
-				requestErr = fmt.Errorf("HTTP %d", response.StatusCode)
+				requestErr = fmt.Errorf("%s", remotehttp.ErrorResponse(response))
 			}
 		}
 		if requestErr == nil {

@@ -63,6 +63,23 @@ func TestJWKThumbprintRFC7638CanonicalMembers(t *testing.T) {
 	}
 }
 
+func TestReadJWKSSuppressesHTMLResponseBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = fmt.Fprint(w, "<html><p>secret</p></html>")
+	}))
+	defer server.Close()
+
+	_, _, err := readJWKS(server.URL, VerifyOptions{})
+	if err == nil {
+		t.Fatal("readJWKS unexpectedly succeeded")
+	}
+	if strings.Contains(err.Error(), "<") || strings.Contains(err.Error(), "secret") {
+		t.Fatalf("HTML leaked into error: %q", err)
+	}
+}
+
 func TestVerifySignaturesRequiresPinnedOrSameOriginKeySource(t *testing.T) {
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {

@@ -82,3 +82,36 @@ func TestDeliverFallsBackToREST(t *testing.T) {
 		t.Fatalf("record=%#v err=%v", record, err)
 	}
 }
+
+func TestDeliverRESTSuppressesHTMLResponseBody(t *testing.T) {
+	body := "<html><p>token failed</p></html>"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = fmt.Fprint(w, body)
+	}))
+	defer server.Close()
+	driver := Driver{
+		Client:   server.Client(),
+		LookPath: func(string) (string, error) { return "", errors.New("missing") },
+		Getenv: func(name string) string {
+			if name == "GH_TOKEN" {
+				return "secret"
+			}
+			if name == "GITHUB_API_URL" {
+				return server.URL
+			}
+			return ""
+		},
+	}
+	_, err := driver.Deliver(context.Background(), contact.Request{
+		Agent: "owner", Message: "Fix it", Contact: manifest.Contact{Kind: "github-issue", Repo: "acme/lib"},
+	})
+	want := fmt.Sprintf("github-issue: REST HTTP 403 Forbidden (html response, %d bytes, suppressed)", len(body))
+	if err == nil || err.Error() != want {
+		t.Fatalf("error = %q, want %q", err, want)
+	}
+	if strings.Contains(err.Error(), "<") {
+		t.Fatalf("HTML leaked into error: %q", err)
+	}
+}

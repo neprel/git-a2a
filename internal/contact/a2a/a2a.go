@@ -11,9 +11,9 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"unicode"
 
 	"github.com/neprel/git-a2a/internal/contact"
+	"github.com/neprel/git-a2a/internal/remotehttp"
 )
 
 type Driver struct {
@@ -65,12 +65,7 @@ func (d Driver) Deliver(ctx context.Context, request contact.Request) (contact.R
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		limited, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
-		excerpt := responseExcerpt(string(limited), 200)
-		if excerpt == "" {
-			return contact.Record{}, fmt.Errorf("a2a: HTTP %s", response.Status)
-		}
-		return contact.Record{}, fmt.Errorf("a2a: HTTP %s: %s", response.Status, excerpt)
+		return contact.Record{}, fmt.Errorf("a2a: %s", remotehttp.ErrorResponse(response))
 	}
 	result := rpcResult{}
 	if request.Wait || strings.Contains(response.Header.Get("Content-Type"), "text/event-stream") {
@@ -89,20 +84,6 @@ func (d Driver) Deliver(ctx context.Context, request contact.Request) (contact.R
 		return contact.Record{}, fmt.Errorf("a2a: response contains neither a task nor a message id")
 	}
 	return record, nil
-}
-
-func responseExcerpt(body string, limit int) string {
-	clean := strings.Map(func(r rune) rune {
-		if unicode.IsControl(r) {
-			return -1
-		}
-		return r
-	}, body)
-	runes := []rune(strings.TrimSpace(clean))
-	if len(runes) > limit {
-		runes = runes[:limit]
-	}
-	return string(runes)
 }
 
 type rpcResult struct {
