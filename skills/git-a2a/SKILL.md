@@ -3,7 +3,7 @@ name: git-a2a
 description: Use git-a2a to consume or author a dependency on a Git repository together with its owner, resolve who owns a dependency, inspect or repair an AGENTS.md module roster, or edit and validate a2amodule.yml manifest.
 compatibility: requires git ≥ 2.25 and the git-a2a CLI
 metadata:
-  version: "1.3.0"
+  version: "1.3.1"
 ---
 
 # git-a2a

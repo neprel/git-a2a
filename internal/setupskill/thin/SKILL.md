@@ -3,7 +3,7 @@ name: git-a2a
 description: Use for git module dependencies, a2amodule.yml, dependency owners, contacts, status, and the managed AGENTS.md roster.
 compatibility: requires git >= 2.25 and the git-a2a CLI
 metadata:
-  version: 1.3.0
+  version: 1.3.1
 ---
 
 # git-a2a
