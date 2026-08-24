@@ -32,7 +32,7 @@ See the feature end to end in the public
 | Owners and contacts | `who` routes an intent and path to the declared role, scoped agent, and ordered contacts. |
 | Agent roster | `sync` maintains a bounded dependency/owner block in `AGENTS.md` or another target. |
 | Contact delivery | `contact` sends through A2A or GitHub Issues; URL, email, and chat kinds print exact instructions. |
-| Vendoring and build systems | `--vendor submodule|copy` plus CMake/Gradle/MSBuild/Maven/Meson generated includes keep source at the lock commit. |
+| Vendoring and build systems | `--vendor submodule` or `--vendor copy` plus CMake/Gradle/MSBuild/Maven/Meson generated includes keep source at the lock commit. |
 | Fresh-checkout restore | `fetch` reconstructs cache and vendored trees from the lock without resolving a new commit. |
 | Cards, catalog, and trust | `card`, `catalog`, and `trust show` verify A2A cards, key/origin pins, signed commits, and ARD catalogs. |
 | Liveness and drift | `status` compares upstream refs, manifest/cache hashes, native wiring, cards, trust, and synced context. |

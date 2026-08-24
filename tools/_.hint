@@ -73,7 +73,9 @@ copy differs from the same rendered source after platform newline normalization;
 itself and the committed Git blobs remain explicit UTF-8 with LF endings.
 The same run extracts `contact_kinds` into `docs/contact-kinds.md`, generates the site's concise
 `llms.txt` map and `llms-full.txt` canonical-document concatenation, and checks local Markdown
-targets across README, spec, and docs. These files are outputs, never separately authored sources.
+targets across README, spec, and docs. It rejects an unescaped pipe inside an inline-code span in
+a Markdown table, because GFM treats that pipe as a cell delimiter even though it is between
+backticks. These files are outputs, never separately authored sources.
 
 # decision Transcript captures the status table byte-for-byte
 

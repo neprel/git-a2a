@@ -434,6 +434,20 @@ def check_local_markdown_links() -> None:
                 fail(f"{source.relative_to(ROOT)} has missing local link: {target}")
 
 
+def check_markdown_table_code_spans() -> None:
+    sources = [ROOT / "README.md", ROOT / "spec/README.md", *sorted((ROOT / "docs").glob("*.md"))]
+    for source in sources:
+        for line_number, line in enumerate(source.read_text(encoding="utf-8").splitlines(), 1):
+            if not line.startswith("|"):
+                continue
+            for code in re.findall(r"`([^`]*)`", line):
+                if re.search(r"(?<!\\)\|", code):
+                    fail(
+                        f"{source.relative_to(ROOT)}:{line_number} has an unescaped table pipe "
+                        "inside an inline-code span"
+                    )
+
+
 def output(path: pathlib.Path, rendered: str, check: bool, label: str) -> None:
     if check:
         current = path.read_text(encoding="utf-8") if path.exists() else ""
@@ -479,6 +493,7 @@ def main() -> None:
         output(WORKS_WITH_PATH, works_with, True, "works with")
         check_works_with_copy()
         check_local_markdown_links()
+        check_markdown_table_code_spans()
         print("manifest-reference: schema fields, contact kinds, LLM guides, and local links are current")
         return
     output(OUTPUT_PATH, rendered, False, "manifest reference")
@@ -489,6 +504,7 @@ def main() -> None:
     output(WORKS_WITH_PATH, works_with, False, "works with")
     check_works_with_copy()
     check_local_markdown_links()
+    check_markdown_table_code_spans()
     print("manifest-reference: wrote field reference, contact kinds, and generated LLM guides")
 
 
