@@ -170,6 +170,7 @@ on native Linux, macOS, and Windows runners. It downloads the immutable GitHub R
 checks the canonical `internal/version/VERSION` output (an RC suffix belongs to the package and
 asset version, not the embedded CLI version), performs MCP `tools/list` through an official-SDK
 stdio client, and runs `setup --dry-run`; a locally rebuilt binary is not evidence for this gate.
+No stable tag—including patches—may be created until an RC on the same commit has passed every gate and the reviewer has explicitly accepted it in writing in the conversation.
 
 # dep Reference CLI runtime dependencies
 

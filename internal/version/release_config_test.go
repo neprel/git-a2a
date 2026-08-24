@@ -267,6 +267,9 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	if docs := read("docs/releasing.md"); !strings.Contains(docs, "HOMEBREW_TAP_TOKEN") || !strings.Contains(docs, "SCOOP_BUCKET_TOKEN") || !strings.Contains(docs, "trusted publisher") || !strings.Contains(docs, "environment named `pypi`") {
 		t.Error("release prerequisites are incomplete")
 	}
+	if docs := read("docs/releasing.md"); !strings.Contains(docs, "No stable tag—including patches—may be created until an RC on the same commit has passed every gate and the reviewer has explicitly accepted it in writing in the conversation.") {
+		t.Error("release documentation must require an accepted RC for stable patches")
+	}
 	npmBuilder := read("dist/npm/build_packages.py")
 	if strings.Count(npmBuilder, `"repository": REPOSITORY`) != 2 || !strings.Contains(npmBuilder, `"url": "git+https://github.com/neprel/git-a2a.git"`) {
 		t.Error("every npm package must carry repository metadata matching the trusted publisher")

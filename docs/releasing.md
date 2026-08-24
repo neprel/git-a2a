@@ -6,6 +6,7 @@ suffix; build and tests must pass before publishing starts.
 Use a release-candidate tag first, inspect every generated artifact and channel, fix the source,
 then create the stable tag on the reviewed commit. If the candidate needs a fix, use a new
 prerelease number on the fixing commit. Do not rerun a failed publish with a moved tag.
+No stable tag—including patches—may be created until an RC on the same commit has passed every gate and the reviewer has explicitly accepted it in writing in the conversation.
 
 Every minor release note starts with three plain sentences a stranger can understand: the user
 problem, the new workflow, and the compatibility/security consequence. The grouped conventional
