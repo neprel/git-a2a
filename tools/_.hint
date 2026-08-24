@@ -60,7 +60,8 @@ byte-identical full reference and static-site trees plus the Stripe-style
 `/.well-known/skills/index.json`; the separately embedded setup copy stays thin at exactly
 `SKILL.md` plus `references/README.md`, and only its metadata version is synchronized. Check mode fails on version or copy drift. Skill frontmatter
 `metadata.version` must equal `internal/version/VERSION`. Generated text is written as explicit
-UTF-8 bytes with LF endings so byte checks have the same result on Windows and POSIX.
+UTF-8 bytes with LF endings and every source document is read with an explicit UTF-8 encoding,
+so byte checks have the same result on Windows and POSIX instead of depending on the host locale.
 `gen-reference.py` also writes a byte-identical copy under `internal/reference/`; Go embeds that
 generated artifact for `git-a2a explain`. Check mode fails if either the public guide or embedded
 copy differs from the same rendered source after platform newline normalization; the generator

@@ -217,7 +217,7 @@ def source_link(source: str) -> str:
 
 
 def generate() -> str:
-    schema = json.loads(SCHEMA_PATH.read_text())
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     compiled = compiled_hint()
     hints = entity_fields(compiled)
     definitions = named_blocks(compiled, "data_definition", "id")
@@ -381,7 +381,7 @@ def generate_llms_full(reference: str, contacts: str) -> str:
         "labels are navigation aids; the specification and schemas remain authoritative.",
     ]
     for title, path, rendered in inputs:
-        body = rendered if rendered is not None else path.read_text()
+        body = rendered if rendered is not None else path.read_text(encoding="utf-8")
         lines.extend(["", f"---\n\n## Source: {title}\n", body.rstrip()])
     return "\n".join(lines) + "\n"
 
@@ -399,9 +399,9 @@ def generate_works_with() -> str:
 
 
 def check_works_with_copy() -> None:
-    readme = (ROOT / "README.md").read_text()
-    site = (ROOT / "sites/git-a2a.com/index.html").read_text()
-    prototype = (ROOT / "sites/design/git-a2a Landing.dc.html").read_text()
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    site = (ROOT / "sites/git-a2a.com/index.html").read_text(encoding="utf-8")
+    prototype = (ROOT / "sites/design/git-a2a Landing.dc.html").read_text(encoding="utf-8")
     for layer, integrations, _ in WORKS_WITH:
         if layer not in readme or integrations not in readme:
             fail(f"README Works with copy is missing generated row {layer}")
@@ -415,7 +415,7 @@ def check_local_markdown_links() -> None:
     sources = [ROOT / "README.md", ROOT / "spec/README.md", *sorted((ROOT / "docs").glob("*.md"))]
     pattern = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
     for source in sources:
-        for raw in pattern.findall(source.read_text()):
+        for raw in pattern.findall(source.read_text(encoding="utf-8")):
             target = raw.strip().split()[0].strip("<>")
             if target.startswith(("http://", "https://", "mailto:", "#")):
                 continue
@@ -433,7 +433,7 @@ def check_local_markdown_links() -> None:
 
 def output(path: pathlib.Path, rendered: str, check: bool, label: str) -> None:
     if check:
-        if not path.exists() or path.read_text() != rendered:
+        if not path.exists() or path.read_text(encoding="utf-8") != rendered:
             fail(f"{path.relative_to(ROOT)} is stale; run tools/gen-reference.py")
         return
     path.parent.mkdir(parents=True, exist_ok=True)

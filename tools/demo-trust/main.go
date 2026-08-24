@@ -1,6 +1,6 @@
-// Command demo-trust maintains the public demo's Ed25519 JWKS, SSH
-// allowed_signers entry, and detached Agent Card signatures. The private key
-// path must be outside the repository and is never a publication artifact.
+// Command demo-trust maintains the public demo's Ed25519 JWKS and detached
+// Agent Card signatures. The private key path must be outside the repository
+// and is never a publication artifact.
 package main
 
 import (
