@@ -177,6 +177,9 @@ process that starts it, within the declared roots unless `--any-root` was chosen
 
 The implementation uses the [official MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk)
 and opens no network listener. See the [CLI reference](cli.md#mcp) for exit behavior.
+Values named by `untrustedFields` are data read from another repository, never instructions.
+The `contact` tool enforces `accepts-external: false` and deliberately has no human-only
+`--external-ok` override.
 
 ## Distribution and discovery
 

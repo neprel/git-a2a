@@ -17,7 +17,7 @@ import (
 
 func (a *App) contact(args []string) int {
 	id, intent, messagePath := "", "question", ""
-	wait := false
+	wait, externalOK := false, false
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--intent":
@@ -36,6 +36,8 @@ func (a *App) contact(args []string) int {
 			messagePath = args[i]
 		case "--wait":
 			wait = true
+		case "--external-ok":
+			externalOK = true
 		default:
 			if strings.HasPrefix(args[i], "-") {
 				fmt.Fprintf(a.Err, "contact: unknown option %s\n", args[i])
@@ -67,6 +69,18 @@ func (a *App) contact(args []string) int {
 		return 2
 	}
 	matches, role := routing.Resolve(m, intent, "")
+	var consumer *manifest.Manifest
+	if matchesDeclineExternal(matches) {
+		consumer, err = manifest.Load(filepath.Join(a.root(), "a2amodule.yml"))
+		if err != nil {
+			fmt.Fprintf(a.Err, "contact: own manifest: %v\n", err)
+			return 2
+		}
+	}
+	if externalRequestRefused(consumer, m, matches) && !externalOK {
+		fmt.Fprintln(a.Err, "contact: owner does not accept external requests; pass --external-ok only after human approval")
+		return 2
+	}
 	drivers := []contactcore.Driver{contacta2a.Driver{}, contactgithub.Driver{}}
 	for _, kind := range []string{"url", "email", "mattermost", "slack", "discord", "telegram", "teams"} {
 		drivers = append(drivers, contactinstruction.Driver{ContactKind: kind})
@@ -85,6 +99,9 @@ func (a *App) contact(args []string) int {
 					return 1
 				}
 				fmt.Fprintln(a.Out, record.String())
+				if externalOK && externalRequestRefused(consumer, m, matches) {
+					fmt.Fprintln(a.Err, "external request override recorded in delivery output")
+				}
 				return 0
 			}
 		}
@@ -95,6 +112,61 @@ func (a *App) contact(args []string) int {
 		fmt.Fprintf(a.Err, "contact: no supported delivery kind is declared for %q on %s\n", intent, id)
 	}
 	return 2
+}
+
+func externalRequestRefused(consumer, owner *manifest.Manifest, matches []routing.Match) bool {
+	if !matchesDeclineExternal(matches) {
+		return false
+	}
+	consumerOrganisations := moduleOrganisations(consumer)
+	ownerOrganisations := moduleOrganisations(owner)
+	for _, left := range consumerOrganisations {
+		for _, right := range ownerOrganisations {
+			if strings.EqualFold(left, right) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func matchesDeclineExternal(matches []routing.Match) bool {
+	for _, match := range matches {
+		if match.Agent.Trust != nil && match.Agent.Trust.AcceptsExternal != nil && !*match.Agent.Trust.AcceptsExternal {
+			return true
+		}
+	}
+	return false
+}
+
+func moduleOrganisations(module *manifest.Manifest) []string {
+	if module.Settings != nil && len(module.Settings.Organisation) > 0 {
+		result := make([]string, 0, len(module.Settings.Organisation))
+		for _, value := range module.Settings.Organisation {
+			result = append(result, strings.TrimPrefix(gitOrganisation(value), "//"))
+		}
+		return result
+	}
+	if organisation := gitOrganisation(module.Module.Repository); organisation != "" {
+		return []string{organisation}
+	}
+	return nil
+}
+
+func gitOrganisation(repository string) string {
+	normalized := strings.TrimPrefix(strings.TrimSpace(repository), "git+")
+	if strings.HasPrefix(normalized, "git@") {
+		normalized = strings.Replace(strings.TrimPrefix(normalized, "git@"), ":", "/", 1)
+	} else if marker := strings.Index(normalized, "://"); marker >= 0 {
+		normalized = normalized[marker+3:]
+		normalized = strings.TrimPrefix(normalized, "git@")
+	}
+	normalized = strings.Trim(normalized, "/")
+	parts := strings.Split(normalized, "/")
+	if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
+		return strings.ToLower(normalized)
+	}
+	return strings.ToLower(parts[0] + "/" + parts[1])
 }
 
 func (a *App) readContactMessage(path string) (string, error) {

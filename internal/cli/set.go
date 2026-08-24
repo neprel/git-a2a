@@ -23,7 +23,7 @@ type setOptions struct {
 	git, ref, path, track, newID *string
 	vendorMode, vendorPath       *string
 	dry, noRefresh, noVendor     bool
-	force                        bool
+	force, insecureSkipSigners   bool
 }
 
 func parseSet(args []string) (setOptions, error) {
@@ -70,6 +70,8 @@ func parseSet(args []string) (setOptions, error) {
 			o.dry = true
 		case "--no-refresh":
 			o.noRefresh = true
+		case "--insecure-skip-signers":
+			o.insecureSkipSigners = true
 		default:
 			if strings.HasPrefix(arg, "-") {
 				return o, fmt.Errorf("unknown option %s", arg)
@@ -283,6 +285,11 @@ func (a *App) applySet(o setOptions) int {
 		fmt.Fprintf(a.Err, "set: module id mismatch: expected %s, fetched %s; no files changed\n", expected, nextManifest.Module.ID)
 		return 1
 	}
+	verified, verifyErr := a.verifyCommitTrust(root, next, res, resolution.Kind, o.insecureSkipSigners, work)
+	if verifyErr != nil {
+		fmt.Fprintf(a.Err, "set: %v; no files changed\n", verifyErr)
+		return 1
+	}
 	oldManifest, err := manifest.Load(filepath.Join(cache.Dir(root, o.id), "a2amodule.yml"))
 	if err != nil {
 		oldEntry, ok := l.Dependencies[o.id]
@@ -302,7 +309,7 @@ func (a *App) applySet(o setOptions) int {
 		}
 	}
 	sum := sha256.Sum256(res.Manifest)
-	locked := manifest.LockedDependency{Git: next.Git, Ref: next.Ref, Path: defaultPath(next.Path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:])}
+	locked := manifest.LockedDependency{Git: next.Git, Ref: next.Ref, Path: defaultPath(next.Path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:]), Verified: verified}
 	seedVendorLock(own, next, &locked)
 	validated := *own
 	validated.Dependencies = append([]manifest.Dependency(nil), own.Dependencies...)
@@ -353,6 +360,11 @@ func (a *App) applySet(o setOptions) int {
 	}
 	cards, cardWarnings := a.snapshotCardsTo(filepath.Join(cache.Dir(stagedRoot, next.ID), "cards"), next.Git, next.Path, res.Commit, nextManifest, f)
 	locked.Cards = cards
+	currentKeys, trustWarnings := inspectCardTrust(nextManifest, filepath.Join(cache.Dir(stagedRoot, next.ID), "cards"), root, next.Git, res.Commit, next.Require)
+	cardKeys, keyWarnings := reconcileCardKeys(oldEntry.CardsKeys, currentKeys, false)
+	locked.CardsKeys = cardKeys
+	cardWarnings = append(cardWarnings, trustWarnings...)
+	cardWarnings = append(cardWarnings, keyWarnings...)
 	oldManifestBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.yml"))
 	oldLockBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.lock"))
 	own.Dependencies[idx] = next

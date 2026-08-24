@@ -17,6 +17,15 @@ type doctorReport struct {
 	Ready  bool                 `json:"ready"`
 	Tools  []adapter.ToolStatus `json:"tools"`
 	Vendor []doctorVendorState  `json:"vendor,omitempty"`
+	Trust  []doctorTrustState   `json:"trust,omitempty"`
+}
+
+type doctorTrustState struct {
+	ID       string `json:"id"`
+	Commits  string `json:"commits"`
+	Cards    string `json:"cards"`
+	Keys     string `json:"keys"`
+	External string `json:"external"`
 }
 
 type doctorVendorState struct {
@@ -58,6 +67,42 @@ func (a *App) doctor(args []string) int {
 		if locked, lockErr := lockfile.Load(a.root()); lockErr == nil {
 			manager := vendortransport.Manager{Runner: a.runner()}
 			for _, dependency := range own.Dependencies {
+				trustState := doctorTrustState{ID: dependency.ID, Commits: "unverified", Cards: "not required", Keys: "unpinned", External: "unstated"}
+				entry := locked.Dependencies[dependency.ID]
+				if dependency.Require != nil {
+					if dependency.Require.Commits == "signed" {
+						trustState.Commits = entry.Verified
+						if trustState.Commits == "" {
+							trustState.Commits = "required, not verified"
+						}
+					}
+					if dependency.Require.Cards == "signed" {
+						trustState.Cards = "signed required"
+					}
+				}
+				if len(entry.CardsKeys) > 0 {
+					trustState.Keys = "locked"
+				}
+				if cached, cacheErr := manifest.Load(filepath.Join(a.root(), ".git-a2a", "cache", dependency.ID, "a2amodule.yml")); cacheErr == nil {
+					for _, agent := range cached.Agents {
+						if agent.Trust != nil {
+							if agent.Trust.Signatures {
+								trustState.Cards = "signed"
+							}
+							if len(agent.Trust.JWKS) > 0 || len(agent.Trust.Keys) > 0 {
+								trustState.Keys = "pinned"
+							}
+							if agent.Trust.AcceptsExternal != nil {
+								if *agent.Trust.AcceptsExternal {
+									trustState.External = "accepted"
+								} else {
+									trustState.External = "declined"
+								}
+							}
+						}
+					}
+				}
+				report.Trust = append(report.Trust, trustState)
 				if dependency.Vendor == nil {
 					continue
 				}
@@ -111,6 +156,9 @@ func (a *App) doctor(args []string) int {
 				fmt.Fprintf(a.Out, "  hint: %s", state.Hint)
 			}
 			fmt.Fprintln(a.Out)
+		}
+		for _, state := range report.Trust {
+			fmt.Fprintf(a.Out, "trust %-25s commits %s · cards %s · keys %s · external %s\n", state.ID, state.Commits, state.Cards, state.Keys, state.External)
 		}
 	}
 	if report.Ready {

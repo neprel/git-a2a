@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -64,8 +65,8 @@ func TestCheckAgentsUsesRelativeCardSnapshot(t *testing.T) {
 	}
 	sum := sha256.Sum256(raw)
 	m := &manifest.Manifest{Agents: []manifest.Agent{{Name: "acme-lib-utils", Card: "cards/agent.json"}}}
-	state, failed, details := checkAgents(m, map[string]string{"acme-lib-utils": "sha256:" + hex.EncodeToString(sum[:])}, root, root, false)
-	if failed || state != "1 up" || len(details) != 0 {
+	state, failed, details := checkAgents(m, map[string]string{"acme-lib-utils": "sha256:" + hex.EncodeToString(sum[:])}, nil, root, root, false, "", nil, false)
+	if failed || state != "1 up" || len(details) != 1 || !strings.Contains(details[0], "trust: origin mismatch") {
 		t.Fatalf("state=%q failed=%v details=%v", state, failed, details)
 	}
 }
@@ -81,7 +82,7 @@ func TestRequiredCardSignatureFailsStatusAndWarnsUpdate(t *testing.T) {
 	if err = os.WriteFile(filepath.Join(root, "cards.json"), raw, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	state, failed, details := checkAgents(m, nil, root, root, false)
+	state, failed, details := checkAgents(m, nil, nil, root, root, false, "", nil, false)
 	if !failed || state != "1 untrusted" || !strings.Contains(strings.Join(details, "\n"), "card is unsigned") {
 		t.Fatalf("state=%q failed=%v details=%v", state, failed, details)
 	}
@@ -93,7 +94,7 @@ func TestRequiredCardSignatureFailsStatusAndWarnsUpdate(t *testing.T) {
 		t.Fatal(err)
 	}
 	warnings := trustedCardWarnings(m, cardsDir, root)
-	if len(warnings) != 1 || !strings.Contains(warnings[0].Error(), "card is unsigned") {
+	if len(warnings) == 0 || !strings.Contains(fmt.Sprint(warnings), "card is unsigned") {
 		t.Fatalf("warnings=%v", warnings)
 	}
 }
@@ -147,7 +148,7 @@ func TestCardVerifyUsesGeneratedKeyAndJWKS(t *testing.T) {
 	out.Reset()
 	errOut.Reset()
 	app.Root = t.TempDir()
-	if code := app.Run([]string{"card", "verify", absolute}); code != 0 {
+	if code := app.Run([]string{"card", "verify", absolute, "--jwks", server.URL + "/jwks"}); code != 0 {
 		t.Fatalf("absolute path exit %d: %s", code, errOut.String())
 	}
 }

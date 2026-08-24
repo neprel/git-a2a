@@ -1,6 +1,12 @@
 # git-a2a
 
 [![built with HINT](https://img.shields.io/badge/built_with-HINT-5b4ee6)](https://openhint.dev/)
+[![release](https://img.shields.io/github/v/release/neprel/git-a2a)](https://github.com/neprel/git-a2a/releases)
+[![CI](https://github.com/neprel/git-a2a/actions/workflows/ci.yml/badge.svg)](https://github.com/neprel/git-a2a/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/git-a2a)](https://www.npmjs.com/package/git-a2a)
+[![PyPI](https://img.shields.io/pypi/v/git-a2a)](https://pypi.org/project/git-a2a/)
+[![Homebrew](https://img.shields.io/badge/homebrew-neprel%2Ftap-fbb040)](https://github.com/neprel/homebrew-tap)
+[![MCP Registry](https://img.shields.io/badge/MCP_Registry-io.github.neprel%2Fgit--a2a-5b4ee6)](https://registry.modelcontextprotocol.io/)
 
 **Import a Git repository together with the agents that own it.**
 
@@ -26,8 +32,12 @@ See the feature end to end in the public
 | Owners and contacts | `who` routes an intent and path to the declared role, scoped agent, and ordered contacts. |
 | Agent roster | `sync` maintains a bounded dependency/owner block in `AGENTS.md` or another target. |
 | Contact delivery | `contact` sends through A2A or GitHub Issues; URL, email, and chat kinds print exact instructions. |
-| Cards, catalog, and trust | `card export/validate/verify/show` and `catalog export` project A2A v1.0 cards, ARD catalogs, and JWS trust. |
+| Vendoring and build systems | `--vendor submodule|copy` plus CMake/Gradle/MSBuild/Maven/Meson generated includes keep source at the lock commit. |
+| Fresh-checkout restore | `fetch` reconstructs cache and vendored trees from the lock without resolving a new commit. |
+| Cards, catalog, and trust | `card`, `catalog`, and `trust show` verify A2A cards, key/origin pins, signed commits, and ARD catalogs. |
 | Liveness and drift | `status` compares upstream refs, manifest/cache hashes, native wiring, cards, trust, and synced context. |
+| Agent UX | `usage`, the portable skill, `setup`, and `explain` brief and configure supported agent harnesses. |
+| MCP | `mcp` exposes the same commands over bounded multi-repository stdio tools; write access is opt-in. |
 | Prerequisites | `doctor` reports Git and native ecosystem tools with versions and install hints; it never installs them. |
 
 ## Quick start
@@ -41,6 +51,9 @@ git-a2a status
 git-a2a update --review
 ```
 
+Owners start with `git-a2a init --example lib`, add an agent with `git-a2a agent add`, then run
+`git-a2a validate` and `git-a2a card export`.
+
 ## Vendored dependencies
 
 A consumer can materialize a locked dependency inside its repository with `add --vendor
@@ -50,6 +63,15 @@ and generated CMake, Gradle, MSBuild, Maven, or Meson integrations resolve throu
 directory. `git-a2a fetch` restores missing cache and vendored content from the lock in a fresh
 checkout without resolving a new commit. See the [consumer workflow](docs/consuming.md#keep-source-in-the-consumer-repository)
 and the live [`consumer-app`](https://github.com/neprel/git-a2a-demo-acme-app) submodule example.
+
+## Works with
+
+| Layer | Integrations and wiring |
+| --- | --- |
+| Native ecosystems | npm, uv/PyPI, Go, Cargo, SwiftPM, Pub, Bundler, Composer, Mix, Cabal/Stack, Zig, Clojure, Nix — native Git forms, or local path forms when vendored. |
+| Build systems | CMake, Gradle, Maven, MSBuild, Meson — one generated include/import for vendored source. |
+| Agent harnesses | Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI, OpenCode, Hermes Agent, OpenClaw. |
+| Standards | A2A, AGENTS.md, Agent Skills, ARD catalogs, MCP (listed in the MCP Registry). |
 
 ## Installation
 
@@ -99,6 +121,9 @@ Maintainer setup is in [docs/releasing.md](docs/releasing.md).
 - [Manifest field reference](docs/manifest-reference.md): generated types, defaults, values, and consequences for every field.
 - [Authoring guide](docs/authoring.md): create and publish a module, its surface, agents, contacts, policy, and cards.
 - [Consumer guide](docs/consuming.md): add, fetch, sync, inspect, update, contact, and run deterministic CI.
+- [Vendoring guide](docs/vendoring.md): submodule/copy tradeoffs, build systems, path mode, rollback, and CI.
+- [Trust guide](docs/trust.md): pinned cards, signed commits, origins, rotation, and external delivery policy.
+- [Agent/operator guide](docs/agents.md): usage, skill installation, setup by harness, MCP roots, and machine-output safety.
 - [Contact kinds](docs/contact-kinds.md): generated allowed fields and delivery/instruction behavior for every known kind.
 - [FAQ](docs/faq.md): design boundaries, offline operation, A2A, MCP, Agent Skills, and disposable cache.
 - [Consumer demo](docs/demo.md): inspect the public polyglot library and app end to end.
@@ -106,7 +131,7 @@ Maintainer setup is in [docs/releasing.md](docs/releasing.md).
 - [MCP server](docs/mcp.md): attach the multi-repository stdio server to Claude Code, Codex,
   Cursor, Copilot, Gemini CLI, OpenCode, Hermes Agent, or OpenClaw.
 
-## A2A, AGENTS.md, and Agent Skills
+## How it relates
 
 - **A2A** is the agent-to-agent protocol. Agent Cards remain native A2A v1.0; the
   `https://git-a2a.com/ext/module/v1` extension binds a card to a Git module without copying its
@@ -123,6 +148,8 @@ Maintainer setup is in [docs/releasing.md](docs/releasing.md).
   `git-a2a setup --dry-run` to preview repository-scoped skill, AGENTS.md, and MCP configuration
   for detected Claude Code, Codex, Cursor, Copilot, Gemini CLI, OpenCode, Hermes Agent, and
   OpenClaw environments.
+- **MCP** is an optional stdio projection of the same CLI and files. It is not a daemon or an
+  identity/package registry; declared roots bound which repositories tools may access.
 
 git-a2a does not run agents, host endpoints, or choose a chat platform. Unknown contact kinds,
 roles, intents, and ecosystems remain valid open vocabulary.

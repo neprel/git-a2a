@@ -184,7 +184,17 @@ def main() -> None:
                 fail(f"invalid packaged demo card {card_path}: {error}")
             if card.get("version") != "1.0.0" or not card.get("supportedInterfaces"):
                 fail(f"demo card lacks A2A v1.0 interface: {card_path}")
+            signatures = card.get("signatures", [])
+            if len(signatures) != 1 or not signatures[0].get("protected") or not signatures[0].get("signature"):
+                fail(f"demo card lacks its detached JWS: {card_path}")
             cards.append(card)
+        jwks = json.loads((package / "demo/agents/.well-known/jwks.json").read_text())
+        keys = jwks.get("keys", [])
+        if len(keys) != 1 or keys[0].get("kid") != "acme-demo-2026" or keys[0].get("alg") != "EdDSA":
+            fail("packaged demo JWKS does not contain exactly the demo signing key")
+        allowed_signers = (package / "demo/agents/allowed_signers").read_text()
+        if "demo-only git-a2a public demo key" not in allowed_signers or "PRIVATE" in allowed_signers:
+            fail("packaged demo allowed_signers is missing its demo-only public-key marker")
         catalog = json.loads((package / ".well-known/ai-catalog.json").read_text())
         catalog_urls = {entry.get("url") for entry in catalog.get("entries", [])}
         expected_card_urls = {
@@ -363,12 +373,23 @@ def main() -> None:
         if required not in transcript_text:
             fail(f"transcript lacks required result: {required}")
 
-    references = (ROOT / "docs/cli.md").read_text() + "\n" + (ROOT / "README.md").read_text()
+    cli_reference = (ROOT / "docs/cli.md").read_text()
+    install_reference = (ROOT / "README.md").read_text()
+    references = cli_reference + "\n" + install_reference
     commands = {text.strip() for text in documents[0].code_text if re.match(r"^(?:git-a2a|go install|go run|curl -fsSL|irm |brew install|scoop install|npx |uvx |docker run)", text.strip())}
-    documented_roots = {" ".join(command.split()[:2]) for command in commands}
-    for command_root in sorted(documented_roots):
-        if command_root not in references:
-            fail(f"page command is absent from CLI or install documentation: {command_root}")
+    grouped = {"agent", "card", "catalog", "export", "policy", "trust"}
+    for command in sorted(commands):
+        words = command.split()
+        if words[0] == "git-a2a":
+            if len(words) < 2 or not re.search(rf"^## {re.escape(words[1])}$", cli_reference, re.M):
+                fail(f"page command is absent from CLI documentation: {command}")
+            if words[1] in grouped:
+                if len(words) < 3 or not re.search(rf"\b{re.escape(words[1])}\s+{re.escape(words[2])}\b", cli_reference):
+                    fail(f"page subcommand is absent from CLI documentation: {command}")
+            continue
+        signature = " ".join(words[:2])
+        if signature not in references:
+            fail(f"page install command is absent from installation documentation: {command}")
 
     above_fold = [SITE / "index.html", SITE / "assets/site.css", SITE / "assets/site.js",
                   SITE / "fonts/ibm-plex-sans-400-latin.woff2", SITE / "fonts/jetbrains-mono-400-latin.woff2"]

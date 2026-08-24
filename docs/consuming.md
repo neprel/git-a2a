@@ -36,6 +36,8 @@ generated integration. Meson projects use `--vendor-path subprojects/<id>`. Dirt
 vendored content blocks update, replacement, and removal unless `--force` explicitly authorizes
 data loss. Commit `.gitmodules` and the gitlink for submodule mode, or the copied tree for copy
 mode, together with the manifest, lock, and native wiring.
+The full transport/build-system matrix and CI/Windows notes are in
+[Vendored dependencies](vendoring.md).
 
 ## Restore disposable state after clone
 
@@ -75,6 +77,11 @@ git-a2a update acme-lib-utils --review
 reason for CI to rewrite a dependency automatically. Review the reported change, then run the
 mutating update deliberately.
 
+For public or cross-organisation dependencies, require signed commits/cards and an origin binding
+in `dependencies[].require`. The `signers` file is repository-relative Git `allowed_signers`
+syntax. Add/update/set/fetch verify before publishing lock/cache state; `trust show` explains the
+result, and a deliberate card-key rotation needs `update --accept-keys`. See [Trust](trust.md).
+
 Change source or tracking explicitly:
 
 ```sh
@@ -110,6 +117,8 @@ Routing is intent → policy role → most specific matching agent scope → dec
 order. `contact` delivers through A2A or GitHub Issues when configured; other known kinds print
 an exact instruction. See the generated [contact-kind reference](contact-kinds.md). Delivery
 history is not stored.
+An owner with `accepts-external: false` refuses a consumer from another organisation. Only a
+human CLI invocation can approve the exception with `--external-ok`; MCP cannot bypass it.
 
 ## Remove
 

@@ -344,6 +344,10 @@ cannot close or open a managed block), and `update` shows the textual diff of wh
 before it is rendered (`--review`, default on when a TTY is attached). The CLI never executes
 anything a manifest names — no scripts, no URLs fetched beyond cards and git.
 
+Machine outputs (`--json`, MCP results) carry the same protection as Markdown: dependency-origin
+strings are capped and stripped, each containing object names its `origin`, and the result lists
+`untrustedFields` so a caller can treat them as data.
+
 # rule Unknown is not an error where the standard says it is open {#open_vocabularies}
 
 `contacts[].kind`, `intents`, `agents[].role` and `exports[].ecosystem` are open vocabularies: a

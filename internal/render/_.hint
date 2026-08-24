@@ -11,6 +11,9 @@ Unicode control rune with a space, collapses whitespace, escapes Markdown table 
 truncates by runes with an explicit `…[truncated]` marker. Limits are 600 runes for module
 descriptions and 300 for notes and other fields. Sanitizing is idempotent, and no input can
 create `<!-- git-a2a:begin -->` or `<!-- git-a2a:end -->` in generated content.
+The exported machine-text sanitizer applies the same delimiter removal, control stripping,
+whitespace normalization, and length bounds before dependency data enters JSON or MCP results;
+JSON escaping, rather than Markdown pipe escaping, is the final encoding layer there.
 
 # invariant Managed block replacement is singular and atomic
 

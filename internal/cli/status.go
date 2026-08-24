@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
+	"sort"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -27,17 +29,20 @@ import (
 )
 
 type statusRow struct {
-	ID       string   `json:"id"`
-	Source   string   `json:"source"`
-	Ref      string   `json:"ref"`
-	Upstream string   `json:"upstream"`
-	Manifest string   `json:"manifest"`
-	Wiring   string   `json:"wiring"`
-	Vendor   string   `json:"vendor"`
-	Agents   string   `json:"agents"`
-	Sync     string   `json:"sync"`
-	Details  []string `json:"details,omitempty"`
-	failed   bool
+	ID              string   `json:"id"`
+	Source          string   `json:"source"`
+	Ref             string   `json:"ref"`
+	Upstream        string   `json:"upstream"`
+	Manifest        string   `json:"manifest"`
+	Wiring          string   `json:"wiring"`
+	Vendor          string   `json:"vendor"`
+	Agents          string   `json:"agents"`
+	Sync            string   `json:"sync"`
+	Details         []string `json:"details,omitempty"`
+	Trust           any      `json:"trust,omitempty"`
+	Origin          string   `json:"origin"`
+	UntrustedFields []string `json:"untrustedFields"`
+	failed          bool
 }
 
 func (a *App) status(args []string) int {
@@ -87,13 +92,15 @@ func (a *App) status(args []string) int {
 		}
 		matched++
 		entry, ok := l.Dependencies[dep.ID]
-		row := statusRow{ID: dep.ID, Source: "canonical", Ref: refLabel(dep.Ref, ""), Upstream: "unknown", Manifest: "unknown", Wiring: "clean", Vendor: "none", Agents: "unknown", Sync: syncState}
+		row := statusRow{ID: dep.ID, Source: "canonical", Ref: refLabel(dep.Ref, ""), Upstream: "unknown", Manifest: "unknown", Wiring: "clean", Vendor: "none", Agents: "unknown", Sync: syncState, Origin: dependencyOrigin(dep.ID, ""), UntrustedFields: []string{"/source", "/details"}}
 		if !ok {
 			row.Manifest = "unlocked"
 			row.failed = true
 			rows = append(rows, row)
 			continue
 		}
+		row.Origin = dependencyOrigin(dep.ID, entry.Commit)
+		row.Trust = map[string]any{"require": dependencyTrustRequirement(dep.Require), "verified": entry.Verified, "cardKeys": entry.CardsKeys}
 		if entry.Git != dep.Git || entry.Ref != dep.Ref || entry.Path != defaultPath(dep.Path) {
 			row.failed = true
 			row.Details = append(row.Details, "manifest entry differs from lock — run update")
@@ -193,6 +200,30 @@ func (a *App) status(args []string) int {
 			}
 		}
 		if depManifest != nil {
+			if dep.Require != nil && dep.Require.Commits == "signed" {
+				if offline {
+					if entry.Verified != "signed" {
+						row.failed = true
+						row.Details = append(row.Details, "trust: locked commit is not verified as signed")
+					}
+				} else {
+					verifyWork, tempErr := os.MkdirTemp("", "git-a2a-status-signature-")
+					if tempErr != nil {
+						row.failed = true
+						row.Details = append(row.Details, "trust: "+tempErr.Error())
+					} else {
+						resolution, resolveErr := gitx.ResolveDetailed(a.context(), a.runner(), dep.Git, dep.Ref)
+						if resolveErr == nil {
+							_, verifyErr := a.verifyCommitTrust(root, dep, fetch.Result{Commit: entry.Commit, Ref: resolution.FullRef}, resolution.Kind, false, verifyWork)
+							if verifyErr != nil {
+								row.failed = true
+								row.Details = append(row.Details, "trust: "+verifyErr.Error())
+							}
+						}
+						_ = os.RemoveAll(verifyWork)
+					}
+				}
+			}
 			findings, wiringStates, e := driftAll(a.context(), root, dep, *depManifest, entry)
 			if e != nil {
 				row.Wiring = "error"
@@ -238,7 +269,7 @@ func (a *App) status(args []string) int {
 					}
 				}
 			}
-			agentState, failed, details := checkAgents(depManifest, entry.Cards, filepath.Join(cache.Dir(root, dep.ID), "cards"), root, offline)
+			agentState, failed, details := checkAgents(depManifest, entry.Cards, entry.CardsKeys, filepath.Join(cache.Dir(root, dep.ID), "cards"), root, offline, dep.Git, dep.Require, verbose)
 			row.Agents = dependencyAgentSummary(agentState)
 			row.failed = row.failed || failed
 			row.Details = append(row.Details, details...)
@@ -256,7 +287,7 @@ func (a *App) status(args []string) int {
 	ownFailed := false
 	var ownDetails []string
 	if len(wanted) == 0 {
-		ownState, ownFailed, ownDetails = checkAgents(own, nil, root, root, offline)
+		ownState, ownFailed, ownDetails = checkAgents(own, nil, nil, root, root, offline, own.Module.Repository, nil, verbose)
 		if verbose {
 			for _, implementation := range adapters.All() {
 				ok, variant, detectErr := implementation.Detect(root)
@@ -314,6 +345,12 @@ func (a *App) status(args []string) int {
 	if jsonOut {
 		public := make([]statusRow, len(rows))
 		copy(public, rows)
+		for index := range public {
+			public[index].Source = render.SanitizeMachineText(public[index].Source, false)
+			for detailIndex := range public[index].Details {
+				public[index].Details[detailIndex] = render.SanitizeMachineText(public[index].Details[detailIndex], false)
+			}
+		}
 		b, _ := json.MarshalIndent(public, "", "  ")
 		fmt.Fprintln(a.Out, string(b))
 	} else {
@@ -349,6 +386,13 @@ func (a *App) status(args []string) int {
 		return 1
 	}
 	return 0
+}
+
+func dependencyTrustRequirement(require *manifest.Require) any {
+	if require == nil {
+		return map[string]any{"commits": "any", "cards": "any", "cardOrigin": false}
+	}
+	return require
 }
 
 func ownAgentSummary(state string) string {
@@ -446,7 +490,7 @@ func driftAll(ctx context.Context, root string, dep manifest.Dependency, m manif
 
 type stringFinding struct{ File, Entry, Want, Got string }
 
-func checkAgents(m *manifest.Manifest, expected map[string]string, base, trustRoot string, offline bool) (string, bool, []string) {
+func checkAgents(m *manifest.Manifest, expected map[string]string, expectedKeys map[string]manifest.LockedCardKey, base, trustRoot string, offline bool, canonicalGit string, require *manifest.Require, verbose bool) (string, bool, []string) {
 	count := 0
 	down := 0
 	untrusted := 0
@@ -457,11 +501,12 @@ func checkAgents(m *manifest.Manifest, expected map[string]string, base, trustRo
 			continue
 		}
 		count++
-		requiresSignature := agent.Trust != nil && agent.Trust.Signatures
+		requiresSignature := agent.Trust != nil && agent.Trust.Signatures || require != nil && require.Cards == "signed"
 		if offline && !requiresSignature {
 			continue
 		}
-		location := agent.Card
+		cardURL := agent.Card
+		location := cardURL
 		readBase := base
 		if expected != nil && (offline || (!strings.HasPrefix(location, "http://") && !strings.HasPrefix(location, "https://"))) {
 			location = a2a.FileName(agent.Name)
@@ -486,9 +531,40 @@ func checkAgents(m *manifest.Manifest, expected map[string]string, base, trustRo
 			continue
 		}
 		if requiresSignature {
-			if _, verifyErr := a2a.VerifySignatures(b, a2a.VerifyOptions{CacheRoot: trustRoot, Offline: offline}); verifyErr != nil {
+			verification, verifyErr := a2a.VerifySignatures(b, cardVerifyOptions(agent, trustRoot, offline, cardURL))
+			if verifyErr != nil {
 				untrusted++
 				details = append(details, fmt.Sprintf("agent %s signature invalid: %v", agent.Name, verifyErr))
+				continue
+			}
+			if expected != nil || expectedKeys != nil {
+				locked, ok := expectedKeys[agent.Name]
+				if !ok {
+					untrusted++
+					details = append(details, fmt.Sprintf("agent %s trust: key not recorded; run git-a2a update --accept-keys", agent.Name))
+					continue
+				}
+				if locked.KeyID != verification.KeyID || locked.Thumbprint != verification.Thumbprint {
+					untrusted++
+					details = append(details, fmt.Sprintf("agent %s trust: key changed; run git-a2a update --accept-keys", agent.Name))
+					continue
+				}
+			}
+			if verification.UnpinnedKey {
+				details = append(details, fmt.Sprintf("agent %s trust: unpinned key source", agent.Name))
+			}
+			if offline {
+				details = append(details, fmt.Sprintf("agent %s JWKS cache age: %s", agent.Name, verification.CacheAge.Round(time.Second)))
+			}
+		}
+		origins := []string(nil)
+		if agent.Trust != nil {
+			origins = agent.Trust.Origins
+		}
+		if originErr := a2a.CheckOrigins(b, cardURL, m.Module.Repository, canonicalGit, origins); originErr != nil {
+			details = append(details, fmt.Sprintf("agent %s %v", agent.Name, originErr))
+			if requiresSignature || require != nil && require.CardOrigin {
+				untrusted++
 				continue
 			}
 		}
@@ -497,6 +573,12 @@ func checkAgents(m *manifest.Manifest, expected map[string]string, base, trustRo
 			if "sha256:"+hex.EncodeToString(sum[:]) != want {
 				changed++
 				details = append(details, fmt.Sprintf("agent %s card changed since snapshot", agent.Name))
+				if verbose {
+					old, _ := os.ReadFile(filepath.Join(base, a2a.FileName(agent.Name)))
+					for _, field := range changedJSONFields(old, b) {
+						details = append(details, fmt.Sprintf("agent %s card field changed: %s", agent.Name, field))
+					}
+				}
 			}
 		}
 	}
@@ -516,6 +598,58 @@ func checkAgents(m *manifest.Manifest, expected map[string]string, base, trustRo
 		return fmt.Sprintf("%d changed", changed), true, details
 	}
 	return fmt.Sprintf("%d up", count), false, details
+}
+
+func changedJSONFields(oldRaw, newRaw []byte) []string {
+	var oldValue, newValue any
+	if json.Unmarshal(oldRaw, &oldValue) != nil || json.Unmarshal(newRaw, &newValue) != nil {
+		return []string{"/"}
+	}
+	var changed []string
+	var walk func(string, any, any)
+	walk = func(pointer string, old, next any) {
+		oldMap, oldOK := old.(map[string]any)
+		nextMap, nextOK := next.(map[string]any)
+		if oldOK && nextOK {
+			keys := map[string]bool{}
+			for key := range oldMap {
+				keys[key] = true
+			}
+			for key := range nextMap {
+				keys[key] = true
+			}
+			ordered := make([]string, 0, len(keys))
+			for key := range keys {
+				ordered = append(ordered, key)
+			}
+			sort.Strings(ordered)
+			for _, key := range ordered {
+				walk(pointer+"/"+strings.ReplaceAll(strings.ReplaceAll(key, "~", "~0"), "/", "~1"), oldMap[key], nextMap[key])
+			}
+			return
+		}
+		if !reflect.DeepEqual(old, next) {
+			if pointer == "" {
+				pointer = "/"
+			}
+			changed = append(changed, pointer)
+		}
+	}
+	walk("", oldValue, newValue)
+	return changed
+}
+
+func cardVerifyOptions(agent manifest.Agent, root string, offline bool, cardURL string) a2a.VerifyOptions {
+	options := a2a.VerifyOptions{CacheRoot: root, Offline: offline, CardURL: cardURL}
+	if agent.Trust == nil {
+		return options
+	}
+	options.PinnedJWKS = agent.Trust.JWKS
+	options.PinnedKeys = agent.Trust.Keys
+	if agent.Trust.JWKSMaxAge != "" {
+		options.MaxAge, _ = time.ParseDuration(agent.Trust.JWKSMaxAge)
+	}
+	return options
 }
 func readCard(location, base string) ([]byte, error) {
 	if strings.HasPrefix(location, "http://") || strings.HasPrefix(location, "https://") {

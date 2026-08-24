@@ -25,6 +25,18 @@ It contains fetched manifests, card snapshots, surfaces, trust keys, and Git wor
 durable coordinates and hashes are in `a2amodule.lock`, so `git-a2a fetch` can reconstruct cache
 content after a fresh clone. Committing the cache would duplicate derived state and machine details.
 
+## When should I use a submodule instead of copy vendoring?
+
+Use a submodule when the source repository identity, compact history, and explicit gitlink are
+useful; use copy when an ordinary clone must contain all files. Both remain fixed to the lock and
+refuse dirty replacement without `--force`; see [Vendored dependencies](vendoring.md).
+
+## Why does `fetch` exist when `update` already downloads data?
+
+`fetch` is the lock-replay operation for a fresh clone: it restores disposable cache and vendored
+trees without resolving a moving ref or changing durable files. `update` intentionally asks the
+remote what a ref means now and may move the lock.
+
 ## How does this relate to A2A?
 
 A2A defines native Agent Cards and agent-to-agent messaging. `a2amodule.yml` binds a repository
@@ -45,6 +57,12 @@ skill, while the full portable skill ships in this repository, npm, and the webs
 is the consumer-facing roster surface: `sync` owns only its delimited block. Neither replaces the
 durable, harness-neutral manifest and lock.
 
+## What does `setup` write?
+
+It writes repository-scoped skill pointers, one bounded AGENTS.md pointer, and supported harness
+MCP configuration while preserving unrelated keys. It never changes home-directory configuration,
+installs a harness, or grants MCP write/any-root access; preview it with `setup --dry-run`.
+
 ## Can it work without network access?
 
 Yes, after the exact locked cache and required native dependencies are present. Run
@@ -56,6 +74,19 @@ delivery, moving-ref checks, and missing cache reconstruction naturally need the
 
 No. `doctor` reports required tools and installation hints, but never installs them. git-a2a
 also does not run agent services, choose a chat platform, host cards, or retain message history.
+
+## Why pin a JWKS if the card signature already verifies?
+
+A `jku` inside the signed card proves only that the signer controls the key at that URL. An
+attacker serving both a forged card and its JWKS can satisfy that circular claim. Pinning the
+expected JWKS URL or RFC 7638 thumbprint supplies the consumer-controlled trust anchor; see the
+[trust guide](trust.md).
+
+## Why not operate an identity registry?
+
+Repository owners already publish Git history, cards, origins, and keys through infrastructure
+they control. git-a2a verifies consumer-selected anchors and records exact lock evidence; it does
+not appoint a global authority or turn a discovery service into an identity provider.
 
 ## What happens to an unknown role, intent, contact kind, or ecosystem?
 

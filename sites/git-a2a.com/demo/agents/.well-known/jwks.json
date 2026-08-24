@@ -1,0 +1,12 @@
+{
+  "keys": [
+    {
+      "alg": "EdDSA",
+      "crv": "Ed25519",
+      "kid": "acme-demo-2026",
+      "kty": "OKP",
+      "use": "sig",
+      "x": "l6gguJO8OtTwWhQFFNsaE6D0jEN8XlDE2tA1dmo4TkY"
+    }
+  ]
+}

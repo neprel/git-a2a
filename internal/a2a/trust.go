@@ -29,15 +29,22 @@ import (
 const maxJWKSSize = 2 << 20
 
 type VerifyOptions struct {
-	CacheRoot string
-	Client    *http.Client
-	Offline   bool
+	CacheRoot  string
+	Client     *http.Client
+	Offline    bool
+	CardURL    string
+	PinnedJWKS []string
+	PinnedKeys []string
+	MaxAge     time.Duration
 }
 
 type Verification struct {
-	KeyID     string
-	Algorithm string
-	JWKS      string
+	KeyID       string
+	Algorithm   string
+	JWKS        string
+	Thumbprint  string
+	CacheAge    time.Duration
+	UnpinnedKey bool
 }
 
 // VerifySignatures verifies at least one detached JWS signature over the RFC
@@ -98,13 +105,25 @@ func verifySignature(signature map[string]any, payload64 string, options VerifyO
 	if typ, ok := protected["typ"].(string); ok && !strings.EqualFold(typ, "JOSE") {
 		return Verification{}, fmt.Errorf("protected typ must be JOSE")
 	}
-	keySet, err := readJWKS(jwksURL, options)
+	if len(options.PinnedJWKS) == 0 && len(options.PinnedKeys) == 0 && !sameOrigin(jwksURL, options.CardURL) {
+		return Verification{}, fmt.Errorf("unpinned jku must have the same origin as the card URL")
+	}
+	keySet, cacheAge, err := readJWKS(jwksURL, options)
 	if err != nil {
 		return Verification{}, err
 	}
 	key, err := selectJWK(keySet, keyID, algorithm)
 	if err != nil {
 		return Verification{}, err
+	}
+	thumbprint, err := JWKThumbprint(key)
+	if err != nil {
+		return Verification{}, err
+	}
+	if len(options.PinnedJWKS) > 0 || len(options.PinnedKeys) > 0 {
+		if !containsString(options.PinnedJWKS, jwksURL) && !containsString(options.PinnedKeys, thumbprint) {
+			return Verification{}, fmt.Errorf("signature key is not pinned by trust.jwks or trust.keys")
+		}
 	}
 	signatureBytes, err := base64.RawURLEncoding.DecodeString(signature64)
 	if err != nil {
@@ -114,23 +133,43 @@ func verifySignature(signature map[string]any, payload64 string, options VerifyO
 	if err = verifyJWS(algorithm, key, input, signatureBytes); err != nil {
 		return Verification{}, err
 	}
-	return Verification{KeyID: keyID, Algorithm: algorithm, JWKS: jwksURL}, nil
+	return Verification{KeyID: keyID, Algorithm: algorithm, JWKS: jwksURL, Thumbprint: thumbprint, CacheAge: cacheAge, UnpinnedKey: len(options.PinnedJWKS) == 0 && len(options.PinnedKeys) == 0}, nil
 }
 
-func readJWKS(location string, options VerifyOptions) (map[string]any, error) {
+func readJWKS(location string, options VerifyOptions) (map[string]any, time.Duration, error) {
 	parsed, err := url.Parse(location)
 	if err != nil || parsed.Host == "" || (parsed.Scheme != "https" && parsed.Scheme != "http") {
-		return nil, fmt.Errorf("jku must be an HTTP(S) URL")
+		return nil, 0, fmt.Errorf("jku must be an HTTP(S) URL")
 	}
 	if parsed.Scheme == "http" && parsed.Hostname() != "localhost" && parsed.Hostname() != "127.0.0.1" && parsed.Hostname() != "::1" {
-		return nil, fmt.Errorf("jku must use HTTPS except on loopback")
+		return nil, 0, fmt.Errorf("jku must use HTTPS except on loopback")
 	}
 	cachePath := ""
 	if options.CacheRoot != "" {
 		sum := sha256.Sum256([]byte(location))
 		cachePath = filepath.Join(options.CacheRoot, ".git-a2a", "jwks", hex.EncodeToString(sum[:])+".json")
 	}
+	maxAge := options.MaxAge
+	if maxAge <= 0 {
+		maxAge = 24 * time.Hour
+	}
 	var raw []byte
+	var cacheAge time.Duration
+	if cachePath != "" {
+		if info, statErr := os.Stat(cachePath); statErr == nil {
+			cacheAge = time.Since(info.ModTime())
+			if cacheAge < 0 {
+				cacheAge = 0
+			}
+			if options.Offline || cacheAge <= maxAge {
+				raw, err = os.ReadFile(cachePath)
+				if err == nil {
+					set, parseErr := parseJWKS(raw)
+					return set, cacheAge, parseErr
+				}
+			}
+		}
+	}
 	if !options.Offline {
 		client := options.Client
 		if client == nil {
@@ -150,27 +189,32 @@ func readJWKS(location string, options VerifyOptions) (map[string]any, error) {
 		}
 		if requestErr == nil {
 			if _, parseErr := parseJWKS(raw); parseErr != nil {
-				return nil, parseErr
+				return nil, 0, parseErr
 			}
 			if cachePath != "" {
 				if cacheErr := writeCache(cachePath, raw); cacheErr != nil {
-					return nil, fmt.Errorf("cache JWKS: %w", cacheErr)
+					return nil, 0, fmt.Errorf("cache JWKS: %w", cacheErr)
 				}
 			}
-			return parseJWKS(raw)
+			set, parseErr := parseJWKS(raw)
+			return set, 0, parseErr
 		}
 	}
 	if cachePath == "" {
-		return nil, fmt.Errorf("JWKS unavailable and no cache configured")
+		return nil, 0, fmt.Errorf("JWKS unavailable and no cache configured")
 	}
 	raw, err = os.ReadFile(cachePath)
 	if err != nil {
 		if options.Offline {
-			return nil, fmt.Errorf("JWKS is not cached")
+			return nil, 0, fmt.Errorf("JWKS is not cached")
 		}
-		return nil, fmt.Errorf("JWKS fetch failed and no cache is available")
+		return nil, 0, fmt.Errorf("JWKS fetch failed and no cache is available")
 	}
-	return parseJWKS(raw)
+	if info, statErr := os.Stat(cachePath); statErr == nil {
+		cacheAge = time.Since(info.ModTime())
+	}
+	set, parseErr := parseJWKS(raw)
+	return set, cacheAge, parseErr
 }
 
 func parseJWKS(raw []byte) (map[string]any, error) {
@@ -221,6 +265,53 @@ func selectJWK(set map[string]any, keyID, algorithm string) (map[string]any, err
 		return key, nil
 	}
 	return nil, fmt.Errorf("JWKS has no signing key %q for %s", keyID, algorithm)
+}
+
+// JWKThumbprint returns the RFC 7638 SHA-256 thumbprint for a public JWK.
+func JWKThumbprint(jwk map[string]any) (string, error) {
+	var members []string
+	switch jwk["kty"] {
+	case "EC":
+		members = []string{"crv", "kty", "x", "y"}
+	case "RSA":
+		members = []string{"e", "kty", "n"}
+	case "OKP":
+		members = []string{"crv", "kty", "x"}
+	default:
+		return "", fmt.Errorf("unsupported JWK kty %q", jwk["kty"])
+	}
+	canonical := make(map[string]any, len(members))
+	for _, member := range members {
+		value, ok := jwk[member].(string)
+		if !ok || value == "" {
+			return "", fmt.Errorf("JWK field %s is required for thumbprint", member)
+		}
+		canonical[member] = value
+	}
+	var body bytes.Buffer
+	if err := appendCanonical(&body, canonical); err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(body.Bytes())
+	return base64.RawURLEncoding.EncodeToString(sum[:]), nil
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
+
+func sameOrigin(left, right string) bool {
+	leftURL, leftErr := url.Parse(left)
+	rightURL, rightErr := url.Parse(right)
+	if leftErr != nil || rightErr != nil || leftURL.Scheme == "" || rightURL.Scheme == "" || leftURL.Host == "" || rightURL.Host == "" {
+		return false
+	}
+	return strings.EqualFold(leftURL.Scheme, rightURL.Scheme) && strings.EqualFold(leftURL.Host, rightURL.Host)
 }
 
 func verifyJWS(algorithm string, jwk map[string]any, input, signature []byte) error {

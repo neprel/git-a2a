@@ -15,8 +15,18 @@ Remote key URLs use HTTPS, except loopback HTTP used for local agents and tests.
 # decision JWKS cache is local fallback state
 
 Successful JWKS responses are atomically cached by URL hash under `.git-a2a/jwks/`. Online
-verification refreshes the key set and falls back to the cache when retrieval fails; offline
-verification reads only the cache. Cache files contain no timestamps and are never committed.
+verification refreshes a cached key set after `trust.jwks-max-age` (24h by default) and falls
+back to it only when retrieval fails; offline verification reads only the cache and reports its
+filesystem age. A fresh key set that omits a formerly locked key treats that key as revoked.
+Cache files contain no embedded timestamps and are never committed.
+
+# decision A card signature needs a repository-bound trust anchor
+
+A protected-header `jku` is accepted only when its URL is declared in `trust.jwks`, its selected
+key's RFC 7638 thumbprint is declared in `trust.keys`, or both lists are empty and `jku` has the
+same origin as the card URL. The last form is verified but explicitly reported as unpinned. Card
+and interface origins follow `trust.origins` when present, otherwise the owner repository origin
+or a matching git-a2a extension repository binds them to the dependency Git URL.
 
 # test Trust verification
 

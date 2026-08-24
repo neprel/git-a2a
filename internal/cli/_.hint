@@ -156,3 +156,14 @@ an explicit `--roots <repo>`.
 Write-enabled MCP `add` and `set` expose the same `vendor`, `vendorPath`, `noVendor`, and `force`
 choices as the CLI and delegate them as ordinary command flags; MCP does not invent a separate
 materialisation model.
+
+# decision Consumer trust gates run before durable publication
+
+When `dependencies[].require.commits` is `signed`, add, update, set, and fetch verify the exact
+resolved object through Git using the repository-relative `require.signers` allowed-signers file.
+Verification happens in a scratch repository before lock or live-cache replacement; status
+rechecks online and trusts only `verified: signed` offline. The explicit
+`--insecure-skip-signers` escape hatch records `verified: skipped` on lock-writing commands.
+`accepts-external: false` is enforced before delivery by comparing the consumer and owner
+organisations; MCP has no override, while the CLI-only `--external-ok` makes human approval
+visible in the delivery output.

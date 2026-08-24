@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"sort"
@@ -120,6 +121,8 @@ func (a *App) Run(args []string) int {
 		return a.format(args[1:])
 	case "doctor":
 		return a.doctor(args[1:])
+	case "trust":
+		return a.trust(args[1:])
 	case "usage":
 		return a.agentUsage(args[1:])
 	case "agent":
@@ -152,7 +155,7 @@ func (a *App) usage() {
 	fmt.Fprintln(a.Out, "  git-a2a usage --prompt")
 	fmt.Fprintln(a.Out, "\nCommands:")
 	fmt.Fprintln(a.Out, "  init validate add set pin unpin wire update remove fetch show sync who contact")
-	fmt.Fprintln(a.Out, "  status card catalog agent export policy explain fmt doctor usage setup mcp version upgrade")
+	fmt.Fprintln(a.Out, "  status trust card catalog agent export policy explain fmt doctor usage setup mcp version upgrade")
 	fmt.Fprintln(a.Out, "\nExit codes:")
 	fmt.Fprintln(a.Out, "  0 success or clean check; 1 operational failure or drift; 2 invalid or unresolved input")
 }
@@ -161,19 +164,21 @@ func (a *App) commandUsage(command string) {
 	helpByCommand := map[string]help{
 		"init":           {"git-a2a init [--id ID] [--description TEXT] [--surface DIR] [--export ECOSYSTEM=NAME] [--example lib|app]", "git-a2a init --id consumer-app --yes"},
 		"validate":       {"git-a2a validate [FILE ...] [--json]", "git-a2a validate a2amodule.yml --json"},
-		"add":            {"git-a2a add URL [--id ID] [--path DIR] [--track locked|floating] [--wire LIST|--no-wire] [--vendor submodule|copy] [--vendor-path PATH] [--no-refresh]", "git-a2a add https://github.com/acme/lib.git --vendor submodule"},
-		"set":            {"git-a2a set ID [--git URL] [--ref REF] [--path DIR] [--track locked|floating] [--id NEW-ID] [--vendor submodule|copy|--no-vendor] [--vendor-path PATH] [--force] [--dry-run] [--no-refresh]", "git-a2a set acme-lib --vendor copy"},
+		"add":            {"git-a2a add URL [--id ID] [--path DIR] [--track locked|floating] [--wire LIST|--no-wire] [--vendor submodule|copy] [--vendor-path PATH] [--no-refresh] [--insecure-skip-signers]", "git-a2a add https://github.com/acme/lib.git --vendor submodule"},
+		"set":            {"git-a2a set ID [--git URL] [--ref REF] [--path DIR] [--track locked|floating] [--id NEW-ID] [--vendor submodule|copy|--no-vendor] [--vendor-path PATH] [--force] [--dry-run] [--no-refresh] [--insecure-skip-signers]", "git-a2a set acme-lib --vendor copy"},
 		"pin":            {"git-a2a pin ID [COMMIT] [--no-refresh]", "git-a2a pin acme-lib"},
 		"unpin":          {"git-a2a unpin ID --ref REF [--track locked|floating] [--no-refresh]", "git-a2a unpin acme-lib --ref main"},
 		"wire":           {"git-a2a wire [ID] [--ecosystem NAME] [--no-refresh]", "git-a2a wire acme-lib --ecosystem npm"},
-		"update":         {"git-a2a update [ID ...] [--check] [--review|--no-review] [--follow-moves] [--force] [--no-refresh]", "git-a2a update --check"},
+		"update":         {"git-a2a update [ID ...] [--check] [--review|--no-review] [--follow-moves] [--accept-keys] [--force] [--no-refresh] [--insecure-skip-signers]", "git-a2a update --check"},
 		"remove":         {"git-a2a remove ID [--keep-wiring] [--force]", "git-a2a remove acme-lib"},
 		"show":           {"git-a2a show [ID] [--json] [--surface]", "git-a2a show acme-lib --surface"},
-		"fetch":          {"git-a2a fetch [ID ...] [--surface] [--json]", "git-a2a fetch acme-lib --surface --json"},
+		"fetch":          {"git-a2a fetch [ID ...] [--surface] [--json] [--insecure-skip-signers]", "git-a2a fetch acme-lib --surface --json"},
+		"trust":          {"git-a2a trust show [ID] [--json]", "git-a2a trust show acme-lib --json"},
+		"trust show":     {"git-a2a trust show [ID] [--json]", "git-a2a trust show acme-lib --json"},
 		"sync":           {"git-a2a sync [--check] [--brief] [--target FILE]", "git-a2a sync --check"},
 		"who":            {"git-a2a who [ID] [--intent INTENT] [--path FILE] [--json]", "git-a2a who acme-lib --intent change --json"},
-		"contact":        {"git-a2a contact ID --intent INTENT --message FILE|- [--wait]", "git-a2a contact acme-lib --intent change --message request.md"},
-		"ask":            {"git-a2a contact ID --intent INTENT --message FILE|- [--wait]", "git-a2a contact acme-lib --intent change --message request.md"},
+		"contact":        {"git-a2a contact ID --intent INTENT --message FILE|- [--wait] [--external-ok]", "git-a2a contact acme-lib --intent change --message request.md"},
+		"ask":            {"git-a2a contact ID --intent INTENT --message FILE|- [--wait] [--external-ok]", "git-a2a contact acme-lib --intent change --message request.md"},
 		"status":         {"git-a2a status [ID ...] [--offline] [--json] [-v]", "git-a2a status --offline --json"},
 		"card":           {"git-a2a card <export|validate|verify|show> [options]", "git-a2a card export acme-owner --out agent-card.json"},
 		"catalog":        {"git-a2a catalog export [--out FILE]", "git-a2a catalog export --out ai-catalog.json"},
@@ -191,7 +196,7 @@ func (a *App) commandUsage(command string) {
 		"policy":         {"git-a2a policy set [INTENT=ROLE ...] [--may LIST] [--may-not LIST] [--notes TEXT]", "git-a2a policy set change=owner --may read-surface,ask --may-not commit"},
 		"policy set":     {"git-a2a policy set [INTENT=ROLE ...] [--may LIST] [--may-not LIST] [--notes TEXT]", "git-a2a policy set change=owner --may read-surface,ask --may-not commit"},
 		"card export":    {"git-a2a card export AGENT [--out FILE]", "git-a2a card export acme-owner --out agent-card.json"},
-		"card verify":    {"git-a2a card verify FILE|URL", "git-a2a card verify agent-card.json"},
+		"card verify":    {"git-a2a card verify FILE|URL [--jwks URL]... [--key THUMBPRINT]...", "git-a2a card verify agent-card.json --jwks https://agents.acme.example/.well-known/jwks.json"},
 		"card validate":  {"git-a2a card validate FILE", "git-a2a card validate agent-card.json"},
 		"card show":      {"git-a2a card show FILE|URL", "git-a2a card show agent-card.json"},
 		"catalog export": {"git-a2a catalog export [--out FILE]", "git-a2a catalog export --out ai-catalog.json"},
@@ -508,7 +513,7 @@ func (a *App) validate(args []string) int {
 type addOptions struct {
 	url, ref, path, id, track, vendorMode, vendorPath string
 	wire                                              *[]string
-	noRefresh                                         bool
+	noRefresh, insecureSkipSigners                    bool
 }
 
 func parseAdd(args []string) (addOptions, error) {
@@ -554,6 +559,8 @@ func parseAdd(args []string) (addOptions, error) {
 			o.wire = &wires
 		case "--no-refresh":
 			o.noRefresh = true
+		case "--insecure-skip-signers":
+			o.insecureSkipSigners = true
 		case "--vendor":
 			v, e := next()
 			if e != nil {
@@ -654,30 +661,48 @@ func (a *App) add(args []string) int {
 			declaredChannel = o.ref
 		}
 	}
-	for _, d := range own.Dependencies {
-		if d.ID == o.id {
-			if d.Git == o.url {
-				fmt.Fprintf(a.Err, "dependency %s already present\n", o.id)
-				return 0
-			}
-			fmt.Fprintf(a.Err, "add: dependency %s already uses %s; use git-a2a set %s --git %s to move it\n", o.id, d.Git, o.id, o.url)
-			return 1
-		}
-	}
 	l, err := lockfile.Load(root)
 	if err != nil {
 		fmt.Fprintf(a.Err, "add: lock: %v\n", err)
 		return 1
 	}
+	predeclared := -1
+	for index, d := range own.Dependencies {
+		if d.ID == o.id {
+			if d.Git == o.url {
+				if entry, locked := l.Dependencies[o.id]; locked && entry.Commit != "" {
+					fmt.Fprintf(a.Err, "dependency %s already present\n", o.id)
+					return 0
+				}
+				predeclared = index
+				break
+			}
+			fmt.Fprintf(a.Err, "add: dependency %s already uses %s; use git-a2a set %s --git %s to move it\n", o.id, d.Git, o.id, o.url)
+			return 1
+		}
+	}
 	dep := manifest.Dependency{ID: o.id, Git: o.url, Ref: o.ref, Path: defaultPath(o.path), Track: o.track, Wire: o.wire}
+	if predeclared >= 0 {
+		dep = own.Dependencies[predeclared]
+	}
 	if o.vendorMode != "" {
 		dep.Vendor = &manifest.Vendor{Mode: o.vendorMode, Path: o.vendorPath}
 	}
+	verified, verifyErr := a.verifyCommitTrust(root, dep, res, "", o.insecureSkipSigners, work)
+	if verifyErr != nil {
+		fmt.Fprintf(a.Err, "add: %v; no files changed\n", verifyErr)
+		return 1
+	}
 	sum := sha256.Sum256(res.Manifest)
-	locked := manifest.LockedDependency{Git: o.url, Ref: o.ref, Path: defaultPath(o.path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:])}
+	locked := manifest.LockedDependency{Git: o.url, Ref: o.ref, Path: defaultPath(o.path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:]), Verified: verified}
 	seedVendorLock(own, dep, &locked)
 	validated := *own
-	validated.Dependencies = append(append([]manifest.Dependency(nil), own.Dependencies...), dep)
+	validated.Dependencies = append([]manifest.Dependency(nil), own.Dependencies...)
+	if predeclared >= 0 {
+		validated.Dependencies[predeclared] = dep
+	} else {
+		validated.Dependencies = append(validated.Dependencies, dep)
+	}
 	if err = validated.Validate(); err != nil {
 		fmt.Fprintf(a.Err, "add: %v; no files changed\n", err)
 		return 1
@@ -689,6 +714,9 @@ func (a *App) add(args []string) int {
 	}
 	cards, warnings := a.snapshotCardsTo(filepath.Join(cache.Dir(stagedRoot, o.id), "cards"), o.url, o.path, res.Commit, depManifest, f)
 	locked.Cards = cards
+	cardKeys, trustWarnings := inspectCardTrust(depManifest, filepath.Join(cache.Dir(stagedRoot, o.id), "cards"), root, o.url, res.Commit, dep.Require)
+	locked.CardsKeys = cardKeys
+	warnings = append(warnings, trustWarnings...)
 	preflight := filepath.Join(work, "preflight")
 	copyAdapterFiles(root, preflight)
 	if _, err := wireAll(a.context(), preflight, dep, depManifest, locked, false); err != nil {
@@ -710,7 +738,11 @@ func (a *App) add(args []string) int {
 	}
 	oldManifestBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.yml"))
 	oldLockBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.lock"))
-	own.Dependencies = append(own.Dependencies, dep)
+	if predeclared >= 0 {
+		own.Dependencies[predeclared] = dep
+	} else {
+		own.Dependencies = append(own.Dependencies, dep)
+	}
 	l.Dependencies[o.id] = locked
 	if err = writeManifest(root, own); err == nil {
 		err = lockfile.Write(root, l)
@@ -821,6 +853,8 @@ func (a *App) update(args []string) int {
 	followMoves := false
 	noRefresh := false
 	force := false
+	acceptKeys := false
+	insecureSkipSigners := false
 	review := writerIsTerminal(a.Out)
 	var ids []string
 	for _, arg := range args {
@@ -836,6 +870,10 @@ func (a *App) update(args []string) int {
 			noRefresh = true
 		} else if arg == "--force" {
 			force = true
+		} else if arg == "--accept-keys" {
+			acceptKeys = true
+		} else if arg == "--insecure-skip-signers" {
+			insecureSkipSigners = true
 		} else if strings.HasPrefix(arg, "-") {
 			fmt.Fprintf(a.Err, "update: unknown option %s\n", arg)
 			return 2
@@ -879,9 +917,46 @@ func (a *App) update(args []string) int {
 			advisories = append(advisories, fmt.Sprintf("%s: ref %s is ambiguous; selected %s", d.ID, d.Ref, resolution.FullRef))
 		}
 		if entry.Commit == commit && !cacheRepair {
+			if d.Require != nil && d.Require.Commits == "signed" {
+				verifyWork, tempErr := os.MkdirTemp("", "git-a2a-update-signature-")
+				if tempErr != nil {
+					fmt.Fprintf(a.Err, "update %s: %v\n", d.ID, tempErr)
+					return 1
+				}
+				verified, verifyErr := a.verifyCommitTrust(root, d, fetch.Result{Commit: commit, Ref: resolution.FullRef}, resolution.Kind, insecureSkipSigners, verifyWork)
+				_ = os.RemoveAll(verifyWork)
+				if verifyErr != nil {
+					fmt.Fprintf(a.Err, "update %s: %v; lock unchanged\n", d.ID, verifyErr)
+					return 1
+				}
+				if !check && entry.Verified != verified {
+					entry.Verified = verified
+					l.Dependencies[d.ID] = entry
+					if writeErr := lockfile.Write(root, l); writeErr != nil {
+						fmt.Fprintf(a.Err, "update %s signature: %v\n", d.ID, writeErr)
+						return 1
+					}
+					changed++
+				}
+			}
 			if cachedManifest, loadErr := manifest.Load(filepath.Join(cache.Dir(root, d.ID), "a2amodule.yml")); loadErr == nil {
-				for _, warning := range trustedCardWarnings(cachedManifest, filepath.Join(cache.Dir(root, d.ID), "cards"), root) {
+				currentKeys, warnings := inspectCardTrust(cachedManifest, filepath.Join(cache.Dir(root, d.ID), "cards"), root, d.Git, entry.Commit, d.Require)
+				for _, warning := range warnings {
 					advisories = append(advisories, fmt.Sprintf("warning: %s card trust: %v", d.ID, warning))
+				}
+				nextKeys, keyWarnings := reconcileCardKeys(entry.CardsKeys, currentKeys, acceptKeys)
+				for _, warning := range keyWarnings {
+					advisories = append(advisories, fmt.Sprintf("warning: %s card trust: %v", d.ID, warning))
+				}
+				if acceptKeys && !reflect.DeepEqual(entry.CardsKeys, nextKeys) {
+					entry.CardsKeys = nextKeys
+					l.Dependencies[d.ID] = entry
+					if writeErr := lockfile.Write(root, l); writeErr != nil {
+						fmt.Fprintf(a.Err, "update %s accept keys: %v\n", d.ID, writeErr)
+						return 1
+					}
+					changed++
+					fmt.Fprintf(a.Out, "%s: accepted card keys\n", d.ID)
 				}
 			}
 			continue
@@ -938,6 +1013,12 @@ func (a *App) update(args []string) int {
 			}
 			continue
 		}
+		verified, verifyErr := a.verifyCommitTrust(root, d, res, resolution.Kind, insecureSkipSigners, work)
+		if verifyErr != nil {
+			_ = os.RemoveAll(work)
+			fmt.Fprintf(a.Err, "update %s: %v; lock unchanged\n", d.ID, verifyErr)
+			return 1
+		}
 		if resolution.Kind == "tag" && entry.Commit != "" && entry.Commit != res.Commit {
 			advisories = append(advisories, fmt.Sprintf("tag %s moved from %s to %s", d.Ref, short(entry.Commit), short(res.Commit)))
 		}
@@ -956,7 +1037,21 @@ func (a *App) update(args []string) int {
 		for _, warning := range warnings {
 			advisories = append(advisories, fmt.Sprintf("warning: %s card snapshot: %v", d.ID, warning))
 		}
-		for _, warning := range trustedCardWarnings(depManifest, filepath.Join(cache.Dir(stagedRoot, d.ID), "cards"), root) {
+		if review {
+			for agentName := range cards {
+				oldCard, _ := os.ReadFile(filepath.Join(cache.Dir(root, d.ID), "cards", a2a.FileName(agentName)))
+				newCard, _ := os.ReadFile(filepath.Join(cache.Dir(stagedRoot, d.ID), "cards", a2a.FileName(agentName)))
+				if len(oldCard) > 0 && len(newCard) > 0 && !bytes.Equal(oldCard, newCard) {
+					fmt.Fprint(a.Out, textDiff(d.ID+" card "+agentName, oldCard, newCard))
+				}
+			}
+		}
+		currentKeys, trustWarnings := inspectCardTrust(depManifest, filepath.Join(cache.Dir(stagedRoot, d.ID), "cards"), root, d.Git, res.Commit, d.Require)
+		for _, warning := range trustWarnings {
+			advisories = append(advisories, fmt.Sprintf("warning: %s card trust: %v", d.ID, warning))
+		}
+		cardKeys, keyWarnings := reconcileCardKeys(oldEntry.CardsKeys, currentKeys, acceptKeys)
+		for _, warning := range keyWarnings {
 			advisories = append(advisories, fmt.Sprintf("warning: %s card trust: %v", d.ID, warning))
 		}
 		surfaceTree := ""
@@ -979,7 +1074,7 @@ func (a *App) update(args []string) int {
 				}
 			}
 		}
-		entry = manifest.LockedDependency{Git: d.Git, Ref: d.Ref, Path: defaultPath(d.Path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:]), Cards: cards, Surface: surfaceTree}
+		entry = manifest.LockedDependency{Git: d.Git, Ref: d.Ref, Path: defaultPath(d.Path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:]), Cards: cards, CardsKeys: cardKeys, Verified: verified, Surface: surfaceTree}
 		seedVendorLock(own, d, &entry)
 		preflight := filepath.Join(work, "preflight")
 		copyAdapterFiles(root, preflight)
@@ -1079,19 +1174,7 @@ func (a *App) snapshotCardsTo(dir, url, modulePath, commit string, m *manifest.M
 }
 
 func trustedCardWarnings(m *manifest.Manifest, cardsDir, root string) []error {
-	var warnings []error
-	for _, agent := range m.Agents {
-		if agent.Card == "" || agent.Trust == nil || !agent.Trust.Signatures {
-			continue
-		}
-		raw, err := os.ReadFile(filepath.Join(cardsDir, a2a.FileName(agent.Name)))
-		if err == nil {
-			_, err = a2a.VerifySignatures(raw, a2a.VerifyOptions{CacheRoot: root})
-		}
-		if err != nil {
-			warnings = append(warnings, fmt.Errorf("%s: %w", agent.Name, err))
-		}
-	}
+	_, warnings := inspectCardTrust(m, cardsDir, root, m.Module.Repository, "", nil)
 	return warnings
 }
 
@@ -1259,7 +1342,15 @@ func (a *App) show(args []string) int {
 		return 2
 	}
 	if jsonOut {
-		b, _ := json.MarshalIndent(m, "", "  ")
+		output := any(m)
+		if id != "" {
+			commit := ""
+			if locked, lockErr := lockfile.Load(root); lockErr == nil {
+				commit = locked.Dependencies[id].Commit
+			}
+			output = dependencyMachineObject(m, dependencyOrigin(id, commit), "/module", "/agents", "/policy")
+		}
+		b, _ := json.MarshalIndent(output, "", "  ")
 		fmt.Fprintln(a.Out, string(b))
 	} else {
 		fmt.Fprintf(a.Out, "%s\n%s\n", m.Module.ID, m.Module.Description)

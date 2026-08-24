@@ -19,6 +19,7 @@ walks from an empty repository to a published module using the public demo. Cons
 [consumer guide](../docs/consuming.md); contact transport fields and behavior are generated in
 [contact kinds](../docs/contact-kinds.md), and design boundaries are answered in the
 [FAQ](../docs/faq.md). Exact executable behavior is in the [CLI reference](../docs/cli.md).
+Agent and operator integration is collected in [For agents](../docs/agents.md).
 
 ## Manifest
 
@@ -104,10 +105,11 @@ or synthesises a minimal card from an A2A contact, then adds the stable extensio
 role, scope, and ref. Skills and other native card fields are left untouched.
 
 `agents[].trust.signatures: true` requires at least one valid JWS signature over the RFC 8785
-canonical card. The protected header selects `alg`, `kid`, and an HTTPS `jku`; JWKS fetches are
-timeout-bounded and cached under `.git-a2a/`. An unsigned, invalid, or unverifiable card makes
-`status` unhealthy and produces an `update` warning. `git-a2a card verify FILE|URL` performs the
-same verification explicitly.
+canonical card, bound to pinned `jwks`/`keys` or a reported same-origin fallback. Origins,
+key-cache age, key rotation, consumer-required signed cards/commits, and external-contact policy
+are defined in the generated reference and explained in the [trust guide](../docs/trust.md).
+An unsigned, invalid, revoked, or unexpectedly re-keyed card makes `status` unhealthy;
+`git-a2a card verify FILE|URL [--jwks URL] [--key THUMBPRINT]` exercises the same verifier.
 
 `git-a2a catalog export [--out ai-catalog.json]` emits an ARD 1.0 catalog. Public card URLs stay
 references; repository-relative or synthesised cards are embedded as

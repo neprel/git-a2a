@@ -177,7 +177,16 @@ func sanitize(s string, limit int) string {
 	return s
 }
 func safe(s string, limit int) string { return escape(sanitize(s, limit)) }
-func escape(s string) string          { return strings.ReplaceAll(s, "|", "\\|") }
+
+// SanitizeMachineText applies the dependency-text boundary without Markdown escaping.
+func SanitizeMachineText(s string, description bool) string {
+	limit := fieldLimit
+	if description {
+		limit = descriptionLimit
+	}
+	return sanitize(s, limit)
+}
+func escape(s string) string { return strings.ReplaceAll(s, "|", "\\|") }
 func short(s string) string {
 	if len(s) > 12 {
 		return s[:12]

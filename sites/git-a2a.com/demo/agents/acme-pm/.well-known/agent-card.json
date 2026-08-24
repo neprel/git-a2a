@@ -25,6 +25,12 @@
   ],
   "description": "Static public demo card for the agent that owns the Acme utility contract and reviews change requests. This card demonstrates discovery; its interface URL does not run an agent service.",
   "name": "acme-pm",
+  "signatures": [
+    {
+      "protected": "eyJhbGciOiJFZERTQSIsImprdSI6Imh0dHBzOi8vZ2l0LWEyYS5jb20vZGVtby9hZ2VudHMvLndlbGwta25vd24vandrcy5qc29uIiwia2lkIjoiYWNtZS1kZW1vLTIwMjYiLCJ0eXAiOiJKT1NFIn0",
+      "signature": "A4mych5ECwvsEHJ-QnpWYfeBZMr01ipieVZhegac7YVsynv5VPTYtjqyxHtOVVl_i8VSje2qQGnv8VIFLugfDw"
+    }
+  ],
   "skills": [],
   "supportedInterfaces": [
     {

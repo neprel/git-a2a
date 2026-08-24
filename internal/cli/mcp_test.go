@@ -117,6 +117,8 @@ func TestMCPFetchRestoresCacheThenWhoWorks(t *testing.T) {
 	who := callMCPTool(t, ctx, session, "who", map[string]any{"id": "acme-lib", "intent": "question"})
 	assertMCPExitCode(t, "who", who, 0)
 	assertMCPDataContains(t, "who after fetch", who, "acme-lib-owner")
+	assertMCPDataContains(t, "who origin", who, "untrustedFields")
+	assertMCPDataContains(t, "who origin", who, "acme-lib@"+commit[:7])
 }
 
 func TestMissingCacheErrorsRecommendFetch(t *testing.T) {

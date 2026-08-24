@@ -81,8 +81,15 @@ Use binding `description` only for repository-specific context or when no card e
 card may demonstrate discovery without running an agent service, but its description must say so.
 
 With `trust.signatures: true`, the card must carry a valid detached JWS over its RFC 8785
-canonical form. `status` fails for unsigned or invalid cards; `update` retains code changes and
-prints a trust warning. Use `git-a2a card verify FILE_OR_URL` before enabling the requirement.
+canonical form. Pin its JWKS URL in `trust.jwks` or its RFC 7638 thumbprint in `trust.keys`;
+`trust.origins` can constrain card and interface origins, and `trust.jwks-max-age` controls key
+refresh. `status` fails for unsigned or invalid cards; `update` retains code changes and prints a
+trust warning. Use `git-a2a card verify FILE_OR_URL --jwks URL` before enabling the requirement.
+
+Set `accepts-external: false` when an agent declines delivery from consumers outside the owner's
+organisation. `settings.organisation` declares equivalent repository prefixes when the default
+host/owner identity is insufficient. The complete threat model and key-rotation workflow are in
+the [trust guide](trust.md).
 
 ## 5. Add contacts by intent
 

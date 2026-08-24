@@ -77,6 +77,16 @@ the conditional presence of the `VENDOR` column, must be regenerated from the fi
 comparison normalises only the resolved commit hash; tabwriter spacing and every other byte remain
 an acceptance check.
 
+# decision Public demo trust assets are reproducible and public-key only
+
+`tools/demo-trust` signs the two static public-demo Agent Cards with one Ed25519 key and emits
+the matching JWKS. Its `--private` path is always a
+temporary path outside the repository; neither the private key nor a secret representation may
+enter git or the site package. A separate demo-only OpenSSH key signs the demo repository's
+commits; only its `allowed_signers` public entry is committed and served next to the cards. The
+published cards, JWKS and allowed-signers file are test fixtures, not identities suitable for
+production use.
+
 # test Release channels
 
 - A fixture `checksums.txt` drives both manifests and all four hashes appear in their correct

@@ -37,11 +37,39 @@ func (a *App) card(args []string) int {
 }
 
 func (a *App) cardVerify(args []string) int {
-	if len(args) != 1 {
+	location := ""
+	var jwks, keys []string
+	for index := 0; index < len(args); index++ {
+		switch args[index] {
+		case "--jwks", "--key":
+			if index+1 >= len(args) {
+				fmt.Fprintf(a.Err, "card verify: %s needs a value\n", args[index])
+				return 2
+			}
+			flag := args[index]
+			index++
+			if flag == "--jwks" {
+				jwks = append(jwks, args[index])
+			} else {
+				keys = append(keys, args[index])
+			}
+		default:
+			if strings.HasPrefix(args[index], "-") {
+				fmt.Fprintf(a.Err, "card verify: unknown option %s\n", args[index])
+				return 2
+			}
+			if location != "" {
+				fmt.Fprintln(a.Err, "card verify: expected one file or URL")
+				return 2
+			}
+			location = args[index]
+		}
+	}
+	if location == "" {
 		fmt.Fprintln(a.Err, "card verify: expected one file or URL")
 		return 2
 	}
-	_, raw, err := a2a.Read(args[0], a.root())
+	_, raw, err := a2a.Read(location, a.root())
 	if err != nil {
 		var locationErr *a2a.LocationError
 		if errors.As(err, &locationErr) {
@@ -51,12 +79,16 @@ func (a *App) cardVerify(args []string) int {
 		fmt.Fprintf(a.Err, "card signature invalid: %v\n", err)
 		return 1
 	}
-	verified, err := a2a.VerifySignatures(raw, a2a.VerifyOptions{CacheRoot: a.root()})
+	cardURL := ""
+	if strings.HasPrefix(location, "http://") || strings.HasPrefix(location, "https://") {
+		cardURL = location
+	}
+	verified, err := a2a.VerifySignatures(raw, a2a.VerifyOptions{CacheRoot: a.root(), CardURL: cardURL, PinnedJWKS: jwks, PinnedKeys: keys})
 	if err != nil {
 		fmt.Fprintf(a.Err, "card signature invalid: %v\n", err)
 		return 1
 	}
-	fmt.Fprintf(a.Out, "%s: verified %s signature with key %s\n", args[0], verified.Algorithm, verified.KeyID)
+	fmt.Fprintf(a.Out, "%s: verified %s signature with key %s (%s)\n", location, verified.Algorithm, verified.KeyID, verified.Thumbprint)
 	fmt.Fprintln(a.Err, "card signature verified")
 	return 0
 }
@@ -242,7 +274,12 @@ func (a *App) cardShow(args []string) int {
 		}
 		shown++
 		if jsonOut {
-			b, _ := json.MarshalIndent(card, "", "  ")
+			commit := ""
+			if locked, lockErr := lockfile.Load(a.root()); lockErr == nil {
+				commit = locked.Dependencies[id].Commit
+			}
+			output := dependencyMachineObject(card, dependencyOrigin(id, commit), "/description", "/skills", "/supportedInterfaces")
+			b, _ := json.MarshalIndent(output, "", "  ")
 			fmt.Fprintln(a.Out, string(b))
 			continue
 		}

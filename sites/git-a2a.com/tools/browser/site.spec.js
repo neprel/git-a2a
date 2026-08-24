@@ -66,7 +66,7 @@ test('install tabs support keyboard navigation', async ({ page }) => {
   await expect(tabs.nth(1)).toBeFocused();
   await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
   await page.keyboard.press('End');
-  await expect(tabs.nth(4)).toBeFocused();
+  await expect(tabs.last()).toBeFocused();
   await page.keyboard.press('Home');
   await expect(tabs.nth(0)).toBeFocused();
 });

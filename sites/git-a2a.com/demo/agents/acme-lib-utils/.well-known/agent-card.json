@@ -24,6 +24,12 @@
   ],
   "description": "Static public demo card for the agent that owns the Acme polyglot utility implementations. This card demonstrates discovery; its interface URL does not run an agent service.",
   "name": "acme-lib-utils",
+  "signatures": [
+    {
+      "protected": "eyJhbGciOiJFZERTQSIsImprdSI6Imh0dHBzOi8vZ2l0LWEyYS5jb20vZGVtby9hZ2VudHMvLndlbGwta25vd24vandrcy5qc29uIiwia2lkIjoiYWNtZS1kZW1vLTIwMjYiLCJ0eXAiOiJKT1NFIn0",
+      "signature": "Q7oy8hv09aFuTgVc6mMNGQEuUkUnT73ZXbEaPMqubzN0pxs6ytrJKh8GovOmOeiGHdE92bj6ylGdqS08VveQDw"
+    }
+  ],
   "skills": [],
   "supportedInterfaces": [
     {

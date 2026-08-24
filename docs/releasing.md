@@ -7,6 +7,13 @@ Use a release-candidate tag first, inspect every generated artifact and channel,
 then create the stable tag on the reviewed commit. If the candidate needs a fix, use a new
 prerelease number on the fixing commit. Do not rerun a failed publish with a moved tag.
 
+Every minor release note starts with three plain sentences a stranger can understand: the user
+problem, the new workflow, and the compatibility/security consequence. The grouped conventional
+changelog follows that story; a raw commit list is not release communication. The v1.2.0 story is:
+git-a2a can keep a dependency's source in the consumer at the same commit used by every package
+manager; submodule/copy transports drive five build systems and native local-path modes; `fetch`
+reconstructs that exact state on a fresh checkout without moving the lock.
+
 ## GitHub configuration
 
 The workflow uses the repository `GITHUB_TOKEN` for GitHub Releases and
@@ -128,7 +135,7 @@ design, credentials, or platform acceptance:
 - winget publication, after the package identity and publisher workflow are settled;
 - Apple signing and notarization, before replacing the checksum-verified Homebrew formula with a
   cask or claiming direct-download Gatekeeper compatibility;
-- MCP `--roots` capability negotiation and an enforceable root allow-list beyond the current
-  process/per-call `root` trust boundary;
-- further card/dependency trust hardening beyond the current JWS, JWKS cache, and documented
-  process/repository boundary.
+- operating-system keystore integration for signing keys (current keys remain ordinary Git/JWKS
+  material selected by repository policy);
+- central identity federation or a certificate authority, which remains outside the product
+  boundary.

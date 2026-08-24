@@ -88,10 +88,15 @@ func (a *App) sync(args []string) int {
 }
 
 type whoOutput struct {
-	Module  string          `json:"module"`
-	Intent  string          `json:"intent"`
-	Role    string          `json:"role"`
-	Matches []routing.Match `json:"matches"`
+	Module  string     `json:"module"`
+	Intent  string     `json:"intent"`
+	Role    string     `json:"role"`
+	Matches []whoMatch `json:"matches"`
+}
+
+type whoMatch struct {
+	routing.Match
+	AcceptsExternal *bool `json:"acceptsExternal,omitempty"`
 }
 
 func (a *App) who(args []string) int {
@@ -155,11 +160,31 @@ func (a *App) who(args []string) int {
 		return 2
 	}
 	if jsonOut {
-		b, _ := json.MarshalIndent(whoOutput{Module: m.Module.ID, Intent: intent, Role: role, Matches: matches}, "", "  ")
+		machineMatches := make([]whoMatch, 0, len(matches))
+		for _, match := range matches {
+			var acceptsExternal *bool
+			if match.Agent.Trust != nil {
+				acceptsExternal = match.Agent.Trust.AcceptsExternal
+			}
+			machineMatches = append(machineMatches, whoMatch{Match: match, AcceptsExternal: acceptsExternal})
+		}
+		output := any(whoOutput{Module: m.Module.ID, Intent: intent, Role: role, Matches: machineMatches})
+		if id != "" {
+			commit := ""
+			if locked, lockErr := lockfile.Load(a.root()); lockErr == nil {
+				commit = locked.Dependencies[id].Commit
+			}
+			output = dependencyMachineObject(output, dependencyOrigin(id, commit), "/matches")
+		}
+		b, _ := json.MarshalIndent(output, "", "  ")
 		fmt.Fprintln(a.Out, string(b))
 	} else {
 		for _, match := range matches {
-			fmt.Fprintf(a.Out, "%s (%s)\n", match.Agent.Name, match.Agent.Role)
+			external := ""
+			if match.Agent.Trust != nil && match.Agent.Trust.AcceptsExternal != nil && !*match.Agent.Trust.AcceptsExternal {
+				external = " (external requests not accepted)"
+			}
+			fmt.Fprintf(a.Out, "%s (%s)%s\n", match.Agent.Name, match.Agent.Role, external)
 			for _, contact := range match.Contacts {
 				text := routing.ContactText(contact)
 				if contact.Note != "" {

@@ -29,7 +29,7 @@ type fetchResult struct {
 // fetch restores disposable local cache state from the immutable coordinates and hashes in
 // a2amodule.lock. It deliberately does not resolve refs, snapshot cards, or write durable files.
 func (a *App) fetch(args []string) int {
-	wantSurface, jsonOut := false, false
+	wantSurface, jsonOut, insecureSkipSigners := false, false, false
 	var ids []string
 	for _, arg := range args {
 		switch arg {
@@ -37,6 +37,8 @@ func (a *App) fetch(args []string) int {
 			wantSurface = true
 		case "--json":
 			jsonOut = true
+		case "--insecure-skip-signers":
+			insecureSkipSigners = true
 		default:
 			if strings.HasPrefix(arg, "-") {
 				fmt.Fprintf(a.Err, "fetch: unknown option %s\n", arg)
@@ -115,6 +117,17 @@ func (a *App) fetch(args []string) int {
 		if parseErr != nil {
 			_ = os.RemoveAll(work)
 			fmt.Fprintf(a.Err, "fetch %s: locked manifest: %v\n", id, parseErr)
+			return 1
+		}
+		verified, verifyErr := a.verifyCommitTrust(root, dependency, res, "", insecureSkipSigners, work)
+		if verifyErr != nil {
+			_ = os.RemoveAll(work)
+			fmt.Fprintf(a.Err, "fetch %s: %v; cache unchanged\n", id, verifyErr)
+			return 1
+		}
+		if entry.Verified == "signed" && verified != "signed" && !insecureSkipSigners {
+			_ = os.RemoveAll(work)
+			fmt.Fprintf(a.Err, "fetch %s: locked commit signature could not be reproduced; cache unchanged\n", id)
 			return 1
 		}
 		stagedRoot := filepath.Join(work, "staged")
