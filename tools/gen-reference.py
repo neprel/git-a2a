@@ -210,6 +210,7 @@ def constraints(schema: dict[str, object], node: dict[str, object], body: str) -
 
 
 def source_link(source: str) -> str:
+    source = source.replace("\\", "/")
     path, separator, line = source.rpartition(":")
     if separator and line.isdigit():
         return f"[`{source}`](../{path}#L{line})"
@@ -444,6 +445,8 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
+    if source_link(r"spec\_.hint:110") != "[`spec/_.hint:110`](../spec/_.hint#L110)":
+        fail("normative source paths are not platform-neutral")
     compiled = compiled_hint()
     rendered = generate()
     contacts = generate_contact_kinds(compiled)

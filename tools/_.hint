@@ -62,6 +62,8 @@ byte-identical full reference and static-site trees plus the Stripe-style
 `metadata.version` must equal `internal/version/VERSION`. Generated text is written as explicit
 UTF-8 bytes with LF endings and every source document is read with an explicit UTF-8 encoding,
 so byte checks have the same result on Windows and POSIX instead of depending on the host locale.
+Source locations emitted by HINT are normalized to forward-slash repository paths before they
+become Markdown links; Windows path separators must not make generated references drift.
 `gen-reference.py` also writes a byte-identical copy under `internal/reference/`; Go embeds that
 generated artifact for `git-a2a explain`. Check mode fails if either the public guide or embedded
 copy differs from the same rendered source after platform newline normalization; the generator
