@@ -24,6 +24,9 @@ When a dependency requires signed commits, verification is part of that staging 
 before any durable or adapter write. The `allowed_signers` path is repository-relative after
 both lexical and symlink resolution; an escape outside the consumer repository is rejected.
 An explicit signer bypass is recorded as `verified: skipped`, never presented as verification.
+A rejected signed-commit check reports Git's signature status, signer, key identifier, and
+fingerprint; absent values are printed as `none`, so a trust failure identifies the credential
+that was rejected without implying that an unsigned object had one.
 
 # decision Standalone Windows upgrades replace around the running executable
 
