@@ -92,6 +92,7 @@ latest stable release; pin an explicit version in CI.
 | ✔ | PyPI with uv | `uvx git-a2a --version` |
 | ✔ | PyPI with pipx | `pipx run git-a2a --version` |
 | ✔ | Container | `docker run --pull=always --rm ghcr.io/neprel/git-a2a:latest --version` |
+| ✔ | Nix flake | `nix run github:neprel/git-a2a -- version` |
 
 The checksum-verifying standalone installers support `GIT_A2A_VERSION`, `--version`, `--dir`,
 and `--dry-run`. The macOS binaries are not yet Apple-notarized; use the Homebrew formula for a
@@ -117,6 +118,28 @@ available only to the standalone binary channel; it never overwrites a package-m
 Release archives cover Darwin, Linux, and Windows on amd64/arm64 and include checksums and SBOMs.
 Maintainer setup is in [docs/releasing.md](docs/releasing.md).
 
+### Verify a download
+
+Every tag-triggered release asset has GitHub build provenance bound to this repository's pinned
+release workflow. After downloading an asset with `gh release download`, verify that identity:
+
+```sh
+gh attestation verify PATH/TO/ASSET \
+  --repo neprel/git-a2a \
+  --signer-workflow neprel/git-a2a/.github/workflows/release.yml
+sha256sum --ignore-missing -c checksums.txt
+```
+
+The GHCR image is signed keylessly at its immutable digest. Resolve the digest for the version
+you intend to run, then require GitHub's OIDC issuer and the tag-triggered release workflow:
+
+```sh
+cosign verify \
+  --certificate-identity-regexp '^https://github\.com/neprel/git-a2a/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/neprel/git-a2a@sha256:DIGEST
+```
+
 ## Documentation
 
 - [Manifest field reference](docs/manifest-reference.md): generated types, defaults, values, and consequences for every field.
@@ -124,6 +147,7 @@ Maintainer setup is in [docs/releasing.md](docs/releasing.md).
 - [Consumer guide](docs/consuming.md): add, fetch, sync, inspect, update, contact, and run deterministic CI.
 - [Vendoring guide](docs/vendoring.md): submodule/copy tradeoffs, build systems, path mode, rollback, and CI.
 - [Trust guide](docs/trust.md): pinned cards, signed commits, origins, rotation, and external delivery policy.
+- [Release verification](docs/releasing.md): provenance, container signatures, channels, and release gates.
 - [Agent/operator guide](docs/agents.md): usage, skill installation, setup by harness, MCP roots, and machine-output safety.
 - [Contact kinds](docs/contact-kinds.md): generated allowed fields and delivery/instruction behavior for every known kind.
 - [Contact plugins](docs/contact-plugins.md): consumer-side JSON protocol for open contact kinds.

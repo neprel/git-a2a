@@ -170,6 +170,14 @@ on native Linux, macOS, and Windows runners. It downloads the immutable GitHub R
 checks the canonical `internal/version/VERSION` output (an RC suffix belongs to the package and
 asset version, not the embedded CLI version), performs MCP `tools/list` through an official-SDK
 stdio client, and runs `setup --dry-run`; a locally rebuilt binary is not evidence for this gate.
+The ordinary tag path creates GitHub artifact attestations for every immutable Release asset only
+after the MCPB and `server.json` have been uploaded. It also signs the immutable GHCR digest with
+Sigstore keyless signing through GitHub OIDC. Verification pins the source identity to
+`neprel/git-a2a/.github/workflows/release.yml` at a SemVer tag; recovery dispatches neither replace
+nor re-sign immutable outputs. No self-managed provenance or container-signing key is stored.
+`flake.nix` and `flake.lock` are the canonical Nix channel: `nix run github:neprel/git-a2a`
+builds the repository-pinned source for all four Linux/macOS amd64/arm64 systems, reports
+`channel=nix`, and includes Git in the runtime closure. CI builds and invokes that flake.
 No stable tag—including patches—may be created until an RC on the same commit has passed every gate and the reviewer has explicitly accepted it in writing in the conversation.
 
 # dep Reference CLI runtime dependencies

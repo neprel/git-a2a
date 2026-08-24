@@ -14,6 +14,9 @@ on:
       - sites/git-a2a.com/install.ps1
       - sites/git-a2a.com/.htaccess
       - .github/workflows/installers.yml
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
   workflow_dispatch:
     inputs:
       live_channels:
@@ -30,6 +33,7 @@ permissions:
   contents: read
 jobs:
   posix:
+    if: github.event_name != 'workflow_run'
     strategy:
       matrix:
         include:
@@ -53,6 +57,7 @@ jobs:
       - name: Run shellcheck when available
         run: command -v shellcheck >/dev/null 2>&1 && shellcheck install.sh || true
   windows:
+    if: github.event_name != 'workflow_run'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -105,3 +110,22 @@ jobs:
           $installer = [scriptblock]::Create((Invoke-RestMethod -Uri https://git-a2a.com/install.ps1))
           $expected = (Get-Content internal/version/VERSION -Raw).Trim()
           & $installer --version $expected --dir "$env:RUNNER_TEMP\git-a2a" --dry-run
+  attestation-live:
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify release provenance from the pinned release workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          asset="git-a2a_${version}_linux_amd64.tar.gz"
+          gh release download "$RELEASE_TAG" --repo neprel/git-a2a --pattern "$asset" --dir release-asset
+          gh attestation verify "release-asset/$asset" \
+            --repo neprel/git-a2a \
+            --signer-workflow neprel/git-a2a/.github/workflows/release.yml

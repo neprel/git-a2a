@@ -191,7 +191,7 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	if attributes := read(".gitattributes"); !strings.Contains(attributes, "* text=auto eol=lf") {
 		t.Error("repository text files must retain LF line endings on every runner")
 	}
-	for _, required := range []string{"needs: test", "permissions: {}", "contents: write", "packages: write", "id-token: write", "--skip=homebrew", "--skip=scoop", "node-version: '24'", "npm@11.5.1", "npm_tag=latest", "npm_tag=next", "publish_if_missing()", `npm view "${package_name}@${package_version}" version`, `npm publish "./${package_dir}" --access public --tag "$npm_tag"`, "docker/setup-buildx-action@", "docker logout ghcr.io", "workflow_dispatch:", "Select GoReleaser configuration", `config_file="$RUNNER_TEMP/goreleaser-recovery.yaml"`, "sed -i '/^release:$/a\\  skip_upload: true' \"$config_file\"", "--config ${{ steps.release_config.outputs.path }}", "GORELEASER_CURRENT_TAG", "RELEASE_TAG: ${{ inputs.tag || github.ref_name }}", "tools/release-channels.py", "--pattern checksums.txt", "Formula/git-a2a.rb", "Casks/git-a2a.rb", "HOMEBREW_TAP_TOKEN", "SCOOP_BUCKET_TOKEN", "dist/mcpb/build.py", "mcp-publisher_linux_amd64.tar.gz", "github-oidc", "mcp-publisher publish mcp-dist/server.json"} {
+	for _, required := range []string{"needs: test", "permissions: {}", "contents: write", "packages: write", "id-token: write", "attestations: write", "--skip=homebrew", "--skip=scoop", "node-version: '24'", "npm@11.5.1", "npm_tag=latest", "npm_tag=next", "publish_if_missing()", `npm view "${package_name}@${package_version}" version`, `npm publish "./${package_dir}" --access public --tag "$npm_tag"`, "docker/setup-buildx-action@", "sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2", "cosign sign --yes", `ghcr.io/neprel/git-a2a@$digest`, "docker logout ghcr.io", "workflow_dispatch:", "Select GoReleaser configuration", `config_file="$RUNNER_TEMP/goreleaser-recovery.yaml"`, "sed -i '/^release:$/a\\  skip_upload: true' \"$config_file\"", "--config ${{ steps.release_config.outputs.path }}", "GORELEASER_CURRENT_TAG", "RELEASE_TAG: ${{ inputs.tag || github.ref_name }}", "tools/release-channels.py", "--pattern checksums.txt", "Formula/git-a2a.rb", "Casks/git-a2a.rb", "HOMEBREW_TAP_TOKEN", "SCOOP_BUCKET_TOKEN", "dist/mcpb/build.py", "mcp-publisher_linux_amd64.tar.gz", "github-oidc", "mcp-publisher publish mcp-dist/server.json", "needs: [goreleaser, mcp]", "actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v4.2.2", "subject-path: release-assets/*"} {
 		if !strings.Contains(workflow, required) {
 			t.Errorf("release workflow missing %q", required)
 		}
@@ -212,7 +212,7 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	if regexp.MustCompile(`(?m)^\s*if:\s*\$\{\{\s*secrets\.`).MatchString(workflow) {
 		t.Error("GitHub Actions does not allow the secrets context directly in an if expression")
 	}
-	for _, required := range []string{"live_channels:", "scoop-live:", "scoop install git-a2a/git-a2a", "channel=scoop", "Get-Content internal/version/VERSION"} {
+	for _, required := range []string{"live_channels:", "scoop-live:", "scoop install git-a2a/git-a2a", "channel=scoop", "Get-Content internal/version/VERSION", "workflow_run:", "attestation-live:", "gh attestation verify", "--signer-workflow neprel/git-a2a/.github/workflows/release.yml"} {
 		if !strings.Contains(installerWorkflow, required) {
 			t.Errorf("installer workflow missing live Scoop check %q", required)
 		}
@@ -235,6 +235,11 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	for name, body := range map[string]string{"release": workflow, "CI": ciWorkflow} {
 		if !strings.Contains(body, "@openhint/cli@1.5.1 @openhint/hintbook-software-engineer@1.3.1") || !strings.Contains(body, "go test -count=1 ./...") {
 			t.Errorf("%s workflow must install the pinned HINT compiler and bypass stale test results", name)
+		}
+	}
+	for _, required := range []string{"cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1", "nix build --print-build-logs", "nix flake check --print-build-logs", "nix run . -- version"} {
+		if !strings.Contains(ciWorkflow, required) {
+			t.Errorf("CI workflow missing Nix distribution gate %q", required)
 		}
 	}
 	allWorkflows := workflow + "\n" + ciWorkflow

@@ -36,6 +36,7 @@ jobs:
     permissions:
       contents: write
       packages: write
+      id-token: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -59,6 +60,8 @@ jobs:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
       - uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        if: github.event_name == 'push'
       - name: Log in to GitHub Container Registry
         run: echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
         env:
@@ -81,6 +84,13 @@ jobs:
         env:
           GORELEASER_CURRENT_TAG: ${{ env.RELEASE_TAG }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Sign the immutable GHCR image digest with GitHub OIDC
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          image="ghcr.io/neprel/git-a2a:${RELEASE_TAG#v}"
+          digest="$(docker buildx imagetools inspect "$image" --format '{{json .Manifest}}' | python3 -c 'import json,sys; print(json.load(sys.stdin)["digest"])')"
+          cosign sign --yes "ghcr.io/neprel/git-a2a@$digest"
       - name: Verify the linked GHCR package is public
         run: |
           docker logout ghcr.io
@@ -229,6 +239,26 @@ jobs:
         run: |
           ./mcp-publisher login github-oidc
           ./mcp-publisher publish mcp-dist/server.json
+  attest:
+    needs: [goreleaser, mcp]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+      - name: Download every immutable release asset
+        run: gh release download "$RELEASE_TAG" --dir release-assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Attest every release asset, including MCPB discovery assets
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v4.2.2
+        with:
+          subject-path: release-assets/*
   pypi:
     needs: goreleaser
     runs-on: ubuntu-latest

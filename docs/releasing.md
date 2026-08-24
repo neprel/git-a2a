@@ -32,8 +32,10 @@ The workflow uses the repository `GITHUB_TOKEN` for GitHub Releases and
   trusted publisher for the `git-a2a` project, and keep its approval rules in that environment.
   PyPI uses OIDC and has no long-lived token.
 
-Job permissions are intentionally local: tests have read-only contents; GoReleaser alone has
-`contents: write` and `packages: write`; npm and PyPI alone have `id-token: write`. Each npm
+Job permissions are intentionally local: tests have read-only contents; GoReleaser has
+`contents: write`, `packages: write`, and `id-token: write` only to publish and keylessly sign the
+immutable GHCR digest. The provenance job has only `contents: read`, `id-token: write`, and
+`attestations: write`; npm and PyPI have `id-token: write`. Each npm
 package includes repository metadata matching `https://github.com/neprel/git-a2a`, which npm
 requires when authenticating its trusted publisher.
 
@@ -47,6 +49,37 @@ unchanged. Tag-triggered releases use the checked-in config with artifact upload
 Homebrew and Scoop are stable aliases: prerelease tag runs and prerelease recovery dispatches
 leave both repositories unchanged. Stable tags alone render and publish the main formula and
 manifest.
+
+## Supply-chain verification
+
+On the ordinary tag path, the `attest` job waits for both GoReleaser and MCP packaging, downloads
+the complete immutable GitHub Release, and calls the SHA-pinned
+`actions/attest-build-provenance` action over every asset. This includes archives, packages,
+checksums, SBOMs, `server.json`, and the MCPB. Recovery dispatches do not issue new attestations.
+The installer workflow starts after a successful tag-triggered Release and runs
+`gh attestation verify` with `--repo neprel/git-a2a` and
+`--signer-workflow neprel/git-a2a/.github/workflows/release.yml`.
+
+The release job resolves the pushed GHCR tag to an immutable digest and signs that digest with
+Cosign keyless signing. Verification must use the digest, GitHub's OIDC issuer, and this identity:
+
+```text
+^https://github\.com/neprel/git-a2a/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$
+```
+
+No repository secret contains a provenance or container-signing private key. Keep action and
+Cosign installer references pinned to reviewed full commit SHAs.
+
+## Nix flake
+
+`flake.nix` supports Linux and macOS on amd64 and arm64. `flake.lock` pins nixpkgs, CI runs
+`nix build` and invokes the result, and the package reports `channel=nix`. For an interactive run:
+
+```sh
+nix run github:neprel/git-a2a -- version
+```
+
+Pin the repository revision rather than the moving branch in reproducible CI.
 
 ## macOS and Windows status
 
@@ -123,7 +156,9 @@ this manual check covers the live executable-replacement path that a unit test c
    A2A proto and pinned Google API imports into a temporary directory, generates the non-normative
    JSON Schema with a pinned generator, and validates both card and catalog exports.
 3. Push the tag. Verify GitHub archives, checksums, SBOMs, deb/rpm/apk, GHCR, and every configured
-   optional channel. A prerelease tag must remain a GitHub prerelease and must not become latest.
+   optional channel. Require `gh attestation verify` for a downloaded asset and `cosign verify`
+   for the immutable GHCR digest. A prerelease tag must remain a GitHub prerelease and must not
+   become latest.
 4. Run `gh workflow run release-smoke.yml -f tag=v<VERSION>` and require all three native jobs
    (Linux, macOS, Windows) to print the canonical source version (without an RC package suffix),
    list the eight default MCP tools through stdio, and complete `setup --dry-run` against the

@@ -82,6 +82,16 @@ The Stripe-compatible `/.well-known/skills/index.json` lists the git-a2a Agent S
 file needed to install it; `/.well-known/skills/git-a2a/` is byte-identical to
 `skills/git-a2a/`. Markdown and JSON receive explicit MIME types. The site is a distribution copy,
 not a second source: `tools/sync-skill.py` owns both the tree and index.
+The structured data links to the moving Releases page and therefore does not carry a hand-maintained
+`softwareVersion`; live channel checks, not mutable landing-page metadata, prove the current release.
+
+# decision Release verification is workflow-identity based {#release_verification}
+
+The landing page gives copyable verification commands for both forms of published output:
+`gh attestation verify` binds a downloaded Release asset to the repository, and `cosign verify`
+binds an immutable GHCR digest to the tag-triggered release workflow and GitHub's OIDC issuer.
+The page must never ask for or imply a project-managed signing key. Visible verification copy is
+also recorded in the design prototype so the existing node-parity check remains authoritative.
 
 # build Site and installer checks
 

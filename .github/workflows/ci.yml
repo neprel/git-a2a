@@ -26,3 +26,13 @@ jobs:
       - run: go test -count=1 ./...
       - run: python3 tools/gen-reference.py --check
       - run: make skills-check
+  nix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+      - name: Build and run the flake package
+        run: |
+          nix build --print-build-logs
+          nix flake check --print-build-logs
+          nix run . -- version

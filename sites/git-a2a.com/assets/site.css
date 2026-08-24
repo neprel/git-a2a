@@ -4,6 +4,7 @@
 @font-face{font-family:"JetBrains Mono";src:url("../fonts/jetbrains-mono-400-latin.woff2") format("woff2");font-weight:400;font-display:swap}
 @font-face{font-family:"JetBrains Mono";src:url("../fonts/jetbrains-mono-500-latin.woff2") format("woff2");font-weight:500;font-display:swap}
 @font-face{font-family:"JetBrains Mono";src:url("../fonts/jetbrains-mono-700-latin.woff2") format("woff2");font-weight:700;font-display:swap}
+.verify-download{max-width:820px;margin-top:28px}.verify-download h3{margin:0 0 8px;font-size:18px}.verify-download>p{margin:0 0 14px;color:var(--fg2);font-size:14px;line-height:1.6}.verify-download .command-row{margin-bottom:10px}
 :root{--bg:#fff;--bg2:#f7f7f5;--bg3:#efefec;--fg:#111110;--fg2:#4b4b46;--fg3:#707069;--line:#e3e3de;--line2:#cdcdc5;--code:#fbfbf9;--term:#171715;--termfg:#ecece6;--acc:#0a6c81;--accfg:#fff;--accsoft:rgba(10,108,129,.09)}
 .hero-chips{margin-top:-8px}.hero-chips .pill{font-size:11px}.consumer-example{margin-top:48px}
 /* Future dark tokens: --bg:#0d0d0c;--bg2:#151514;--bg3:#1d1d1b;--fg:#f3f3ef;--fg2:#b3b3ab;--fg3:#83837a;--line:#262623;--line2:#37372f;--code:#131312;--term:#080807;--acc:#4ec7de;--accfg:#171715;--accsoft:rgba(78,199,222,.12) */
