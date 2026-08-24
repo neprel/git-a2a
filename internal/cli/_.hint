@@ -149,6 +149,9 @@ may run concurrently. Fixed resources remain bound to the startup root so their 
 change meaning mid-session. MCP 2026-07-28 removed server-initiated `roots/list`; clients on that
 protocol use the startup directory and `--roots`, while the compatibility handler remains for
 clients negotiating a roots-capable legacy protocol.
+Client roots use standards-compliant file URIs. A Windows drive root is encoded as
+`file:///C:/path`, not `file://C:/path` (which parses `C:` as a host and becomes a malformed UNC
+path); tests construct URIs through `net/url` so Windows and POSIX exercise the same contract.
 `fetch` is annotated non-read-only, non-destructive, idempotent, and open-world because it
 recreates disposable cache through Git access. `contact` is non-idempotent because every call
 delivers. `setup` never emits `--any-root`; user-scoped Hermes and OpenClaw instructions require

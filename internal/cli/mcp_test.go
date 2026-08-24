@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -410,7 +411,11 @@ func mcpDiagnostics(t *testing.T, result *mcp.CallToolResult) string {
 }
 
 func fileURI(path string) string {
-	return "file://" + filepath.ToSlash(path)
+	slash := filepath.ToSlash(path)
+	if filepath.VolumeName(path) != "" && !strings.HasPrefix(slash, "/") {
+		slash = "/" + slash
+	}
+	return (&url.URL{Scheme: "file", Path: slash}).String()
 }
 
 func waitForMCPRoot(t *testing.T, roots *mcpRoots, want string, diagnostics *strings.Builder) {
