@@ -55,14 +55,18 @@ func DeepLink(kind string, declared manifest.Contact, message string) string {
 		return ""
 	}
 	query := parsed.Query()
-	query.Set("title", Title(message))
-	query.Set("body", Body(message))
+	titleKey, bodyKey := "title", "body"
+	if kind == "gitlab-issue" {
+		titleKey, bodyKey = "issue[title]", "issue[description]"
+	}
+	query.Set(titleKey, Title(message))
+	query.Set(bodyKey, Body(message))
 	parsed.RawQuery = query.Encode()
 	result := parsed.String()
 	if len(result) <= maxDeepLinkBytes {
 		return result
 	}
-	query.Set("body", truncateBytes(Body(message), maxDeepLinkBytes-len(base)-len(query.Get("title"))-80))
+	query.Set(bodyKey, truncateBytes(Body(message), maxDeepLinkBytes-len(base)-len(query.Get(titleKey))-80))
 	parsed.RawQuery = query.Encode()
 	return truncateBytes(parsed.String(), maxDeepLinkBytes)
 }

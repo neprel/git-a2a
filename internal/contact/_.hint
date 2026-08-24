@@ -67,3 +67,8 @@ instruction. HTTP failures use the shared bounded remote-response sanitizer.
 - Plugin tests cover JSON round-trip, refusal, timeout, prefixed stderr, CLI/MCP parity, and a
   Windows `.cmd` PATH stub. Declared invocation tests prove context escaping, allowlist gating,
   argv-not-shell behavior, and MCP exec refusal.
+- A full CLI end-to-end test publishes a JSON-body `http` contact in a local bare owner repository,
+  then runs `add → fetch → consumer consent → contact` into a TLS httptest endpoint and decodes the
+  received JSON after quote/bracket injection through `{message}`. This lifecycle layer is
+  mandatory: validator-only and driver-only tests can both pass while their composition through a
+  fetched manifest is broken, which is how literal JSON braces escaped the first review.

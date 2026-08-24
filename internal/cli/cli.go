@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -44,6 +45,7 @@ type App struct {
 	Home          string
 	Timeout       time.Duration
 	Runner        gitx.Runner
+	HTTPClient    *http.Client
 	ctx           context.Context
 	mcpInvocation bool
 }

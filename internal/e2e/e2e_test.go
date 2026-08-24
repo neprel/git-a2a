@@ -3,12 +3,14 @@ package e2e
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"slices"
 	"strings"
@@ -95,6 +97,109 @@ func TestAddUpdateCheckRemoveAgainstLocalBareRepository(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(consumer, ".git-a2a", "cache", "acme-lib-utils")); !os.IsNotExist(err) {
 		t.Fatalf("cache still exists: %v", err)
 	}
+}
+
+func TestDeclaredHTTPJSONContactThroughAddFetchConsentAndContact(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "source")
+	bare := filepath.Join(tmp, "acme-json-contact.git")
+	consumer := filepath.Join(tmp, "consumer")
+	message := "line \"quoted\" }], \"admin\":true\nsecond line"
+	receivedBody := make(chan map[string]string, 1)
+
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/deliver" || r.URL.Query().Get("intent") != "change" {
+			t.Errorf("request URL = %s", r.URL.String())
+		}
+		if got := r.Header.Get("Content-Type"); got != "application/json" {
+			t.Errorf("Content-Type = %q", got)
+		}
+		var payload map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Errorf("decode JSON body: %v", err)
+		}
+		receivedBody <- payload
+		want := map[string]string{"module": "acme-json-contact", "message": message, "literal": "{word}"}
+		if !reflect.DeepEqual(payload, want) {
+			t.Errorf("payload = %#v, want %#v", payload, want)
+		}
+		fmt.Fprint(w, "ACME-JSON-42\n")
+	}))
+	defer server.Close()
+
+	mustMkdir(t, source)
+	git(t, source, "init", "-b", "main")
+	git(t, source, "config", "user.email", "test@example.com")
+	git(t, source, "config", "user.name", "Test")
+	ownerManifest := fmt.Sprintf(`schema: 1
+module:
+  id: acme-json-contact
+  release: {channel: main}
+agents:
+  - name: acme-owner
+    role: owner
+    contacts:
+      - intents: [change]
+        kind: http
+        url: %s/deliver?intent={intent}
+        content-type: application/json
+        body: '{"module":"{module}","message":"{message}","literal":"{{word}}"}'
+`, server.URL)
+	mustWrite(t, filepath.Join(source, "a2amodule.yml"), []byte(ownerManifest))
+
+	var validateOut, validateErr bytes.Buffer
+	validateApp := cli.New(&validateOut, &validateErr)
+	validateApp.Root = source
+	if code := validateApp.Run([]string{"validate"}); code != 0 {
+		t.Fatalf("validate exit %d: %s", code, validateErr.String())
+	}
+	t.Logf("validate JSON contact:\n%s%s", validateOut.String(), validateErr.String())
+
+	git(t, source, "add", "a2amodule.yml")
+	git(t, source, "commit", "-m", "fixture")
+	git(t, tmp, "clone", "--bare", source, bare)
+	git(t, bare, "config", "uploadpack.allowFilter", "true")
+	git(t, bare, "config", "uploadpack.allowAnySHA1InWant", "true")
+
+	mustMkdir(t, consumer)
+	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte("schema: 1\nmodule: {id: consumer-app}\n"))
+	var out, errOut, transcript bytes.Buffer
+	app := cli.New(&out, &errOut)
+	app.Root = consumer
+	app.HTTPClient = server.Client()
+	run := func(args ...string) {
+		t.Helper()
+		out.Reset()
+		errOut.Reset()
+		if code := app.Run(args); code != 0 {
+			t.Fatalf("git-a2a %v exit %d\nstdout:\n%s\nstderr:\n%s", args, code, out.String(), errOut.String())
+		}
+		fmt.Fprintf(&transcript, "$ git-a2a %s\n%s%s", strings.Join(args, " "), out.String(), errOut.String())
+	}
+
+	run("add", "file://"+bare, "--no-refresh")
+	if err := os.RemoveAll(filepath.Join(consumer, ".git-a2a", "cache")); err != nil {
+		t.Fatal(err)
+	}
+	run("fetch", "acme-json-contact")
+	consumerBytes, err := os.ReadFile(filepath.Join(consumer, "a2amodule.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	consumerBytes = append(consumerBytes, []byte(fmt.Sprintf("settings:\n  contact:\n    allow-http: [%s]\n", server.URL))...)
+	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), consumerBytes)
+	fmt.Fprintf(&transcript, "$ consumer consent: settings.contact.allow-http includes %s\n", server.URL)
+	app.In = strings.NewReader(message)
+	run("contact", "acme-json-contact", "--intent", "change", "--message", "-")
+	if !strings.Contains(out.String(), `kind=http id="ACME-JSON-42" state=sent driver=http`) {
+		t.Fatalf("delivery record = %q", out.String())
+	}
+	receivedJSON, err := json.Marshal(<-receivedBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("received JSON body: %s", receivedJSON)
+	t.Logf("e2e JSON delivery:\n%s", transcript.String())
 }
 
 func TestVendoredSubmoduleCopyLifecycleAgainstLocalBareRepository(t *testing.T) {

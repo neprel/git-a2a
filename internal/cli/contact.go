@@ -142,15 +142,15 @@ func (a *App) contactDriver(declared manifest.Contact, consumer *manifest.Manife
 	}
 	switch declared.Kind {
 	case "a2a":
-		return contacta2a.Driver{}
+		return contacta2a.Driver{Client: a.HTTPClient}
 	case "github-issue":
-		return contactgithub.Driver{}
+		return contactgithub.Driver{Client: a.HTTPClient}
 	case "gitlab-issue":
-		return contactgitlab.Driver{}
+		return contactgitlab.Driver{Client: a.HTTPClient}
 	case "gitea-issue":
-		return contactgitea.Driver{}
+		return contactgitea.Driver{Client: a.HTTPClient}
 	case "http", "exec":
-		return contactdeclared.Driver{ContactKind: declared.Kind, Consent: consent, MCP: a.mcpInvocation}
+		return contactdeclared.Driver{ContactKind: declared.Kind, Consent: consent, MCP: a.mcpInvocation, Client: a.HTTPClient}
 	default:
 		return contactinstruction.Driver{ContactKind: declared.Kind}
 	}

@@ -15,6 +15,7 @@ import (
 	"unicode"
 
 	"github.com/neprel/git-a2a/internal/contact"
+	contacttemplate "github.com/neprel/git-a2a/internal/contact/template"
 	"github.com/neprel/git-a2a/internal/manifest"
 	"github.com/neprel/git-a2a/internal/remotehttp"
 )
@@ -46,7 +47,10 @@ func (d Driver) deliverHTTP(ctx context.Context, request contact.Request) (conta
 	if err != nil {
 		return contact.Record{}, fmt.Errorf("http contact: URL: %w", err)
 	}
-	body := expandBody(request.Contact.Body, request.Contact.ContentType, request)
+	body, err := expandBody(request.Contact.Body, request.Contact.ContentType, request)
+	if err != nil {
+		return contact.Record{}, fmt.Errorf("http contact: body: %w", err)
+	}
 	method := strings.ToUpper(strings.TrimSpace(request.Contact.Method))
 	if method == "" {
 		method = http.MethodPost
@@ -90,13 +94,20 @@ func (d Driver) deliverExec(ctx context.Context, request contact.Request) (conta
 	command := append([]string(nil), request.Contact.Command...)
 	command = append(command, request.Contact.Args...)
 	for i := range command {
-		command[i] = expandPlain(command[i], request, false)
+		expanded, err := expandPlain(command[i], request, false)
+		if err != nil {
+			return contact.Record{}, fmt.Errorf("exec contact: argv: %w", err)
+		}
+		command[i] = expanded
 	}
 	stdin := request.Contact.Stdin
 	if stdin == "" {
 		stdin = "{message}"
 	}
-	stdin = expandPlain(stdin, request, true)
+	stdin, err := expandPlain(stdin, request, true)
+	if err != nil {
+		return contact.Record{}, fmt.Errorf("exec contact: stdin: %w", err)
+	}
 	instruction := argvInstruction(command, stdin)
 	if len(command) == 0 {
 		return contact.Record{}, fmt.Errorf("exec contact: command is empty")
@@ -135,7 +146,11 @@ func expandURL(raw string, request contact.Request) (string, error) {
 	query := parsed.Query()
 	for key, values := range query {
 		for i, value := range values {
-			values[i] = expandPlain(value, request, false)
+			expanded, expandErr := expandPlain(value, request, false)
+			if expandErr != nil {
+				return "", expandErr
+			}
+			values[i] = expanded
 		}
 		query[key] = values
 	}
@@ -143,33 +158,31 @@ func expandURL(raw string, request contact.Request) (string, error) {
 	return parsed.String(), nil
 }
 
-func expandBody(template, contentType string, request contact.Request) string {
+func expandBody(template, contentType string, request contact.Request) (string, error) {
 	if strings.Contains(strings.ToLower(contentType), "json") {
 		return expandJSON(template, request)
 	}
 	return expandPlain(template, request, true)
 }
 
-func expandJSON(value string, request contact.Request) string {
-	for placeholder, replacement := range replacements(request, true) {
+func expandJSON(value string, request contact.Request) (string, error) {
+	encodedReplacements := map[string]string{}
+	for name, replacement := range replacements(request, true) {
 		encoded, _ := json.Marshal(replacement)
 		escaped := string(encoded[1 : len(encoded)-1])
-		value = strings.ReplaceAll(value, placeholder, escaped)
+		encodedReplacements[name] = escaped
 	}
-	return value
+	return contacttemplate.Expand(value, encodedReplacements)
 }
 
-func expandPlain(value string, request contact.Request, message bool) string {
-	for placeholder, replacement := range replacements(request, message) {
-		value = strings.ReplaceAll(value, placeholder, replacement)
-	}
-	return value
+func expandPlain(value string, request contact.Request, message bool) (string, error) {
+	return contacttemplate.Expand(value, replacements(request, message))
 }
 
 func replacements(request contact.Request, message bool) map[string]string {
-	values := map[string]string{"{intent}": request.Intent, "{module}": request.Module, "{origin}": request.Origin}
+	values := map[string]string{"intent": request.Intent, "module": request.Module, "origin": request.Origin}
 	if message {
-		values["{message}"] = request.Message
+		values["message"] = request.Message
 	}
 	return values
 }

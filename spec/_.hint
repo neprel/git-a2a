@@ -559,11 +559,14 @@ The kind vocabulary is open; these kinds have defined keys and delivery behavior
 An unknown kind is rendered as `kind: <value>` with its extension keys, is never a validation
 error, and cannot be delivered by `contact` until a driver exists.
 
-Issue-kind instructions include a prefilled deep link (`…/issues/new?title=…&body=…`,
-URL-encoded, length-capped) when the forge supports one, so a driverless contact is one click
-for a human and one request for an agent. Forges without a tracker (Gerrit, Bitbucket Data
-Center, bare git hosting) are served by `email`, `jira`, `url`, or a chat kind — contacts bind
-to intents, not to where the code is hosted.
+Issue-kind instructions include a prefilled, URL-encoded and length-capped deep link when the
+forge supports one, so a driverless contact is one click for a human and one request for an
+agent. GitHub, Gitea, and Bitbucket use `…/issues/new?title=…&body=…`; GitLab uses
+`…/-/issues/new?issue[title]=…&issue[description]=…`. The title is the same capped first
+non-empty message line used by delivery drivers, and the body/description is the capped full
+message. Forges without a tracker (Gerrit, Bitbucket Data Center, bare git hosting) are served
+by `email`, `jira`, `url`, or a chat kind — contacts bind to intents, not to where the code is
+hosted.
 
 Driver resolution per contact, in order: a consumer-installed plugin executable
 `git-a2a-contact-<kind>` on PATH; the built-in driver; a declared `http`/`exec` invocation the
@@ -574,8 +577,12 @@ record and by `contact --list-drivers`.
 
 Templates in `http.url` query values, `http.body`, `exec.args`, and `exec.stdin` may use exactly
 `{intent}`, `{module}`, `{origin}`, and — in `http.body` and `exec.stdin` only — `{message}`.
-Each placeholder is escaped for its context: URL query encoding in `url`, JSON string encoding
-inside a JSON body, verbatim in a plain-text body or stdin. A placeholder anywhere in
+Only an unescaped sequence matching `{[a-z]+}` is recognized as a placeholder: a known name is
+substituted, an unknown lowercase name is a validation error, and every other brace sequence is
+literal. Double braces `{{` and `}}` encode literal braces when literal `{word}` text is needed.
+Thus a JSON object such as `{"module":"{module}"}` is valid without escaping its structural
+braces. Each placeholder is escaped for its context: URL query encoding in `url`, JSON string
+encoding inside a JSON body, verbatim in a plain-text body or stdin. A placeholder anywhere in
 `http.headers`, `{message}` outside body/stdin, a non-https `http.url`, or a path separator in
 `exec.command[0]` is a validation error.
 

@@ -197,9 +197,26 @@ agents:
 		})
 	}
 
-	valid := fmt.Sprintf(base, "kind: exec\n        command: [acme-tracker]\n        args: ['--module', '{module}', '--intent', '{intent}']\n        stdin: '{message}'")
+	valid := fmt.Sprintf(base, "kind: exec\n        command: [acme-tracker]\n        args: ['--module', '{module}', '--intent', '{intent}', '--literal', '{{word}}']\n        stdin: '{message}'")
 	if _, err := Parse([]byte(valid)); err != nil {
 		t.Fatalf("valid exec contact: %v", err)
+	}
+	validHTTP := fmt.Sprintf(base, `kind: http
+        url: https://tracker.example.test/issues?module={module}
+        content-type: application/json
+        body: '{"module":"{module}","message":"{message}","literal":"{{word}}"}'`)
+	if _, err := Parse([]byte(validHTTP)); err != nil {
+		t.Fatalf("valid JSON HTTP contact: %v", err)
+	}
+	t.Log("JSON HTTP contact with structural braces: valid")
+	typoHTTP := fmt.Sprintf(base, `kind: http
+        url: https://tracker.example.test/issues
+        content-type: application/json
+        body: '{"value":"{typo}"}'`)
+	if _, err := Parse([]byte(typoHTTP)); err == nil || !strings.Contains(err.Error(), "unsupported placeholder {typo}") {
+		t.Fatalf("typo error = %v", err)
+	} else {
+		t.Log(err)
 	}
 }
 

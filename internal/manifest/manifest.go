@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	contacttemplate "github.com/neprel/git-a2a/internal/contact/template"
 	"gopkg.in/yaml.v3"
 )
 
@@ -326,34 +327,16 @@ func validateContactRequirements(path string, contact Contact, errs *[]error) {
 }
 
 func containsPlaceholder(value string) bool {
-	return strings.Contains(value, "{") || strings.Contains(value, "}")
+	return len(contacttemplate.Names(value)) > 0
 }
 
 func validateTemplate(path, value string, allowMessage bool, errs *[]error) {
-	remaining := value
-	for {
-		start := strings.IndexByte(remaining, '{')
-		if start < 0 {
-			if strings.Contains(remaining, "}") {
-				*errs = append(*errs, fmt.Errorf("%s: malformed placeholder", path))
-			}
-			return
-		}
-		if strings.Contains(remaining[:start], "}") {
-			*errs = append(*errs, fmt.Errorf("%s: malformed placeholder", path))
-			return
-		}
-		end := strings.IndexByte(remaining[start:], '}')
-		if end < 0 {
-			*errs = append(*errs, fmt.Errorf("%s: malformed placeholder", path))
-			return
-		}
-		placeholder := remaining[start : start+end+1]
-		allowed := placeholder == "{intent}" || placeholder == "{module}" || placeholder == "{origin}" || (allowMessage && placeholder == "{message}")
-		if !allowed {
-			*errs = append(*errs, fmt.Errorf("%s: unsupported placeholder %s", path, placeholder))
-		}
-		remaining = remaining[start+end+1:]
+	allowed := map[string]string{"intent": "", "module": "", "origin": ""}
+	if allowMessage {
+		allowed["message"] = ""
+	}
+	if _, err := contacttemplate.Expand(value, allowed); err != nil {
+		*errs = append(*errs, fmt.Errorf("%s: %v", path, err))
 	}
 }
 
