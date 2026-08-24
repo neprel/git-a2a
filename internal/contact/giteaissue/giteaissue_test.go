@@ -41,6 +41,7 @@ func TestRESTCreatesIssueAndTeaIsPreferred(t *testing.T) {
 	if err != nil || record.Driver != "gitea-rest" || !strings.HasSuffix(record.ID, "/9") {
 		t.Fatalf("record=%#v err=%v", record, err)
 	}
+	t.Log(record.String())
 
 	called := false
 	driver = Driver{LookPath: func(string) (string, error) { return "/fake/tea", nil }, Run: func(_ context.Context, _ string, args []string, _ string, _ []string) ([]byte, error) {

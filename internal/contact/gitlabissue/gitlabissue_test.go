@@ -46,6 +46,7 @@ func TestRESTCreatesIssueForNestedProjectWithLabels(t *testing.T) {
 	if record.Driver != "gitlab-rest" || record.State != "created" || !strings.HasSuffix(record.ID, "/42") {
 		t.Fatalf("record = %#v", record)
 	}
+	t.Log(record.String())
 }
 
 func TestRESTSuppressesHTMLAndCLIIsPreferred(t *testing.T) {

@@ -44,6 +44,7 @@ printf '%s\n' '{"id":"ACME-42","state":"created","url":"https://tracker.example/
 	if got := diagnostics.String(); got != "plugin git-a2a-contact-acme-tracker: progress\n" {
 		t.Fatalf("stderr=%q", got)
 	}
+	t.Log(record.String())
 }
 
 func TestPluginTimeoutAndRefusal(t *testing.T) {

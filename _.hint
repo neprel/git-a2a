@@ -344,8 +344,9 @@ context. Rendered output therefore: labels it with its origin ("from acme-lib-ut
 addressed to the reader, caps its length (`description` ≤ 600 characters, `note` ≤ 300, the
 rest truncated with a marker), strips control characters and HTML comments (so a dependency
 cannot close or open a managed block), and `update` shows the textual diff of what changed
-before it is rendered (`--review`, default on when a TTY is attached). The CLI never executes
-anything a manifest names — no scripts, no URLs fetched beyond cards and git.
+before it is rendered (`--review`, default on when a TTY is attached). By default the CLI never
+executes anything a manifest names: cards and git are ordinary fetches, while owner-declared
+HTTP requests or executables run only under the consumer allowlists defined below.
 
 Machine outputs (`--json`, MCP results) carry the same protection as Markdown: dependency-origin
 strings are capped and stripped, each containing object names its `origin`, and the result lists

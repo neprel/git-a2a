@@ -40,12 +40,14 @@ func TestHTTPRequiresConsentThenEscapesAndDelivers(t *testing.T) {
 	if err != nil || record.State != "instruction" || record.Driver != "instruction" || !strings.Contains(record.Instruction, "curl -X 'POST'") {
 		t.Fatalf("record=%#v err=%v", record, err)
 	}
+	t.Log(record.String())
 
 	consent := &manifest.ContactSettings{AllowHTTP: []string{server.URL}}
 	record, err = (Driver{ContactKind: "http", Consent: consent, Client: server.Client()}).Deliver(context.Background(), request)
 	if err != nil || record.State != "sent" || record.Driver != "http" || record.ID != "ACME-42" {
 		t.Fatalf("record=%#v err=%v", record, err)
 	}
+	t.Log(record.String())
 }
 
 func TestHTTPFailureUsesSharedHTMLSuppression(t *testing.T) {
@@ -89,4 +91,5 @@ func TestExecUsesArgvWithoutShellAndMCPRefuses(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "refused through MCP") {
 		t.Fatalf("error=%v", err)
 	}
+	t.Log(err)
 }
