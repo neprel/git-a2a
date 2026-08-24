@@ -18,6 +18,8 @@ dist/*
 !dist/_.hint
 /bin/
 /build/
+/testdata/consumer-msbuild/bin/
+/testdata/consumer-msbuild/obj/
 *.test
 coverage/
 .venv/
