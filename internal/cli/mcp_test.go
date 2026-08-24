@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -186,7 +187,7 @@ func TestMCPRepositoryRootSwitchAndConcurrentInstances(t *testing.T) {
 
 	firstApp := New(os.Stdout, os.Stderr)
 	firstApp.Root = first
-	firstSession := connectMCP(t, ctx, firstApp.newMCPServer(false))
+	firstSession := connectMCP(t, ctx, firstApp.newMCPServerWithRoots(false, newMCPRoots(first, []string{second}, false)))
 	defer firstSession.Close()
 	secondApp := New(os.Stdout, os.Stderr)
 	secondApp.Root = second
@@ -196,6 +197,103 @@ func TestMCPRepositoryRootSwitchAndConcurrentInstances(t *testing.T) {
 	assertMCPDataContains(t, "first instance", callMCPTool(t, ctx, firstSession, "show", map[string]any{}), "consumer-one")
 	assertMCPDataContains(t, "second instance", callMCPTool(t, ctx, secondSession, "show", map[string]any{}), "consumer-two")
 	assertMCPDataContains(t, "root switch", callMCPTool(t, ctx, firstSession, "show", map[string]any{"root": second}), "consumer-two")
+}
+
+func TestMCPRootsDenyOutsideAndAllowFlags(t *testing.T) {
+	startup := mcpFixtureWithID(t, "startup")
+	allowed := mcpFixtureWithID(t, "allowed")
+	outside := mcpFixtureWithID(t, "outside")
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	app := New(os.Stdout, os.Stderr)
+	app.Root = startup
+
+	guarded := connectMCP(t, ctx, app.newMCPServerWithRoots(false, newMCPRoots(startup, []string{allowed}, false)))
+	defer guarded.Close()
+	assertMCPDataContains(t, "flag root", callMCPTool(t, ctx, guarded, "show", map[string]any{"root": allowed}), "allowed")
+	denied := callMCPTool(t, ctx, guarded, "show", map[string]any{"root": outside})
+	assertMCPExitCode(t, "outside root", denied, 2)
+	if !denied.IsError || !strings.Contains(mcpDiagnostics(t, denied), "root outside allowed roots:") || !strings.Contains(mcpDiagnostics(t, denied), "--roots or --any-root") {
+		t.Fatalf("outside result = %#v", denied)
+	}
+
+	unrestricted := connectMCP(t, ctx, app.newMCPServerWithRoots(false, newMCPRoots(startup, nil, true)))
+	defer unrestricted.Close()
+	assertMCPDataContains(t, "any root", callMCPTool(t, ctx, unrestricted, "show", map[string]any{"root": outside}), "outside")
+}
+
+func TestMCPRootsRejectSymlinkAndEscapingFileArguments(t *testing.T) {
+	startup := mcpFixtureWithID(t, "startup")
+	outside := mcpFixtureWithID(t, "outside")
+	link := filepath.Join(startup, "escape")
+	if err := os.Symlink(outside, link); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	app := New(os.Stdout, os.Stderr)
+	app.Root = startup
+	session := connectMCP(t, ctx, app.newMCPServer(false))
+	defer session.Close()
+	for name, arguments := range map[string]map[string]any{
+		"show root":      {"root": link},
+		"validate files": {"files": []string{filepath.Join("..", filepath.Base(outside), "a2amodule.yml")}},
+	} {
+		tool := strings.Fields(name)[0]
+		result := callMCPTool(t, ctx, session, tool, arguments)
+		assertMCPExitCode(t, name, result, 2)
+		if !result.IsError || !strings.Contains(mcpDiagnostics(t, result), "root outside allowed roots:") {
+			t.Fatalf("%s result = %#v", name, result)
+		}
+	}
+}
+
+func TestMCPClientRootsAndListChanged(t *testing.T) {
+	startup := mcpFixtureWithID(t, "startup")
+	first := mcpFixtureWithID(t, "client-first")
+	second := mcpFixtureWithID(t, "client-second")
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	var diagnostics strings.Builder
+	app := New(os.Stdout, &diagnostics)
+	app.Root = startup
+	roots := newMCPRoots(startup, nil, false)
+	server := app.newMCPServerWithRoots(false, roots)
+	serverTransport, clientTransport := mcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(ctx, serverTransport, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer serverSession.Close()
+	client := mcp.NewClient(&mcp.Implementation{Name: "git-a2a-roots-test", Version: "1"}, &mcp.ClientOptions{
+		Capabilities: &mcp.ClientCapabilities{RootsV2: &mcp.RootCapabilities{ListChanged: true}},
+	})
+	client.AddRoots(&mcp.Root{URI: fileURI(first)})
+	session, err := client.Connect(ctx, clientTransport, legacyMCPClientOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+	waitForMCPRoot(t, roots, first, &diagnostics)
+	assertMCPDataContains(t, "first client root", callMCPTool(t, ctx, session, "show", map[string]any{"root": first}), "client-first")
+	client.AddRoots(&mcp.Root{URI: fileURI(second)})
+	waitForMCPRoot(t, roots, second, &diagnostics)
+	assertMCPDataContains(t, "changed client root", callMCPTool(t, ctx, session, "show", map[string]any{"root": second}), "client-second")
+}
+
+func TestMCPPrintRoots(t *testing.T) {
+	root := t.TempDir()
+	var out, errOut strings.Builder
+	app := New(&out, &errOut)
+	app.Root = root
+	if code := app.Run([]string{"mcp", "--roots", "one,two", "--roots", "three", "--print-roots"}); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	for _, value := range []string{root, "one", "two", "three"} {
+		if !strings.Contains(out.String(), value) {
+			t.Errorf("print roots lacks %q: %q", value, out.String())
+		}
+	}
 }
 
 func mcpFixture(t *testing.T) string {
@@ -297,4 +395,40 @@ func assertMCPDataContains(t *testing.T, name string, result *mcp.CallToolResult
 	if !strings.Contains(string(body), value) {
 		t.Fatalf("%s data does not contain %q: %s", name, value, body)
 	}
+}
+
+func mcpDiagnostics(t *testing.T, result *mcp.CallToolResult) string {
+	t.Helper()
+	data, ok := result.StructuredContent.(map[string]any)
+	if !ok {
+		t.Fatalf("structured content = %T", result.StructuredContent)
+	}
+	body, _ := json.Marshal(data["diagnostics"])
+	return string(body)
+}
+
+func fileURI(path string) string {
+	return "file://" + filepath.ToSlash(path)
+}
+
+func waitForMCPRoot(t *testing.T, roots *mcpRoots, want string, diagnostics *strings.Builder) {
+	t.Helper()
+	want = resolveExistingPrefix(want)
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		for _, entry := range roots.entries() {
+			if pathEqual(entry.resolved, want) {
+				return
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("client root %s was not received: %v; diagnostics: %s", want, roots.displays(), diagnostics.String())
+}
+
+func legacyMCPClientOptions() *mcp.ClientSessionOptions {
+	options := &mcp.ClientSessionOptions{}
+	field := reflect.ValueOf(options).Elem().FieldByName("protocolVersion")
+	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().SetString("2025-11-25")
+	return options
 }

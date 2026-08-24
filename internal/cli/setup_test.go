@@ -192,8 +192,8 @@ func TestSetupRepoHermesAndOpenClawPrintGlobalMCPInstructions(t *testing.T) {
 	}
 	for _, expected := range []string{
 		"detected Hermes Agent, OpenClaw",
-		"hermes mcp add git-a2a --command git-a2a --args mcp",
-		`openclaw mcp set git-a2a '{"command":"git-a2a","args":["mcp"]}'`,
+		"hermes mcp add git-a2a --command git-a2a --args mcp --roots <repo>",
+		`openclaw mcp set git-a2a '{"command":"git-a2a","args":["mcp","--roots","<repo>"]}'`,
 	} {
 		if !strings.Contains(errOut.String(), expected) {
 			t.Errorf("setup diagnostics missing %q:\n%s", expected, errOut.String())

@@ -25,31 +25,31 @@ type mcpCommandResult struct {
 }
 
 type mcpWhoInput struct {
-	Root   string `json:"root,omitempty" jsonschema:"repository root; defaults to the server startup directory"`
+	Root   string `json:"root,omitempty" jsonschema:"repository root; must be inside an allowed root (startup dir, --roots, client roots)"`
 	ID     string `json:"id,omitempty" jsonschema:"module dependency id; omit for this module"`
 	Intent string `json:"intent,omitempty" jsonschema:"routing intent; defaults to question"`
 	Path   string `json:"path,omitempty" jsonschema:"optional repository path for scope matching"`
 }
 type mcpShowInput struct {
-	Root    string `json:"root,omitempty" jsonschema:"repository root; defaults to the server startup directory"`
+	Root    string `json:"root,omitempty" jsonschema:"repository root; must be inside an allowed root (startup dir, --roots, client roots)"`
 	ID      string `json:"id,omitempty" jsonschema:"module dependency id; omit for this module"`
 	Surface bool   `json:"surface,omitempty" jsonschema:"fetch and list the owner-published surface"`
 }
 type mcpStatusInput struct {
-	Root    string   `json:"root,omitempty" jsonschema:"repository root; defaults to the server startup directory"`
+	Root    string   `json:"root,omitempty" jsonschema:"repository root; must be inside an allowed root (startup dir, --roots, client roots)"`
 	IDs     []string `json:"ids,omitempty" jsonschema:"dependency ids; omit for all"`
 	Offline bool     `json:"offline,omitempty" jsonschema:"do not contact remotes or card URLs"`
 	Verbose bool     `json:"verbose,omitempty" jsonschema:"include detailed findings"`
 }
 type mcpValidateInput struct {
-	Root  string   `json:"root,omitempty" jsonschema:"repository root; defaults to the server startup directory"`
+	Root  string   `json:"root,omitempty" jsonschema:"repository root; must be inside an allowed root (startup dir, --roots, client roots)"`
 	Files []string `json:"files,omitempty" jsonschema:"manifest or lock paths; omit for current module files"`
 }
 type mcpDoctorInput struct {
-	Root string `json:"root,omitempty" jsonschema:"repository root; defaults to the server startup directory"`
+	Root string `json:"root,omitempty" jsonschema:"repository root; must be inside an allowed root (startup dir, --roots, client roots)"`
 }
 type mcpFetchInput struct {
-	Root    string   `json:"root,omitempty" jsonschema:"repository root; defaults to the server startup directory"`
+	Root    string   `json:"root,omitempty" jsonschema:"repository root; must be inside an allowed root (startup dir, --roots, client roots)"`
 	IDs     []string `json:"ids,omitempty" jsonschema:"dependency ids; omit for all locked dependencies"`
 	Surface bool     `json:"surface,omitempty" jsonschema:"also restore the owner-published surface recorded in the lock"`
 }
@@ -61,7 +61,7 @@ type mcpUsageInput struct {
 }
 
 type mcpAddInput struct {
-	Root       string   `json:"root,omitempty" jsonschema:"repository root; defaults to the server startup directory"`
+	Root       string   `json:"root,omitempty" jsonschema:"repository root; must be inside an allowed root (startup dir, --roots, client roots)"`
 	URL        string   `json:"url" jsonschema:"Git repository URL"`
 	ID         string   `json:"id,omitempty" jsonschema:"override the dependency module id"`
 	Path       string   `json:"path,omitempty" jsonschema:"module path inside a monorepo"`
@@ -73,7 +73,7 @@ type mcpAddInput struct {
 	NoRefresh  bool     `json:"noRefresh,omitempty" jsonschema:"skip package-manager Refresh"`
 }
 type mcpUpdateInput struct {
-	Root        string   `json:"root,omitempty" jsonschema:"repository root; defaults to the server startup directory"`
+	Root        string   `json:"root,omitempty" jsonschema:"repository root; must be inside an allowed root (startup dir, --roots, client roots)"`
 	IDs         []string `json:"ids,omitempty" jsonschema:"dependency ids; omit for all"`
 	Check       bool     `json:"check,omitempty" jsonschema:"report updates without changing files"`
 	Review      *bool    `json:"review,omitempty" jsonschema:"show or suppress manifest and surface diffs"`
@@ -81,7 +81,7 @@ type mcpUpdateInput struct {
 	NoRefresh   bool     `json:"noRefresh,omitempty" jsonschema:"skip package-manager Refresh"`
 }
 type mcpSetInput struct {
-	Root       string `json:"root,omitempty" jsonschema:"repository root; defaults to the server startup directory"`
+	Root       string `json:"root,omitempty" jsonschema:"repository root; must be inside an allowed root (startup dir, --roots, client roots)"`
 	ID         string `json:"id" jsonschema:"dependency id to change"`
 	Git        string `json:"git,omitempty" jsonschema:"replacement Git URL"`
 	Ref        string `json:"ref,omitempty" jsonschema:"replacement branch, tag, or commit"`
@@ -96,19 +96,19 @@ type mcpSetInput struct {
 	NoRefresh  bool   `json:"noRefresh,omitempty" jsonschema:"skip package-manager Refresh"`
 }
 type mcpWireInput struct {
-	Root      string `json:"root,omitempty" jsonschema:"repository root; defaults to the server startup directory"`
+	Root      string `json:"root,omitempty" jsonschema:"repository root; must be inside an allowed root (startup dir, --roots, client roots)"`
 	ID        string `json:"id,omitempty" jsonschema:"dependency id; omit for all"`
 	Ecosystem string `json:"ecosystem,omitempty" jsonschema:"require one ecosystem adapter"`
 	NoRefresh bool   `json:"noRefresh,omitempty" jsonschema:"skip package-manager Refresh"`
 }
 type mcpSyncInput struct {
-	Root   string `json:"root,omitempty" jsonschema:"repository root; defaults to the server startup directory"`
+	Root   string `json:"root,omitempty" jsonschema:"repository root; must be inside an allowed root (startup dir, --roots, client roots)"`
 	Check  bool   `json:"check,omitempty" jsonschema:"report stale blocks without writing"`
 	Brief  bool   `json:"brief,omitempty" jsonschema:"render one contact per route"`
 	Target string `json:"target,omitempty" jsonschema:"additional instruction file to update"`
 }
 type mcpContactInput struct {
-	Root    string `json:"root,omitempty" jsonschema:"repository root; defaults to the server startup directory"`
+	Root    string `json:"root,omitempty" jsonschema:"repository root; must be inside an allowed root (startup dir, --roots, client roots)"`
 	ID      string `json:"id" jsonschema:"dependency id"`
 	Intent  string `json:"intent" jsonschema:"routing intent"`
 	Message string `json:"message" jsonschema:"complete request body to deliver"`
@@ -117,16 +117,37 @@ type mcpContactInput struct {
 
 func (a *App) mcp(args []string) int {
 	allowWrite := false
-	for _, arg := range args {
+	anyRoot := false
+	printRoots := false
+	var rootFlags []string
+	for index := 0; index < len(args); index++ {
+		arg := args[index]
 		switch arg {
 		case "--allow-write":
 			allowWrite = true
+		case "--any-root":
+			anyRoot = true
+		case "--print-roots":
+			printRoots = true
+		case "--roots":
+			if index+1 >= len(args) {
+				fmt.Fprintln(a.Err, "mcp: --roots requires a directory list")
+				return 2
+			}
+			index++
+			rootFlags = append(rootFlags, args[index])
 		default:
 			fmt.Fprintf(a.Err, "mcp: unknown option %s\n", arg)
 			return 2
 		}
 	}
-	server := a.newMCPServer(allowWrite)
+	roots := newMCPRoots(a.root(), splitMCPRootFlags(rootFlags), anyRoot)
+	if printRoots {
+		fmt.Fprintln(a.Out, roots.line())
+		return 0
+	}
+	fmt.Fprintln(a.Err, roots.line())
+	server := a.newMCPServerWithRoots(allowWrite, roots)
 	if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 		fmt.Fprintf(a.Err, "mcp: %v\n", err)
 		return 1
@@ -135,9 +156,20 @@ func (a *App) mcp(args []string) int {
 }
 
 func (a *App) newMCPServer(allowWrite bool) *mcp.Server {
+	return a.newMCPServerWithRoots(allowWrite, newMCPRoots(a.root(), nil, false))
+}
+
+func (a *App) newMCPServerWithRoots(allowWrite bool, roots *mcpRoots) *mcp.Server {
+	instructions := compactBriefing + "\n" + roots.line()
 	server := mcp.NewServer(&mcp.Implementation{Name: "git-a2a", Version: Version}, &mcp.ServerOptions{
-		Instructions: compactBriefing,
+		Instructions: instructions,
 		Capabilities: &mcp.ServerCapabilities{},
+		InitializedHandler: func(ctx context.Context, req *mcp.InitializedRequest) {
+			refreshMCPClientRoots(ctx, req.Session, roots, a.Err)
+		},
+		RootsListChangedHandler: func(ctx context.Context, req *mcp.RootsListChangedRequest) {
+			refreshMCPClientRoots(ctx, req.Session, roots, a.Err)
+		},
 	})
 	readOnly := &mcp.ToolAnnotations{ReadOnlyHint: true, OpenWorldHint: boolPointer(false)}
 	addTool := func(tool *mcp.Tool) { tool.Annotations = readOnly }
@@ -156,7 +188,7 @@ func (a *App) newMCPServer(allowWrite bool) *mcp.Server {
 			args = append(args, "--path", in.Path)
 		}
 		args = append(args, "--json")
-		return mcpResult(a.runMCPCommand(ctx, in.Root, nil, args, true))
+		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, args, true))
 	})
 	tool = &mcp.Tool{Name: "show", Description: "Read this module or a locked dependency and optionally its published surface."}
 	addTool(tool)
@@ -169,7 +201,7 @@ func (a *App) newMCPServer(allowWrite bool) *mcp.Server {
 			args = append(args, "--surface")
 		}
 		args = append(args, "--json")
-		return mcpResult(a.runMCPCommand(ctx, in.Root, nil, args, true))
+		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, args, true))
 	})
 	tool = &mcp.Tool{Name: "status", Description: "Check dependency, wiring, card, trust, and roster health."}
 	addTool(tool)
@@ -182,19 +214,19 @@ func (a *App) newMCPServer(allowWrite bool) *mcp.Server {
 			args = append(args, "-v")
 		}
 		args = append(args, "--json")
-		return mcpResult(a.runMCPCommand(ctx, in.Root, nil, args, true))
+		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, args, true))
 	})
 	tool = &mcp.Tool{Name: "validate", Description: "Validate manifest and lock files against the git-a2a standard."}
 	addTool(tool)
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpValidateInput) (*mcp.CallToolResult, mcpCommandResult, error) {
 		args := append([]string{"validate"}, in.Files...)
 		args = append(args, "--json")
-		return mcpResult(a.runMCPCommand(ctx, in.Root, nil, args, true))
+		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, args, true))
 	})
 	tool = &mcp.Tool{Name: "doctor", Description: "Report Git and ecosystem tool prerequisites without installing anything."}
 	addTool(tool)
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpDoctorInput) (*mcp.CallToolResult, mcpCommandResult, error) {
-		return mcpResult(a.runMCPCommand(ctx, in.Root, nil, []string{"doctor", "--json"}, true))
+		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, []string{"doctor", "--json"}, true))
 	})
 	tool = &mcp.Tool{Name: "fetch", Description: "Restore disposable dependency cache content from exact lock coordinates."}
 	tool.Annotations = &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: boolPointer(false), IdempotentHint: true, OpenWorldHint: boolPointer(true)}
@@ -204,12 +236,12 @@ func (a *App) newMCPServer(allowWrite bool) *mcp.Server {
 			args = append(args, "--surface")
 		}
 		args = append(args, "--json")
-		return mcpResult(a.runMCPCommand(ctx, in.Root, nil, args, true))
+		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, args, true))
 	})
 	tool = &mcp.Tool{Name: "explain", Description: "Read the normative generated reference entry for one manifest field."}
 	addTool(tool)
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpExplainInput) (*mcp.CallToolResult, mcpCommandResult, error) {
-		return mcpResult(a.runMCPCommand(ctx, "", nil, []string{"explain", in.Path, "--json"}, true))
+		return mcpResult(a.runMCPCommand(ctx, roots, "", nil, []string{"explain", in.Path, "--json"}, true))
 	})
 	tool = &mcp.Tool{Name: "usage", Description: "Read the compact or full deterministic briefing for a coding agent."}
 	addTool(tool)
@@ -219,17 +251,17 @@ func (a *App) newMCPServer(allowWrite bool) *mcp.Server {
 			args = append(args, "--prompt")
 		}
 		args = append(args, "--json")
-		return mcpResult(a.runMCPCommand(ctx, "", nil, args, true))
+		return mcpResult(a.runMCPCommand(ctx, roots, "", nil, args, true))
 	})
 
 	if allowWrite {
-		a.addMCPWriteTools(server)
+		a.addMCPWriteTools(server, roots)
 	}
 	a.addMCPResources(server)
 	return server
 }
 
-func (a *App) addMCPWriteTools(server *mcp.Server) {
+func (a *App) addMCPWriteTools(server *mcp.Server, roots *mcpRoots) {
 	annotations := &mcp.ToolAnnotations{DestructiveHint: boolPointer(false), OpenWorldHint: boolPointer(false), IdempotentHint: true}
 	register := func(tool *mcp.Tool) { tool.Annotations = annotations }
 	tool := &mcp.Tool{Name: "add", Description: "Import a Git module, resolve one commit, and wire declared ecosystems."}
@@ -260,7 +292,7 @@ func (a *App) addMCPWriteTools(server *mcp.Server) {
 		if in.NoRefresh {
 			args = append(args, "--no-refresh")
 		}
-		return mcpResult(a.runMCPCommand(ctx, in.Root, nil, args, false))
+		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, args, false))
 	})
 	tool = &mcp.Tool{Name: "update", Description: "Resolve tracked refs and transactionally update selected dependencies."}
 	register(tool)
@@ -282,7 +314,7 @@ func (a *App) addMCPWriteTools(server *mcp.Server) {
 		if in.NoRefresh {
 			args = append(args, "--no-refresh")
 		}
-		return mcpResult(a.runMCPCommand(ctx, in.Root, nil, args, false))
+		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, args, false))
 	})
 	tool = &mcp.Tool{Name: "set", Description: "Transactionally change a dependency source, ref, path, tracking, or id."}
 	register(tool)
@@ -305,7 +337,7 @@ func (a *App) addMCPWriteTools(server *mcp.Server) {
 		if in.NoRefresh {
 			args = append(args, "--no-refresh")
 		}
-		return mcpResult(a.runMCPCommand(ctx, in.Root, nil, args, false))
+		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, args, false))
 	})
 	tool = &mcp.Tool{Name: "wire", Description: "Repair native ecosystem dependency entries from manifest and lock."}
 	register(tool)
@@ -320,7 +352,7 @@ func (a *App) addMCPWriteTools(server *mcp.Server) {
 		if in.NoRefresh {
 			args = append(args, "--no-refresh")
 		}
-		return mcpResult(a.runMCPCommand(ctx, in.Root, nil, args, false))
+		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, args, false))
 	})
 	tool = &mcp.Tool{Name: "sync", Description: "Render or check the bounded git-a2a roster in instruction files."}
 	register(tool)
@@ -335,7 +367,7 @@ func (a *App) addMCPWriteTools(server *mcp.Server) {
 		if in.Target != "" {
 			args = append(args, "--target", in.Target)
 		}
-		return mcpResult(a.runMCPCommand(ctx, in.Root, nil, args, false))
+		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, args, false))
 	})
 	contactAnnotations := *annotations
 	contactAnnotations.OpenWorldHint = boolPointer(true)
@@ -346,7 +378,7 @@ func (a *App) addMCPWriteTools(server *mcp.Server) {
 		if in.Wait {
 			args = append(args, "--wait")
 		}
-		return mcpResult(a.runMCPCommand(ctx, in.Root, strings.NewReader(in.Message), args, false))
+		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, strings.NewReader(in.Message), args, false))
 	})
 }
 
@@ -393,10 +425,17 @@ func (a *App) addMCPResources(server *mcp.Server) {
 	}
 }
 
-func (a *App) runMCPCommand(ctx context.Context, root string, in *strings.Reader, args []string, jsonOutput bool) mcpCommandResult {
+func (a *App) runMCPCommand(ctx context.Context, roots *mcpRoots, root string, in *strings.Reader, args []string, jsonOutput bool) mcpCommandResult {
 	var out, diagnostics bytes.Buffer
+	resolvedRoot, err := roots.resolveRoot(root)
+	if err != nil {
+		return mcpCommandResult{ExitCode: 2, Diagnostics: []string{err.Error()}}
+	}
+	if err := guardMCPPathArguments(roots, resolvedRoot, args); err != nil {
+		return mcpCommandResult{ExitCode: 2, Diagnostics: []string{err.Error()}}
+	}
 	command := New(&out, &diagnostics)
-	command.Root = a.mcpRoot(root)
+	command.Root = resolvedRoot
 	command.Home = a.Home
 	command.Timeout = a.Timeout
 	command.Runner = a.Runner
@@ -415,16 +454,6 @@ func (a *App) runMCPCommand(ctx context.Context, root string, in *strings.Reader
 		result.Records = nonemptyLines(out.String())
 	}
 	return result
-}
-
-func (a *App) mcpRoot(root string) string {
-	if root == "" {
-		return a.root()
-	}
-	if filepath.IsAbs(root) {
-		return filepath.Clean(root)
-	}
-	return filepath.Clean(filepath.Join(a.root(), root))
 }
 
 func mcpResult(result mcpCommandResult) (*mcp.CallToolResult, mcpCommandResult, error) {

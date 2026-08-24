@@ -27,7 +27,7 @@
           "type": "string"
         },
         "root": {
-          "description": "repository root; defaults to the server startup directory",
+          "description": "repository root; must be inside an allowed root (startup dir, --roots, client roots)",
           "type": "string"
         },
         "track": {
@@ -124,7 +124,7 @@
           "type": "string"
         },
         "root": {
-          "description": "repository root; defaults to the server startup directory",
+          "description": "repository root; must be inside an allowed root (startup dir, --roots, client roots)",
           "type": "string"
         },
         "wait": {
@@ -188,7 +188,7 @@
       "additionalProperties": false,
       "properties": {
         "root": {
-          "description": "repository root; defaults to the server startup directory",
+          "description": "repository root; must be inside an allowed root (startup dir, --roots, client roots)",
           "type": "string"
         }
       },
@@ -312,7 +312,7 @@
           ]
         },
         "root": {
-          "description": "repository root; defaults to the server startup directory",
+          "description": "repository root; must be inside an allowed root (startup dir, --roots, client roots)",
           "type": "string"
         },
         "surface": {
@@ -408,7 +408,7 @@
           "type": "string"
         },
         "root": {
-          "description": "repository root; defaults to the server startup directory",
+          "description": "repository root; must be inside an allowed root (startup dir, --roots, client roots)",
           "type": "string"
         },
         "track": {
@@ -482,7 +482,7 @@
           "type": "string"
         },
         "root": {
-          "description": "repository root; defaults to the server startup directory",
+          "description": "repository root; must be inside an allowed root (startup dir, --roots, client roots)",
           "type": "string"
         },
         "surface": {
@@ -555,7 +555,7 @@
           "type": "boolean"
         },
         "root": {
-          "description": "repository root; defaults to the server startup directory",
+          "description": "repository root; must be inside an allowed root (startup dir, --roots, client roots)",
           "type": "string"
         },
         "verbose": {
@@ -623,7 +623,7 @@
           "type": "boolean"
         },
         "root": {
-          "description": "repository root; defaults to the server startup directory",
+          "description": "repository root; must be inside an allowed root (startup dir, --roots, client roots)",
           "type": "string"
         },
         "target": {
@@ -712,7 +712,7 @@
           ]
         },
         "root": {
-          "description": "repository root; defaults to the server startup directory",
+          "description": "repository root; must be inside an allowed root (startup dir, --roots, client roots)",
           "type": "string"
         }
       },
@@ -832,7 +832,7 @@
           ]
         },
         "root": {
-          "description": "repository root; defaults to the server startup directory",
+          "description": "repository root; must be inside an allowed root (startup dir, --roots, client roots)",
           "type": "string"
         }
       },
@@ -899,7 +899,7 @@
           "type": "string"
         },
         "root": {
-          "description": "repository root; defaults to the server startup directory",
+          "description": "repository root; must be inside an allowed root (startup dir, --roots, client roots)",
           "type": "string"
         }
       },
@@ -967,7 +967,7 @@
           "type": "boolean"
         },
         "root": {
-          "description": "repository root; defaults to the server startup directory",
+          "description": "repository root; must be inside an allowed root (startup dir, --roots, client roots)",
           "type": "string"
         }
       },

@@ -373,7 +373,8 @@ setup: dry run; 5 file(s) would change
 
 ## mcp
 
-`git-a2a mcp [--allow-write]` runs a stateless MCP server over stdio. By default it exposes
+`git-a2a mcp [--allow-write] [--roots DIR[,DIR...]]... [--any-root] [--print-roots]` runs a
+stateless MCP server over stdio. By default it exposes
 seven read-only tools (`who`, `show`, `status`, `validate`, `doctor`, `explain`, `usage`) plus
 the cache-restoring `fetch` tool, and
 four repository resources (`a2amodule://manifest`, `a2amodule://lock`,
@@ -383,11 +384,13 @@ network listener and stores no server state. Protocol or command failures exit `
 options exit `2`.
 
 Repository-dependent tools accept an optional `root` path, defaulting to the server startup
-directory. One MCP client can use that field to work across repositories, or launch one stdio
-server per repository; instances have no listener or shared mutable server state. Fixed resources
-refer to the startup repository. `root` may name any path reachable by the process. With
-`--allow-write`, that grants mutation at any such path: the harness/host is the trust boundary.
-A future `--roots` allow-list is deliberately deferred.
+directory. It must remain inside the startup directory, a repeated `--roots DIR[,DIR...]` value,
+or a `file://` root declared by a roots-capable client. The same post-symlink boundary applies to
+`files`, `target`, and other path arguments. An escape is an `isError` tool result with exit code
+2 and no partial work. `--print-roots` prints the startup and flag roots without starting the
+server. `--any-root` is the explicit unbounded opt-out and is never written by setup. Fixed
+resources refer to the startup repository. Use `--roots` or client workspace roots for one server
+that manages multiple repositories, or launch one isolated stdio server per repository.
 
 Run `git-a2a setup` to write project-scoped configuration for detected harnesses, including
 Claude Code's `.mcp.json`, or copy an exact configuration from the [MCP guide](mcp.md).

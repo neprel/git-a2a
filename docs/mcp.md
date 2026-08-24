@@ -13,15 +13,20 @@ resources. Starting it with `--allow-write` additionally exposes `add`, `update`
 `sync`, and `contact`. `remove` is deliberately CLI-only.
 
 Every repository-dependent tool accepts an optional `root` path. Without it, the tool uses the
-server process's startup directory. A multi-repository harness may therefore keep one server and
-pass a different absolute or startup-relative `root` per call, or start one stdio process per
-repository. The processes do not share ports, mutable server state, or cache directories; each
-repository's recoverable cache remains under that repository's `.git-a2a/`. The fixed MCP
-resources describe the startup repository, so use the read tools with `root` when switching.
-There is intentionally no path sandbox inside the server: `root` may address any directory the
-stdio process can reach. If `--allow-write` is enabled, the server can mutate any such repository.
-The harness process and its host permissions are therefore the trust boundary. A `--roots`
-directory allow-list is deferred future hardening, not an implied current restriction.
+server process's startup directory. Paths are allowed only inside the startup directory, a
+directory supplied by a repeated `--roots DIR[,DIR...]` flag, or a `file://` workspace root
+declared by a roots-capable MCP client. The server refreshes legacy client roots after
+`notifications/roots/list_changed`; MCP 2026-07-28 clients, where server-initiated `roots/list`
+was removed, use the startup directory and `--roots`. Every `root`, `files`, `target`, and other
+path-typed tool value is cleaned and resolved through symlinks before the command starts. An
+escape is a tool result with exit code 2 and no partial mutation.
+
+A multi-repository harness can start `git-a2a mcp --roots repo-a,repo-b`, rely on its declared
+workspace roots, or run one stdio process per repository. Use `git-a2a mcp --print-roots` to see
+the startup and flag roots without starting a server. `--any-root` explicitly restores unbounded
+path access for a trusted single-user process; setup never writes that opt-out. Fixed resources
+remain bound to the startup repository, and the startup diagnostic plus initialize instructions
+name the effective roots.
 
 ## Automatic project setup
 
@@ -128,7 +133,7 @@ Hermes reads MCP servers from the user-scoped `~/.hermes/config.yaml`. Register 
 server with its CLI:
 
 ```sh
-hermes mcp add git-a2a --command git-a2a --args mcp
+hermes mcp add git-a2a --command git-a2a --args mcp --roots <repo>
 ```
 
 The resulting entry is:
@@ -137,7 +142,7 @@ The resulting entry is:
 mcp_servers:
   git-a2a:
     command: git-a2a
-    args: [mcp]
+    args: [mcp, --roots, <repo>]
 ```
 
 ## OpenClaw
@@ -146,7 +151,7 @@ OpenClaw keeps its MCP registry in user scope. Its `set` command changes configu
 probing or starting the server:
 
 ```sh
-openclaw mcp set git-a2a '{"command":"git-a2a","args":["mcp"]}'
+openclaw mcp set git-a2a '{"command":"git-a2a","args":["mcp","--roots","<repo>"]}'
 openclaw mcp doctor git-a2a --probe
 ```
 
@@ -156,7 +161,7 @@ The corresponding `~/.openclaw/openclaw.json` fragment is:
 {
   "mcp": {
     "servers": {
-      "git-a2a": { "command": "git-a2a", "args": ["mcp"] }
+      "git-a2a": { "command": "git-a2a", "args": ["mcp", "--roots", "<repo>"] }
     }
   }
 }
@@ -168,7 +173,7 @@ Write tools are never enabled by setup. If repository mutation and contact deliv
 change the argument list from `["mcp"]` to `["mcp", "--allow-write"]` (or the TOML/YAML
 equivalent) and review that configuration change. The server has no independent authorization
 layer: it has the filesystem, process, Git credential, and network authority of the harness
-process that starts it.
+process that starts it, within the declared roots unless `--any-root` was chosen.
 
 The implementation uses the [official MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk)
 and opens no network listener. See the [CLI reference](cli.md#mcp) for exit behavior.

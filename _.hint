@@ -351,6 +351,17 @@ value the CLI does not know is carried through verbatim, shown to the user, and 
 `validate`. Unknown **keys** in a known object are errors, except keys prefixed `x-`, which are
 reserved for extensions and preserved byte-for-byte.
 
+# decision The MCP server works only inside declared repository roots {#mcp_roots}
+
+`git-a2a mcp` serves the startup directory, the directories named by `--roots`, and the
+`file://` roots the client declares through the MCP `roots` capability (`roots/list`, refreshed on
+`notifications/roots/list_changed`). Every path a tool receives — `root`, `files`, `target`,
+message files — must resolve inside that set after cleaning and symlink resolution; anything else
+is a tool error (exit 2, `isError`), never a partial action. `--any-root` is the explicit opt-out
+and is never written by `setup`. Resources stay startup-scoped. The rule exists because a
+write-enabled server reachable by a prompt-injected model must not be a path to every repository
+on the host; the harness remains responsible for which directories it opens.
+
 # bad Things that must not creep in
 
 * A second description of an agent that can disagree with its card. The manifest binds; the

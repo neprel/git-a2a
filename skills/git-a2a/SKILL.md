@@ -14,6 +14,10 @@ contact its declared owner for anything else.
 
 Start with `git-a2a usage`. Use `--json` on read commands when structured output is useful.
 
+For a multi-repository MCP client, start `git-a2a mcp --roots repo-a,repo-b` or rely on the
+workspace roots declared by the client. Use `--any-root` only as an explicit opt-out on a trusted
+single-user host; setup never writes it.
+
 ## Consume a module
 
 1. Run `git-a2a doctor` and inspect the current `git-a2a status -v`.

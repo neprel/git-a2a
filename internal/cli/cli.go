@@ -197,7 +197,7 @@ func (a *App) commandUsage(command string) {
 		"catalog export": {"git-a2a catalog export [--out FILE]", "git-a2a catalog export --out ai-catalog.json"},
 		"explain":        {"git-a2a explain PATH [--json]", "git-a2a explain agents.contacts.kind --json"},
 		"setup":          {"git-a2a setup [--check|--dry-run] [--harness LIST|--all]", "git-a2a setup --harness claude-code,codex --dry-run"},
-		"mcp":            {"git-a2a mcp [--allow-write]", "git-a2a mcp"},
+		"mcp":            {"git-a2a mcp [--allow-write] [--roots DIR[,DIR...]]... [--any-root] [--print-roots]", "git-a2a mcp --roots ../acme-lib,../consumer-app"},
 	}
 	if h, ok := helpByCommand[command]; ok {
 		fmt.Fprintln(a.Out, "usage: "+h.usage)

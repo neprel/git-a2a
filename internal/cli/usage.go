@@ -51,6 +51,8 @@ in a2amodule.yml. Package-manager entries and a2amodule.lock must resolve to one
 Consumer rule: .git-a2a/cache is disposable; a2amodule.lock is durable and reviewable.
 Ownership rule: contacts are ordered, intent-specific declarations; do not invent a transport.
 Boundary rule: policy.consumers and module.surface describe what dependency consumers may do/read.
+MCP root rule: use git-a2a mcp --roots repo-a,repo-b or client workspace roots for multiple repositories;
+--any-root is an explicit security opt-out for a trusted single-user process.
 
 CLI reference: https://github.com/neprel/git-a2a/blob/main/docs/cli.md
 Owner guide: https://github.com/neprel/git-a2a/blob/main/docs/authoring.md`

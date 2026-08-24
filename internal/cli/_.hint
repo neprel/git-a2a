@@ -140,14 +140,19 @@ tool order is golden-tested, and every tool plus the spawned stdio transport has
 round-trip test. `setup` writes the default read-only command for every harness, including
 Claude Code's project `.mcp.json`; it never silently grants write access.
 Every repository-dependent tool accepts `root`, resolved relative to the server startup root when
-not absolute. An omitted root preserves the startup repository. Multiple stdio instances share no
-listener or mutable server state and may run concurrently; one instance may also switch roots per
-tool call. Fixed resources remain bound to the startup root so their stable URIs do not change
-meaning mid-session.
+not absolute. An omitted root preserves the startup repository. The startup directory, repeated
+`--roots` flags, and legacy MCP client `file://` roots form the default allow-list; the server
+refreshes declared roots on `roots/list_changed`, while `--any-root` is the explicit opt-out.
+Every path-typed tool argument is checked after existing-prefix symlink resolution before the
+delegated command begins. Multiple stdio instances share no listener or mutable server state and
+may run concurrently. Fixed resources remain bound to the startup root so their stable URIs do not
+change meaning mid-session. MCP 2026-07-28 removed server-initiated `roots/list`; clients on that
+protocol use the startup directory and `--roots`, while the compatibility handler remains for
+clients negotiating a roots-capable legacy protocol.
 `fetch` is annotated non-read-only, non-destructive, idempotent, and open-world because it
 recreates disposable cache through Git access. `contact` is non-idempotent because every call
-delivers. A tool `root` may reach any path allowed by the process; with `--allow-write` the host
-is the trust boundary. A `--roots` allow-list is explicitly deferred.
+delivers. `setup` never emits `--any-root`; user-scoped Hermes and OpenClaw instructions require
+an explicit `--roots <repo>`.
 Write-enabled MCP `add` and `set` expose the same `vendor`, `vendorPath`, `noVendor`, and `force`
 choices as the CLI and delegate them as ordinary command flags; MCP does not invent a separate
 materialisation model.

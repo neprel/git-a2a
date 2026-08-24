@@ -320,10 +320,10 @@ func harnessSlug(name string) string {
 func externalMCPInstructions(harnesses []string) []string {
 	var instructions []string
 	if contains(harnesses, "Hermes Agent") {
-		instructions = append(instructions, "Hermes Agent keeps MCP config in user scope; run: hermes mcp add git-a2a --command git-a2a --args mcp")
+		instructions = append(instructions, "Hermes Agent keeps MCP config in user scope; run: hermes mcp add git-a2a --command git-a2a --args mcp --roots <repo>")
 	}
 	if contains(harnesses, "OpenClaw") {
-		instructions = append(instructions, `OpenClaw keeps MCP config in user scope; run: openclaw mcp set git-a2a '{"command":"git-a2a","args":["mcp"]}'`)
+		instructions = append(instructions, `OpenClaw keeps MCP config in user scope; run: openclaw mcp set git-a2a '{"command":"git-a2a","args":["mcp","--roots","<repo>"]}'`)
 	}
 	return instructions
 }
