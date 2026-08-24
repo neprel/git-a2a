@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import html
 import json
 import os
@@ -98,8 +99,9 @@ def compiled_hint(target: str = "spec") -> str:
         # npm exposes global executables as .cmd shims on Windows. CreateProcess cannot resolve
         # that shim directly, so let the platform command processor perform PATHEXT lookup.
         command = ["cmd.exe", "/d", "/s", "/c", "hint", target]
-    result = subprocess.run(command, cwd=ROOT, check=True, capture_output=True, text=True)
-    return result.stdout
+    result = subprocess.run(command, cwd=ROOT, check=True, capture_output=True)
+    output = result.stdout.decode("utf-8-sig")
+    return output.replace("\r\r\n", "\n").replace("\r\n", "\n").replace("\r", "\n")
 
 
 def attribute(opening: str, name: str) -> str:
@@ -434,7 +436,19 @@ def check_local_markdown_links() -> None:
 
 def output(path: pathlib.Path, rendered: str, check: bool, label: str) -> None:
     if check:
-        if not path.exists() or path.read_text(encoding="utf-8") != rendered:
+        current = path.read_text(encoding="utf-8") if path.exists() else ""
+        if current != rendered:
+            difference = "".join(
+                difflib.unified_diff(
+                    current.splitlines(keepends=True),
+                    rendered.splitlines(keepends=True),
+                    fromfile=str(path.relative_to(ROOT)),
+                    tofile=f"generated {label}",
+                    n=2,
+                )
+            )
+            if difference:
+                print(difference[:4000], end="" if difference.endswith("\n") else "\n")
             fail(f"{path.relative_to(ROOT)} is stale; run tools/gen-reference.py")
         return
     path.parent.mkdir(parents=True, exist_ok=True)

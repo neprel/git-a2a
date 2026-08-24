@@ -64,6 +64,9 @@ UTF-8 bytes with LF endings and every source document is read with an explicit U
 so byte checks have the same result on Windows and POSIX instead of depending on the host locale.
 Source locations emitted by HINT are normalized to forward-slash repository paths before they
 become Markdown links; Windows path separators must not make generated references drift.
+The HINT compiler's captured stdout is decoded from UTF-8 bytes and CRCRLF, CRLF, and CR are
+normalized explicitly before parsing, because routing a Windows `.cmd` shim through `cmd.exe`
+can otherwise expose platform newline artifacts. Check failures print a bounded unified diff.
 `gen-reference.py` also writes a byte-identical copy under `internal/reference/`; Go embeds that
 generated artifact for `git-a2a explain`. Check mode fails if either the public guide or embedded
 copy differs from the same rendered source after platform newline normalization; the generator
