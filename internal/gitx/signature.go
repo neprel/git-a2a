@@ -44,29 +44,30 @@ func VerifySignedObject(ctx context.Context, runner Runner, url, commit, fullRef
 	_, verifyErr := runner.Run(ctx, repo, nil,
 		"-c", "gpg.ssh.allowedSignersFile="+allowedSigners,
 		verifyCommand, "--raw", verifyTarget)
-	status, identity := signatureIdentity(ctx, runner, repo, allowedSigners, verifyTarget, verifyCommand)
-	if verifyErr != nil {
-		return fmt.Errorf("commit signature: %w; %s", verifyErr, identity)
+	status, signer, key, fingerprint := signatureIdentity(ctx, runner, repo, allowedSigners, verifyTarget, verifyCommand)
+	if verifyCommand == "verify-commit" && status == "unsigned" {
+		return fmt.Errorf("commit %s is not signed; allowed signers: %s", shortCommit(commit), allowedSigners)
 	}
-	if verifyCommand == "verify-commit" && status != "good" {
-		return fmt.Errorf("commit signature: signer is not allowed; %s", identity)
+	if verifyErr != nil || (verifyCommand == "verify-commit" && status != "good") {
+		return fmt.Errorf("commit %s signature rejected: %s; allowed signers: %s",
+			shortCommit(commit), signatureReason(status, signer, key, fingerprint), allowedSigners)
 	}
 	return nil
 }
 
-func signatureIdentity(ctx context.Context, runner Runner, repo, allowedSigners, target, command string) (string, string) {
+func signatureIdentity(ctx context.Context, runner Runner, repo, allowedSigners, target, command string) (string, string, string, string) {
 	if command != "verify-commit" {
-		return "rejected", "status=rejected signer=unknown key=unknown fingerprint=unknown"
+		return "rejected", "unknown", "unknown", "unknown"
 	}
 	out, err := runner.Run(ctx, repo, nil,
 		"-c", "gpg.ssh.allowedSignersFile="+allowedSigners,
 		"show", "-s", "--format=%G?%x00%GS%x00%GK%x00%GF", target)
 	if err != nil {
-		return "rejected", "status=rejected signer=unknown key=unknown fingerprint=unknown"
+		return "rejected", "unknown", "unknown", "unknown"
 	}
 	fields := strings.Split(strings.TrimSuffix(string(out), "\n"), "\x00")
 	if len(fields) != 4 {
-		return "rejected", "status=rejected signer=unknown key=unknown fingerprint=unknown"
+		return "rejected", "unknown", "unknown", "unknown"
 	}
 	status := map[string]string{
 		"G": "good", "U": "untrusted", "N": "unsigned", "B": "bad", "E": "error",
@@ -75,8 +76,7 @@ func signatureIdentity(ctx context.Context, runner Runner, repo, allowedSigners,
 	if status == "" {
 		status = "rejected"
 	}
-	return status, fmt.Sprintf("status=%s signer=%s key=%s fingerprint=%s",
-		status, signatureField(fields[1]), signatureField(fields[2]), signatureField(fields[3]))
+	return status, signatureField(fields[1]), signatureField(fields[2]), signatureField(fields[3])
 }
 
 func signatureField(value string) string {
@@ -84,4 +84,28 @@ func signatureField(value string) string {
 		return "none"
 	}
 	return value
+}
+
+func signatureReason(status, signer, key, fingerprint string) string {
+	label := map[string]string{
+		"untrusted":   "untrusted key",
+		"bad":         "bad signature from key",
+		"error":       "signature verification error for key",
+		"expired":     "expired signature from key",
+		"expired-key": "expired key",
+		"revoked-key": "revoked key",
+		"good":        "verification failed for key",
+		"rejected":    "rejected key",
+	}[status]
+	if label == "" {
+		label = "rejected key"
+	}
+	return fmt.Sprintf("%s %s (signer %s, fingerprint %s)", label, key, signer, fingerprint)
+}
+
+func shortCommit(commit string) string {
+	if len(commit) > 7 {
+		return commit[:7]
+	}
+	return commit
 }

@@ -2,6 +2,7 @@ package gitx
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -68,10 +69,11 @@ func TestVerifySignedObjectWithSSHAllowedSigners(t *testing.T) {
 	if err := VerifySignedObject(context.Background(), ExecRunner{}, repo, commit, "refs/heads/main", "branch", wrongAllowed, filepath.Join(root, "wrong-work")); err == nil {
 		t.Fatal("commit signed by a disallowed principal unexpectedly verified")
 	} else {
-		for _, want := range []string{"status=untrusted", "signer=none", "key=SHA256:", "fingerprint=SHA256:"} {
-			if !strings.Contains(err.Error(), want) {
-				t.Errorf("rejected signature error %q does not contain %q", err, want)
-			}
+		fingerprint := strings.Fields(runCommand(t, root, "ssh-keygen", "-lf", key+".pub", "-E", "sha256"))[1]
+		want := fmt.Sprintf("commit %.7s signature rejected: untrusted key %s (signer none, fingerprint %s); allowed signers: %s",
+			commit, fingerprint, fingerprint, wrongAllowed)
+		if err.Error() != want {
+			t.Fatalf("rejected signature error\n got: %q\nwant: %q", err, want)
 		}
 	}
 
@@ -87,7 +89,10 @@ func TestVerifySignedObjectWithSSHAllowedSigners(t *testing.T) {
 	unsignedCommit := strings.TrimSpace(runGitTest(t, unsigned, "rev-parse", "HEAD"))
 	if err := VerifySignedObject(context.Background(), ExecRunner{}, unsigned, unsignedCommit, "refs/heads/main", "branch", allowed, filepath.Join(root, "bad-work")); err == nil {
 		t.Fatal("unsigned commit unexpectedly verified")
-	} else if !strings.Contains(err.Error(), "status=unsigned signer=none key=none fingerprint=none") {
-		t.Fatalf("unsigned signature error lacks identity fields: %v", err)
+	} else {
+		want := fmt.Sprintf("commit %.7s is not signed; allowed signers: %s", unsignedCommit, allowed)
+		if err.Error() != want {
+			t.Fatalf("unsigned signature error\n got: %q\nwant: %q", err, want)
+		}
 	}
 }
