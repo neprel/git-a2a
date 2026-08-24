@@ -109,6 +109,12 @@ jobs:
           SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
         run: |
           set -euo pipefail
+          case "$RELEASE_TAG" in
+            *-*)
+              echo "prerelease: leaving stable Homebrew and Scoop manifests unchanged"
+              exit 0
+              ;;
+          esac
           release_dir="$RUNNER_TEMP/release-channel"
           brew_dir="$RUNNER_TEMP/homebrew-tap"
           scoop_dir="$RUNNER_TEMP/scoop-bucket"

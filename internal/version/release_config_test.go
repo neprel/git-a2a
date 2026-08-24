@@ -201,6 +201,14 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 			t.Errorf("trusted npm publishing must not contain %q", forbidden)
 		}
 	}
+	guard := strings.Index(workflow, `case "$RELEASE_TAG" in`)
+	render := strings.Index(workflow, "python3 tools/release-channels.py")
+	if guard < 0 || render < 0 || guard > render {
+		t.Error("prerelease channel guard must run before rendering stable Homebrew and Scoop manifests")
+	}
+	if !strings.Contains(workflow, "prerelease: leaving stable Homebrew and Scoop manifests unchanged") {
+		t.Error("prerelease channel guard must explain that stable manifests are unchanged")
+	}
 	if regexp.MustCompile(`(?m)^\s*if:\s*\$\{\{\s*secrets\.`).MatchString(workflow) {
 		t.Error("GitHub Actions does not allow the secrets context directly in an if expression")
 	}

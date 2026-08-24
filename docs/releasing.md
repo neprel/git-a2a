@@ -43,6 +43,9 @@ downloads the published `checksums.txt` and renders Homebrew/Scoop manifests fro
 asset hashes; it must never use hashes from a recovery rebuild, whose archives need not be
 byte-identical. npm checks each immutable package version and leaves an already-published version
 unchanged. Tag-triggered releases use the checked-in config with artifact upload enabled.
+Homebrew and Scoop are stable aliases: prerelease tag runs and prerelease recovery dispatches
+leave both repositories unchanged. Stable tags alone render and publish the main formula and
+manifest.
 
 ## macOS and Windows status
 

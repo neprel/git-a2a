@@ -116,8 +116,10 @@ file before installing its replacement; a failed install restores it, and the ne
 removes the `.old` remnant best-effort.
 Homebrew and Scoop publication is optional and skipped when its repository token is absent. A
 dedicated channel renderer reads hashes only from the immutable release `checksums.txt`; recovery
-rebuild archives are never a checksum source because archive bytes may differ. Until the macOS
-binary is Apple-signed and notarized, the tap publishes a formula rather than a cask: Homebrew
+rebuild archives are never a checksum source because archive bytes may differ.
+Homebrew and Scoop are stable aliases: prerelease tags and prerelease recovery dispatches skip
+both repositories before rendering, so an RC can never replace the main formula or manifest.
+Until the macOS binary is Apple-signed and notarized, the tap publishes a formula rather than a cask: Homebrew
 verifies the release SHA-256 first, then the formula removes `com.apple.quarantine` from only the
 installed `git-a2a` binary, and `brew test` proves the first launch. The Scoop channel is verified
 on `windows-latest`; Wine under amd64 QEMU on Apple Silicon can abort in its memory-mapping layer
