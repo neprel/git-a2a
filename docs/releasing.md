@@ -18,6 +18,10 @@ The v1.6.0 story is: a2amodule schema 1 now has an implementation-neutral confor
 versioned runner on Linux and Windows; owners can publish non-enforced contact-budget guidance and
 email coordinates while consumers alone provide sendmail or SMTP delivery; the release passes
 conformance version 1 and publishes the normative specification as a generated reader page.
+The v1.7.0 story is: consumers can adopt an ordinary Git repository without requiring its owner to
+publish a manifest, optionally adding a trusted local shim for exports and contacts; every reader
+accepts either manifest extension without ambiguity; and one deterministic init interview lets
+humans and agents produce the same reviewed module declaration from the same repository facts.
 
 ## GitHub configuration
 
