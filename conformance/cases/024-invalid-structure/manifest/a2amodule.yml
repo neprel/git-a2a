@@ -1,0 +1,23 @@
+schema: 1
+module:
+  id: acme-bad-structure
+  surface: /absolute
+  moved-to: {path: /absolute}
+  exports:
+    - {ecosystem: "", name: "", path: /absolute}
+agents:
+  - name: ""
+    role: ""
+    scope: [""]
+    trust:
+      jwks: [http://insecure.example/jwks]
+      keys: [""]
+      origins: [not-an-origin]
+      jwks-max-age: 0s
+settings:
+  vendor-dir: /absolute
+  sync-targets: [/absolute]
+  organisation: [""]
+  contact:
+    allow-http: [http://insecure.example]
+    allow-exec: [../bad]

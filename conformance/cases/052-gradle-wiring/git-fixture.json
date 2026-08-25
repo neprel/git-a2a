@@ -1,0 +1,1 @@
+{"initWorktree":true,"files":{"a2amodule.yml":"schema: 1\nmodule: {id: acme-lib}\n","jvm/settings.gradle.kts":"rootProject.name = \"acme-lib\"\n","jvm/build.gradle.kts":"plugins { java }\n"}}

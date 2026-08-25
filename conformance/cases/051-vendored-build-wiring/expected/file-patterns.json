@@ -1,0 +1,7 @@
+{
+  "go.mod": ["replace acme.dev/lib => ./deps/acme-lib/go"],
+  "CMakeLists.txt": ["include\\(\\\"deps/git-a2a.cmake\\\"\\) # git-a2a"],
+  "deps/git-a2a.cmake": ["add_subdirectory\\(\\\"deps/acme-lib/cpp\\\""],
+  "Acme.App.csproj": ["Import Project=\\\"deps/git-a2a.targets\\\""],
+  "deps/git-a2a.targets": ["Acme.Lib.csproj"]
+}

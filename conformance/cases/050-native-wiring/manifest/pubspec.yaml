@@ -1,0 +1,7 @@
+name: consumer
+environment:
+  sdk: ^3.8.0
+dependencies:
+  http: ^1.0.0 # keep
+dev_dependencies:
+  test: ^1.0.0

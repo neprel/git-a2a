@@ -1,0 +1,14 @@
+schema: 1
+module:
+  id: acme-bad-dependencies
+  surface: deps/acme-lib
+dependencies:
+  - id: acme-lib
+    git: ""
+    path: /absolute
+    track: unknown
+    vendor: {mode: unknown, path: deps/acme-lib, recursive: true}
+    require: {commits: signed, cards: unknown}
+  - id: acme-lib
+    git: https://example.invalid/acme/lib.git
+    vendor: {mode: copy, path: deps/acme-lib, recursive: true}

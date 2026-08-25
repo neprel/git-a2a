@@ -1,0 +1,13 @@
+schema: must equal 1
+dependencies.acme-lib.git: required
+dependencies.acme-lib.ref: required
+dependencies.acme-lib.path: must be a relative path
+dependencies.acme-lib.commit: must be 40 lowercase hex characters
+dependencies.acme-lib.manifest: invalid sha256 hash
+dependencies.acme-lib.cards.acme-owner: invalid sha256 hash
+dependencies.acme-lib.cards-keys.acme-owner.kid: required
+dependencies.acme-lib.cards-keys.acme-owner.first-seen: must be 40 lowercase hex characters
+dependencies.acme-lib.verified: must be signed or skipped
+dependencies.acme-lib.surface: invalid tree id
+dependencies.acme-lib.vendor.mode: must be submodule or copy
+dependencies.acme-lib.vendor.path: must be a relative path

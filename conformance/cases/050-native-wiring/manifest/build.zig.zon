@@ -1,0 +1,8 @@
+.{
+  .name = .consumer,
+  .version = "1.0.0",
+  // keep this dependency
+  .dependencies = .{
+    .known = .{ .path = "vendor/known" },
+  },
+}

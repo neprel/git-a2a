@@ -1,0 +1,11 @@
+schema: 1
+module: {id: acme-lib, repository: https://gitlab.example/acme/group/lib}
+agents:
+  - name: acme-owner
+    role: owner
+    contacts:
+      - kind: gitlab-issue
+        intents: [bug]
+        repo: acme/group/lib
+        server: https://gitlab.example
+policy: {intents: {bug: owner}}

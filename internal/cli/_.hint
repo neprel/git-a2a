@@ -178,3 +178,11 @@ rechecks online and trusts only `verified: signed` offline. The explicit
 `accepts-external: false` is enforced before delivery by comparing the consumer and owner
 organisations; MCP has no override, while the CLI-only `--external-ok` makes human approval
 visible in the delivery output.
+
+# decision Consumer CA configuration follows SSL_CERT_FILE on every platform
+
+All CLI HTTP delivery uses a client whose trust pool appends the PEM bundle named by the
+conventional consumer-owned `SSL_CERT_FILE` environment variable. The CLI performs this
+explicitly because Go's system-root implementation does not honor that variable consistently on
+macOS and Windows. An absent or unreadable override leaves the platform trust store unchanged;
+the tool never downloads or installs a CA.

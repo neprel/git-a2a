@@ -1,0 +1,1 @@
+["contact", "acme-lib", "--intent", "change", "--message", "message.txt"]

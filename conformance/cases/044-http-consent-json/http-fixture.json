@@ -1,0 +1,1 @@
+{"status":200,"responseBody":"ok","method":"POST","path":"/deliver?intent=change","body":"{\"module\":\"acme-lib\",\"literal\":\"{word}\",\"message\":\"Quote \\\" and brace { remain data\\n\"}"}

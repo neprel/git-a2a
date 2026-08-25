@@ -1,0 +1,4 @@
+kind=http
+state=instruction
+driver=instruction
+curl

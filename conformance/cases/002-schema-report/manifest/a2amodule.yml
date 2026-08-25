@@ -1,0 +1,6 @@
+schema: 1
+module:
+  id: acme-report
+  release:
+    tags: false
+agents: []

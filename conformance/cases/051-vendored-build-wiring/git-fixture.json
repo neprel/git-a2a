@@ -1,0 +1,1 @@
+{"initWorktree":true,"files":{"a2amodule.yml":"schema: 1\nmodule: {id: acme-lib}\n","go/go.mod":"module acme.dev/lib\n\ngo 1.24\n","cpp/CMakeLists.txt":"add_library(acme_lib INTERFACE)\n","dotnet/Acme.Lib.csproj":"<Project Sdk=\"Microsoft.NET.Sdk\" />\n","meson/meson.build":"project('acme-lib', 'cpp')\n"}}

@@ -1,0 +1,9 @@
+agents\[0\].contacts\[0\].intents: required and must not be empty
+agents\[0\].contacts\[0\].repo: required for contact kind github-issue
+agents\[0\].contacts\[1\].repo: required for contact kind gitlab-issue
+agents\[0\].contacts\[3\].url: must be an https URL
+agents\[0\].contacts\[3\].headers.X-Acme: placeholders are not allowed
+agents\[0\].contacts\[3\].url: unsupported placeholder \{typo\}
+agents\[0\].contacts\[4\].command\[0\]: must be a bare binary name
+agents\[0\].contacts\[4\].args\[0\]: unsupported placeholder \{typo\}
+agents\[0\].contacts\[4\].args\[1\]: unsupported placeholder \{message\}

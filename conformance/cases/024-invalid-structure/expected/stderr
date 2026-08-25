@@ -1,0 +1,17 @@
+module.surface: must be a relative path
+module.moved-to.git: required
+module.moved-to.path: must be a relative path
+module.exports\[0\].ecosystem: required
+module.exports\[0\].name: required
+module.exports\[0\].path: must be a relative path
+agents\[0\].name: required
+agents\[0\].role: required
+agents\[0\].trust.jwks\[0\]: must be an https URL
+agents\[0\].trust.keys\[0\]: must not be empty
+agents\[0\].trust.origins\[0\]: must be scheme://host
+agents\[0\].trust.jwks-max-age: must be a positive duration
+settings.vendor-dir: must be a relative path
+settings.sync-targets\[0\]: must be a relative path
+settings.organisation\[0\]: must not be empty
+settings.contact.allow-http\[0\]: must be an https origin
+settings.contact.allow-exec\[0\]: must be a bare binary name

@@ -1,0 +1,1 @@
+{"meson.build":["subdir\\('deps/git-a2a'\\) # git-a2a"],"deps/git-a2a/meson.build":["subproject\\('acme-lib'\\)"]}

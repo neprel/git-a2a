@@ -1,0 +1,8 @@
+schema: 1
+dependencies:
+  acme-lib:
+    git: https://github.com/acme/lib.git
+    ref: main
+    path: .
+    commit: 1111111111111111111111111111111111111111
+    manifest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa

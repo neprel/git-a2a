@@ -1,0 +1,7 @@
+schema: 1
+module:
+  id: acme-lib
+  exports:
+    - {ecosystem: golang, name: acme.dev/lib, path: go}
+    - {ecosystem: cmake, name: "acme::lib", path: cpp}
+    - {ecosystem: nuget, name: Acme.Lib, path: dotnet}

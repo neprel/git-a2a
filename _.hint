@@ -424,3 +424,6 @@ spec/schema/Go-field parity, Windows unit tests, weekly/manual real-toolchain ma
 real-host fetch tests, and the pinned A2A-proto conformance script. Prerequisite tests use a fake
 `PATH`; they must prove `doctor` fails clearly while wiring remains available without installing
 or downloading a toolchain.
+The language-neutral `conformance/` corpus is a separate external-binary gate on both Linux and
+Windows: CI builds the reference executable, points `CONFORMANCE_BIN` at it, and runs
+`go run ./conformance/runner`. A release states the independent `conformance/VERSION` it passes.

@@ -1,0 +1,14 @@
+schema: 0
+dependencies:
+  acme-lib:
+    git: ""
+    ref: ""
+    path: /absolute
+    commit: short
+    manifest: short
+    cards: {acme-owner: short}
+    cards-keys:
+      acme-owner: {kid: "", thumbprint: short, first-seen: ""}
+    verified: unknown
+    surface: short
+    vendor: {mode: unknown, path: /absolute, tree: short}

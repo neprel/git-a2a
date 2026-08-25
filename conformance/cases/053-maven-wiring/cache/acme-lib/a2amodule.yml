@@ -1,0 +1,4 @@
+schema: 1
+module:
+  id: acme-lib
+  exports: [{ecosystem: maven, name: "com.acme:lib", path: java/pom.xml}]

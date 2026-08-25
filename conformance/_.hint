@@ -1,0 +1,39 @@
+# app a2amodule implementation conformance corpus
+
+This subtree is a language-neutral executable contract for schema 1. It tests public CLI behavior
+through a supplied binary and never imports the reference implementation. A second implementation
+clones the repository, sets `CONFORMANCE_BIN`, and receives the same cases and verdicts.
+
+# decision Cases are filesystem contracts, not Go unit tests
+
+Every numbered directory under `cases/` contains `manifest/` as the initial durable repository,
+`command` as a JSON argv array, and `expected/exit-code`. Optional `expected/stdout` and
+`expected/stderr` contain one Go-compatible regular expression per non-comment line; `!` negates
+a pattern. Files under `expected/files/` must match the resulting repository byte-for-byte and
+paths in `expected/absent` must not exist. `expected/file-patterns.json` checks required syntax
+without making unrelated formatter whitespace normative. A case may declare `env.json`, `platform`,
+`fixture.sh`, `http-fixture.json`, or `git-fixture.json`. Git fixtures expose only their local URL,
+commit and tree through named replacement tokens. The runner normalizes only its temporary root and fixture
+HTTP origin; it does not collapse whitespace or rewrite semantic output.
+Optional `cache/` is copied to the deliberately untracked `.git-a2a/cache/` at run time, so the
+corpus tests cache-dependent commands without teaching consumers to commit local state.
+
+# invariant The runner treats the implementation as an external program
+
+`CONFORMANCE_BIN` names one executable. The runner copies each initial repository to a fresh
+temporary directory, invokes the binary there without a shell, observes exit/stdout/stderr, and
+checks only declared results. It never calls an internal Go package or assumes git-a2a's source
+layout. Cases use only `acme-*` public identities and contain no credentials or network dependency;
+the built-in TLS fixture supplies a local CA through `SSL_CERT_FILE` when delivery is exercised.
+
+# decision Conformance versions independently from CLI releases
+
+`conformance/VERSION` is an integer contract revision. Additive cases that expose behavior already
+required by schema 1 increment it. Release notes state the conformance version. A breaking change
+to the case protocol requires a documented runner compatibility change, not a silent rewrite.
+
+# build Conformance gates
+
+`CONFORMANCE_BIN=<absolute binary> go run ./conformance/runner` must pass on Linux and Windows.
+`go test ./conformance/runner` covers runner parsing and normalization. CI builds the binary once
+and runs the external corpus on both operating systems.

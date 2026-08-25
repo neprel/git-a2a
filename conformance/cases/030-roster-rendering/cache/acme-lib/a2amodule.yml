@@ -1,0 +1,15 @@
+schema: 1
+module:
+  id: acme-lib
+  description: Reusable utility functions.
+  repository: https://github.com/acme/lib
+agents:
+  - name: acme-owner
+    role: owner
+    scope: ["**"]
+    contacts:
+      - kind: url
+        intents: [question]
+        url: https://example.com/contact
+policy:
+  intents: {question: owner}

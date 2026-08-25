@@ -1,0 +1,12 @@
+schema: 1
+module: {id: acme-lib, repository: https://github.com/acme/lib}
+agents:
+  - name: acme-maintainer
+    role: maintainer
+    scope: [src/**]
+    contacts:
+      - kind: email
+        intents: [bug]
+        address: maintainers@example.com
+policy:
+  intents: {bug: maintainer}

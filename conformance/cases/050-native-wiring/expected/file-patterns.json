@@ -1,0 +1,14 @@
+{
+  "package.json": ["@acme/lib", "{{GIT_COMMIT}}"],
+  "pyproject.toml": ["acme-lib", "rev = \\\"{{GIT_COMMIT}}\\\""],
+  "Cargo.toml": ["acme-lib", "rev = \\\"{{GIT_COMMIT}}\\\""],
+  "Package.swift": ["AcmeLib", "revision: \\\"{{GIT_COMMIT}}\\\""],
+  "pubspec.yaml": ["acme_lib", "ref: \\\"{{GIT_COMMIT}}\\\""],
+  "Gemfile": ["gem \\\"acme-lib\\\"", "ref: \\\"{{GIT_COMMIT}}\\\""],
+  "composer.json": ["acme/lib", "dev-main#{{GIT_COMMIT}}"],
+  "mix.exs": ["acme_lib", "ref: \\\"{{GIT_COMMIT}}\\\""],
+  "cabal.project": ["source-repository-package", "tag: {{GIT_COMMIT}}"],
+  "build.zig.zon": ["acme_lib"],
+  "deps.edn": ["acme/lib", ":git/sha \\\"{{GIT_COMMIT}}\\\""],
+  "flake.nix": ["acme-lib", "rev={{GIT_COMMIT}}"]
+}

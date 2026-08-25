@@ -1,0 +1,7 @@
+{
+  "name": "acme/consumer",
+  "require": {
+    "php": "^8.3"
+  },
+  "extra": {"keep": true}
+}

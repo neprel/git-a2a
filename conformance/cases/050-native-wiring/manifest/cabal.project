@@ -1,0 +1,4 @@
+packages: .
+
+-- keep this constraint
+constraints: base >= 4.18

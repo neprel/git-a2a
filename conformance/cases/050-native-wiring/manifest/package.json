@@ -1,0 +1,6 @@
+{
+  "name": "consumer-npm",
+  "dependencies": {
+    "left-pad": "1.3.0"
+  }
+}

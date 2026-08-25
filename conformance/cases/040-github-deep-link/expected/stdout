@@ -1,0 +1,5 @@
+kind=github-issue
+state=instruction
+https://github\.example/acme/lib/issues/new\?
+body=Broken
+title=Broken

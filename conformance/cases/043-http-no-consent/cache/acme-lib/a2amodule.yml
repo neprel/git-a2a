@@ -1,0 +1,13 @@
+schema: 1
+module: {id: acme-lib, repository: https://example.com/acme/lib}
+agents:
+  - name: acme-owner
+    role: owner
+    contacts:
+      - kind: http
+        intents: [change]
+        url: https://hooks.example/acme?intent={intent}
+        method: POST
+        content-type: application/json
+        body: '{"module":"{module}","message":"{message}"}'
+policy: {intents: {change: owner}}

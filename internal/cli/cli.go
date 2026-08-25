@@ -51,7 +51,7 @@ type App struct {
 }
 
 func New(out, errOut io.Writer) *App {
-	return &App{Out: out, Err: errOut, Root: ".", Timeout: 120 * time.Second}
+	return &App{Out: out, Err: errOut, Root: ".", Timeout: 120 * time.Second, HTTPClient: environmentHTTPClient()}
 }
 
 func (a *App) Run(args []string) int {

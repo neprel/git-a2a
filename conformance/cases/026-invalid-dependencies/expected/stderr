@@ -1,0 +1,10 @@
+dependencies\[0\].git: required
+dependencies\[0\].path: must be a relative path
+dependencies\[0\].track: must be locked or floating
+dependencies\[0\].vendor.mode: must be submodule or copy
+dependencies\[0\].vendor.path: must not overlap module.surface
+dependencies\[0\].require.signers: required when commits is signed
+dependencies\[0\].require.cards: must be any or signed
+dependencies\[1\].id: duplicate "acme-lib"
+dependencies\[1\].vendor.recursive: copy mode cannot initialise nested submodules
+dependencies\[1\].vendor.path: overlaps dependency acme-lib vendor path

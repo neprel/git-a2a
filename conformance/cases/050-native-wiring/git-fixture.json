@@ -1,0 +1,1 @@
+{"files":{"a2amodule.yml":"schema: 1\nmodule: {id: acme-lib}\n","go/go.mod":"module acme.dev/lib\n\ngo 1.24\n","README.md":"acme fixture\n"}}

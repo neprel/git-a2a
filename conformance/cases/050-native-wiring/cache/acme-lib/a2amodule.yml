@@ -1,0 +1,18 @@
+schema: 1
+module:
+  id: acme-lib
+  exports:
+    - {ecosystem: npm, name: "@acme/lib"}
+    - {ecosystem: pypi, name: acme-lib, path: python}
+    - {ecosystem: cargo, name: acme-lib, path: rust}
+    - {ecosystem: swift, name: AcmeLib}
+    - {ecosystem: pub, name: acme_lib, path: dart}
+    - {ecosystem: gem, name: acme-lib, path: ruby}
+    - {ecosystem: composer, name: acme/lib}
+    - {ecosystem: hex, name: acme_lib, path: elixir}
+    - {ecosystem: hackage, name: acme-lib, path: haskell}
+    - ecosystem: zig
+      name: acme_lib
+      x-zig-hash: sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=
+    - {ecosystem: clojure, name: acme/lib, path: clojure}
+    - {ecosystem: nix, name: acme-lib, path: nix}

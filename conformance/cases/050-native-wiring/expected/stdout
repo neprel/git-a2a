@@ -1,0 +1,12 @@
+npm: wired acme-lib
+pypi: wired acme-lib
+cargo: wired acme-lib
+swift: wired acme-lib
+pub: wired acme-lib
+gem: wired acme-lib
+composer: wired acme-lib
+hex: wired acme-lib
+hackage: wired acme-lib
+zig: wired acme-lib
+clojure: wired acme-lib
+nix: wired acme-lib

@@ -1,0 +1,1 @@
+{"settings.gradle.kts":["apply\\(from = \\\"deps/git-a2a.settings.gradle.kts\\\"\\)"],"deps/git-a2a.settings.gradle.kts":["includeBuild\\(\\\"deps/acme-lib/jvm\\\"\\)","com.acme:lib"]}

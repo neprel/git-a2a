@@ -1,0 +1,9 @@
+schema: 1
+module: {id: acme-consumer}
+settings: {vendor-dir: subprojects}
+dependencies:
+  - id: acme-lib
+    git: "{{GIT_URL}}"
+    ref: main
+    wire: [meson]
+    vendor: {mode: copy, path: subprojects/acme-lib}

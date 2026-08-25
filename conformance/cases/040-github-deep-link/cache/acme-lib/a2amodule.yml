@@ -1,0 +1,12 @@
+schema: 1
+module: {id: acme-lib, repository: https://github.example/acme/lib}
+agents:
+  - name: acme-owner
+    role: owner
+    contacts:
+      - kind: github-issue
+        intents: [bug]
+        repo: acme/lib
+        server: https://github.example
+        labels: [bug, agent-request]
+policy: {intents: {bug: owner}}

@@ -1,0 +1,23 @@
+schema: 1
+module: {id: acme-bad-contacts}
+agents:
+  - name: acme-owner
+    role: owner
+    contacts:
+      - kind: github-issue
+        intents: []
+      - kind: gitlab-issue
+        intents: [bug]
+      - kind: gitea-issue
+        intents: [bug]
+        repo: acme/lib
+        server: http://insecure.example
+      - kind: http
+        intents: [change]
+        url: http://insecure.example/hook?x={typo}
+        headers: {X-Acme: "{intent}"}
+        body: "{module} {message}"
+      - kind: exec
+        intents: [change]
+        command: [../bad]
+        args: ["{typo}", "{message}"]
