@@ -68,11 +68,7 @@ func TestMCPToolDiscoveryAndRoundTrips(t *testing.T) {
 	if len(writeTools) != 14 {
 		t.Fatalf("write-enabled tool count = %d", len(writeTools))
 	}
-	for _, tool := range writeTools {
-		if tool.Name == "contact" && (tool.Annotations == nil || tool.Annotations.IdempotentHint) {
-			t.Fatalf("contact must be non-idempotent: %#v", tool.Annotations)
-		}
-	}
+	assertMCPToolFacts(t, writeTools)
 	if os.Getenv("GITA2A_UPDATE_GOLDEN") == "1" {
 		body, _ := json.MarshalIndent(writeTools, "", "  ")
 		if err := os.WriteFile(filepath.Join("testdata", "mcp-tools.golden.json"), append(body, '\n'), 0o644); err != nil {
@@ -100,6 +96,51 @@ func TestMCPToolDiscoveryAndRoundTrips(t *testing.T) {
 		result := callMCPTool(t, ctx, writeSession, name, arguments)
 		if result == nil {
 			t.Errorf("%s returned nil", name)
+		}
+	}
+}
+
+func assertMCPToolFacts(t *testing.T, tools []*mcp.Tool) {
+	t.Helper()
+	byName := make(map[string]*mcp.Tool, len(tools))
+	for _, tool := range tools {
+		byName[tool.Name] = tool
+	}
+	for _, fact := range MCPToolFacts() {
+		tool := byName[fact.Name]
+		if tool == nil {
+			t.Errorf("documented MCP fact %q is not registered", fact.Name)
+			continue
+		}
+		annotations := tool.Annotations
+		if tool.Description != fact.Description || annotations == nil ||
+			annotations.ReadOnlyHint != fact.ReadOnly ||
+			annotations.DestructiveHint == nil || *annotations.DestructiveHint != fact.Destructive ||
+			annotations.IdempotentHint != fact.Idempotent ||
+			annotations.OpenWorldHint == nil || *annotations.OpenWorldHint != fact.OpenWorld {
+			t.Errorf("MCP tool %q differs from enumerable fact: tool=%#v fact=%#v", fact.Name, tool, fact)
+		}
+	}
+	if len(byName) != len(MCPToolFacts()) {
+		t.Errorf("registered MCP tools=%d, enumerable facts=%d", len(byName), len(MCPToolFacts()))
+	}
+}
+
+func TestMCPDocumentationEnumeratesDefaultToolsFromFacts(t *testing.T) {
+	var names []string
+	for _, fact := range MCPToolFacts() {
+		if fact.Access == "default" {
+			names = append(names, "`"+fact.Name+"`")
+		}
+	}
+	want := strings.Join(names, ", ")
+	for _, path := range []string{"docs/mcp.md", "docs/cli.md", "docs/agents.md"} {
+		body, err := os.ReadFile(filepath.Join("..", "..", filepath.FromSlash(path)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(strings.Join(strings.Fields(string(body)), " "), want) {
+			t.Errorf("%s does not enumerate the eight default MCP tools as %q", path, want)
 		}
 	}
 }

@@ -21,6 +21,7 @@ CONTACT_PATH = ROOT / "docs/contact-kinds.md"
 LLMS_PATH = ROOT / "sites/git-a2a.com/llms.txt"
 LLMS_FULL_PATH = ROOT / "sites/git-a2a.com/llms-full.txt"
 WORKS_WITH_PATH = ROOT / "docs/works-with.md"
+MCP_FACTS_PATH = ROOT / "docs/mcp-tools.md"
 
 WORKS_WITH = [
     ("Native ecosystems", "npm, uv/PyPI, Go, Cargo, SwiftPM, Pub, Bundler, Composer, Mix, Cabal/Stack, Zig, Clojure, Nix", "native Git forms, or local path forms when vendored"),
@@ -102,6 +103,17 @@ def compiled_hint(target: str = "spec") -> str:
     result = subprocess.run(command, cwd=ROOT, check=True, capture_output=True)
     output = result.stdout.decode("utf-8-sig")
     return output.replace("\r\r\n", "\n").replace("\r\n", "\n").replace("\r", "\n")
+
+
+def generated_mcp_facts() -> str:
+    result = subprocess.run(
+        ["go", "run", "./tools/mcp-facts"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.replace("\r\n", "\n").replace("\r", "\n")
 
 
 def attribute(opening: str, name: str) -> str:
@@ -366,6 +378,7 @@ Canonical behavior is defined by the repository specification and schemas; the w
 - [FAQ](https://github.com/neprel/git-a2a/blob/main/docs/faq.md)
 - [CLI reference](https://github.com/neprel/git-a2a/blob/main/docs/cli.md)
 - [MCP server](https://github.com/neprel/git-a2a/blob/main/docs/mcp.md)
+- [MCP tool text audit](https://github.com/neprel/git-a2a/blob/main/docs/mcp-tools.md)
 - [A2A module extension](https://git-a2a.com/ext/module/v1)
 - [Manifest schema](https://git-a2a.com/schema/a2amodule.v1.json)
 - [Lock schema](https://git-a2a.com/schema/a2amodule-lock.v1.json)
@@ -380,7 +393,7 @@ Canonical behavior is defined by the repository specification and schemas; the w
 """
 
 
-def generate_llms_full(reference: str, contacts: str) -> str:
+def generate_llms_full(reference: str, contacts: str, mcp_facts: str) -> str:
     inputs = [
         ("Project README", ROOT / "README.md", None),
         ("Specification overview", ROOT / "spec/README.md", None),
@@ -395,6 +408,7 @@ def generate_llms_full(reference: str, contacts: str) -> str:
         ("FAQ", ROOT / "docs/faq.md", None),
         ("CLI reference", ROOT / "docs/cli.md", None),
         ("MCP guide", ROOT / "docs/mcp.md", None),
+        ("MCP tool text audit", MCP_FACTS_PATH, mcp_facts),
         ("Manifest field reference", OUTPUT_PATH, reference),
     ]
     lines = [
@@ -504,8 +518,9 @@ def main() -> None:
     rendered = generate()
     contacts = generate_contact_kinds(compiled, compiled_hint("."))
     llms = generate_llms_map()
-    llms_full = generate_llms_full(rendered, contacts)
     works_with = generate_works_with()
+    mcp_facts = generated_mcp_facts()
+    llms_full = generate_llms_full(rendered, contacts, mcp_facts)
     for forbidden in ("See term `", "See root decision `", "documented below"):
         if forbidden in rendered:
             fail(f"generated reference contains unresolved wording: {forbidden}")
@@ -516,6 +531,7 @@ def main() -> None:
         output(LLMS_PATH, llms, True, "llms map")
         output(LLMS_FULL_PATH, llms_full, True, "llms full")
         output(WORKS_WITH_PATH, works_with, True, "works with")
+        output(MCP_FACTS_PATH, mcp_facts, True, "MCP tool facts")
         check_works_with_copy()
         check_local_markdown_links()
         check_markdown_table_code_spans()
@@ -527,6 +543,7 @@ def main() -> None:
     output(LLMS_PATH, llms, False, "llms map")
     output(LLMS_FULL_PATH, llms_full, False, "llms full")
     output(WORKS_WITH_PATH, works_with, False, "works with")
+    output(MCP_FACTS_PATH, mcp_facts, False, "MCP tool facts")
     check_works_with_copy()
     check_local_markdown_links()
     check_markdown_table_code_spans()

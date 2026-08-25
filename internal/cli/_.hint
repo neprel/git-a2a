@@ -140,8 +140,9 @@ upgrade diagnostic defined by the spec, while older/invalid values remain exit 1
 # decision MCP is a thin command-scoped projection of the CLI
 
 `git-a2a mcp` is a stateless stdio server built on the official Go SDK v1.7.x. It opens no
-listener and exits with its harness connection. Seven read tools and the cache-restoring `fetch`
-tool delegate to the existing JSON CLI paths; six write-capable tools are absent unless the operator starts it with
+listener and exits with its harness connection. Exactly eight default tools (`who`, `show`,
+`status`, `validate`, `doctor`, `fetch`, `explain`, `usage`) delegate to the existing JSON CLI
+paths; six write-capable tools are absent unless the operator starts it with
 `--allow-write`. `remove` remains CLI-only. The fixed resources expose the current manifest,
 lock, freshly rendered roster, and embedded generated field reference. Tool schemas are typed,
 tool order is golden-tested, and every tool plus the spawned stdio transport has a protocol
@@ -167,6 +168,9 @@ an explicit `--roots <repo>`.
 Write-enabled MCP `add` and `set` expose the same `vendor`, `vendorPath`, `noVendor`, and `force`
 choices as the CLI and delegate them as ordinary command flags; MCP does not invent a separate
 materialisation model.
+Names, descriptions, access gates, and annotations are one enumerable fact table used directly
+by MCP registration. Documentation renders its audit table from those same facts; tests compare
+the live `tools/list` response to them, so adding or changing a tool cannot silently leave prose stale.
 
 # decision Consumer trust gates run before durable publication
 

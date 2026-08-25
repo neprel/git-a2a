@@ -417,9 +417,8 @@ setup: dry run; 5 file(s) would change
 ## mcp
 
 `git-a2a mcp [--allow-write] [--roots DIR[,DIR...]]... [--any-root] [--print-roots]` runs a
-stateless MCP server over stdio. By default it exposes
-seven read-only tools (`who`, `show`, `status`, `validate`, `doctor`, `explain`, `usage`) plus
-the cache-restoring `fetch` tool, and
+stateless MCP server over stdio. By default it exposes exactly eight tools (`who`, `show`,
+`status`, `validate`, `doctor`, `fetch`, `explain`, `usage`), and
 four repository resources (`a2amodule://manifest`, `a2amodule://lock`,
 `a2amodule://roster`, `a2amodule://reference`). `--allow-write` additionally exposes `add`,
 `update`, `set`, `wire`, `sync`, and `contact`; `remove` remains CLI-only. The process opens no
@@ -427,6 +426,8 @@ network listener and stores no server state. Protocol or command failures exit `
 options exit `2`.
 MCP `contact` enforces `accepts-external: false` and intentionally has no `external-ok` input:
 approving an external delivery remains a human CLI action.
+Descriptions, access gates, and annotations for all 14 tools are in the generated
+[MCP tool text audit](mcp-tools.md).
 
 Repository-dependent tools accept an optional `root` path, defaulting to the server startup
 directory. It must remain inside the startup directory, a repeated `--roots DIR[,DIR...]` value,

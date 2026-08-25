@@ -76,6 +76,10 @@ The same run extracts `contact_kinds` into `docs/contact-kinds.md`, generates th
 targets across README, spec, and docs. It rejects an unescaped pipe inside an inline-code span in
 a Markdown table, because GFM treats that pipe as a cell delimiter even though it is between
 backticks. These files are outputs, never separately authored sources.
+It also invokes the repository-local `tools/mcp-facts` formatter. That formatter renders
+`docs/mcp-tools.md` from the same enumerable metadata used by MCP registration, including every
+tool description, access gate, and annotation, and `llms-full.txt` embeds the rendered table.
+Never maintain an independent hand-written MCP tool audit.
 
 # decision Public specification reader is generated from normative sources
 

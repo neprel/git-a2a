@@ -46,8 +46,8 @@ under the home directory is reported but not modified; select it deliberately wi
 
 ## MCP and multiple repositories
 
-The read-only default exposes `who`, `show`, `status`, `validate`, `doctor`, `explain`, `usage`,
-and cache-restoring `fetch`. `--allow-write` adds mutations and delivery. Each tool may select a
+The default exposes exactly eight tools: `who`, `show`, `status`, `validate`, `doctor`, `fetch`,
+`explain`, `usage`. `--allow-write` adds mutations and delivery. Each tool may select a
 repository inside the startup directory, explicit `--roots`, or roots declared by the MCP client:
 
 ```sh
@@ -56,7 +56,7 @@ git-a2a mcp --roots repo-a,repo-b
 
 Alternatively start one stdio server per repository. `--any-root` is an explicit security opt-out
 and setup never writes it. See the [MCP guide](mcp.md) for exact harness configuration and trust
-boundary.
+boundary and the generated [tool text audit](mcp-tools.md) for all descriptions and annotations.
 
 The managed `AGENTS.md` block is a dependency roster, not a skill installation or an MCP state
 store. `sync` owns only its delimiters and points agents back to `git-a2a usage`.

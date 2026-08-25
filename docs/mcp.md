@@ -5,12 +5,15 @@ useful when an agent harness handles structured tools more reliably than shell o
 portable [Agent Skill](../skills/git-a2a/SKILL.md) and `git-a2a usage` remain the primary,
 lower-token guidance paths.
 
-Run the server from a repository containing `a2amodule.yml`. The default surface contains seven
-read-only tools (`who`, `show`, `status`, `validate`, `doctor`, `explain`, and `usage`) plus
-`fetch`, which writes only recoverable `.git-a2a/cache` content from exact lock coordinates. It also exposes the current
+Run the server from a repository containing `a2amodule.yml`. The default surface contains exactly
+eight tools: `who`, `show`, `status`, `validate`, `doctor`, `fetch`, `explain`, `usage`.
+`fetch` writes only recoverable `.git-a2a/cache` content from exact lock coordinates. It also exposes the current
 manifest, lock, freshly rendered roster, and generated field reference as `a2amodule://`
 resources. Starting it with `--allow-write` additionally exposes `add`, `update`, `set`, `wire`,
 `sync`, and `contact`. `remove` is deliberately CLI-only.
+
+The generated [MCP tool text audit](mcp-tools.md) lists all 14 tools, descriptions, access gates,
+and protocol annotations from the same facts used by the server's `tools/list` registration.
 
 Every repository-dependent tool accepts an optional `root` path. Without it, the tool uses the
 server process's startup directory. Paths are allowed only inside the startup directory, a

@@ -904,8 +904,8 @@ under the home directory is reported but not modified; select it deliberately wi
 
 ## MCP and multiple repositories
 
-The read-only default exposes `who`, `show`, `status`, `validate`, `doctor`, `explain`, `usage`,
-and cache-restoring `fetch`. `--allow-write` adds mutations and delivery. Each tool may select a
+The default exposes exactly eight tools: `who`, `show`, `status`, `validate`, `doctor`, `fetch`,
+`explain`, `usage`. `--allow-write` adds mutations and delivery. Each tool may select a
 repository inside the startup directory, explicit `--roots`, or roots declared by the MCP client:
 
 ```sh
@@ -914,7 +914,7 @@ git-a2a mcp --roots repo-a,repo-b
 
 Alternatively start one stdio server per repository. `--any-root` is an explicit security opt-out
 and setup never writes it. See the [MCP guide](mcp.md) for exact harness configuration and trust
-boundary.
+boundary and the generated [tool text audit](mcp-tools.md) for all descriptions and annotations.
 
 The managed `AGENTS.md` block is a dependency roster, not a skill installation or an MCP state
 store. `sync` owns only its delimiters and points agents back to `git-a2a usage`.
@@ -1657,9 +1657,8 @@ setup: dry run; 5 file(s) would change
 ## mcp
 
 `git-a2a mcp [--allow-write] [--roots DIR[,DIR...]]... [--any-root] [--print-roots]` runs a
-stateless MCP server over stdio. By default it exposes
-seven read-only tools (`who`, `show`, `status`, `validate`, `doctor`, `explain`, `usage`) plus
-the cache-restoring `fetch` tool, and
+stateless MCP server over stdio. By default it exposes exactly eight tools (`who`, `show`,
+`status`, `validate`, `doctor`, `fetch`, `explain`, `usage`), and
 four repository resources (`a2amodule://manifest`, `a2amodule://lock`,
 `a2amodule://roster`, `a2amodule://reference`). `--allow-write` additionally exposes `add`,
 `update`, `set`, `wire`, `sync`, and `contact`; `remove` remains CLI-only. The process opens no
@@ -1667,6 +1666,8 @@ network listener and stores no server state. Protocol or command failures exit `
 options exit `2`.
 MCP `contact` enforces `accepts-external: false` and intentionally has no `external-ok` input:
 approving an external delivery remains a human CLI action.
+Descriptions, access gates, and annotations for all 14 tools are in the generated
+[MCP tool text audit](mcp-tools.md).
 
 Repository-dependent tools accept an optional `root` path, defaulting to the server startup
 directory. It must remain inside the startup directory, a repeated `--roots DIR[,DIR...]` value,
@@ -1717,12 +1718,15 @@ useful when an agent harness handles structured tools more reliably than shell o
 portable [Agent Skill](../skills/git-a2a/SKILL.md) and `git-a2a usage` remain the primary,
 lower-token guidance paths.
 
-Run the server from a repository containing `a2amodule.yml`. The default surface contains seven
-read-only tools (`who`, `show`, `status`, `validate`, `doctor`, `explain`, and `usage`) plus
-`fetch`, which writes only recoverable `.git-a2a/cache` content from exact lock coordinates. It also exposes the current
+Run the server from a repository containing `a2amodule.yml`. The default surface contains exactly
+eight tools: `who`, `show`, `status`, `validate`, `doctor`, `fetch`, `explain`, `usage`.
+`fetch` writes only recoverable `.git-a2a/cache` content from exact lock coordinates. It also exposes the current
 manifest, lock, freshly rendered roster, and generated field reference as `a2amodule://`
 resources. Starting it with `--allow-write` additionally exposes `add`, `update`, `set`, `wire`,
 `sync`, and `contact`. `remove` is deliberately CLI-only.
+
+The generated [MCP tool text audit](mcp-tools.md) lists all 14 tools, descriptions, access gates,
+and protocol annotations from the same facts used by the server's `tools/list` registration.
 
 Every repository-dependent tool accepts an optional `root` path. Without it, the tool uses the
 server process's startup directory. Paths are allowed only inside the startup directory, a
@@ -1901,6 +1905,34 @@ OIDC. Registry metadata names three equivalent stdio packages: the `git-a2a` npm
 assembled from the same six GoReleaser binaries and carries a thin Node 18+ platform launcher;
 its `server.json` entry uses the SHA-256 calculated from the actual deterministic bundle. The
 container image and npm package carry the registry's matching ownership metadata.
+
+---
+
+## Source: MCP tool text audit
+
+<!-- Code generated from internal/cli MCP registration; DO NOT EDIT. -->
+# MCP tool text audit
+
+This table is generated from the same facts used to register `tools/list`. `make docs-check`
+fails if the checked-in table differs. Default access exposes exactly eight tools;
+`--allow-write` adds six tools.
+
+| Access | Tool | Description | readOnly | destructive | idempotent | openWorld |
+|---|---|---|---|---|---|---|
+| `default` | `who` | Resolve an intent to the owning agents and their declared contacts. | yes | no | no | no |
+| `default` | `show` | Read this module or a locked dependency and optionally its published surface. | yes | no | no | no |
+| `default` | `status` | Check dependency, wiring, card, trust, and roster health. | yes | no | no | no |
+| `default` | `validate` | Validate manifest and lock files against the git-a2a standard. | yes | no | no | no |
+| `default` | `doctor` | Report Git and ecosystem tool prerequisites without installing anything. | yes | no | no | no |
+| `default` | `fetch` | Restore disposable dependency cache content from exact lock coordinates. | no | no | yes | yes |
+| `default` | `explain` | Read the normative generated reference entry for one manifest field. | yes | no | no | no |
+| `default` | `usage` | Read the compact or full deterministic briefing for a coding agent. | yes | no | no | no |
+| `--allow-write` | `add` | Import a Git module, resolve one commit, and wire declared ecosystems. | no | no | yes | no |
+| `--allow-write` | `update` | Resolve tracked refs and transactionally update selected dependencies. | no | no | yes | no |
+| `--allow-write` | `set` | Transactionally change a dependency source, ref, path, tracking, or id. | no | no | yes | no |
+| `--allow-write` | `wire` | Repair native ecosystem dependency entries from manifest and lock. | no | no | yes | no |
+| `--allow-write` | `sync` | Render or check the bounded git-a2a roster in instruction files. | no | no | yes | no |
+| `--allow-write` | `contact` | Deliver a request through the owner's first supported declared contact. | no | no | no | yes |
 
 ---
 

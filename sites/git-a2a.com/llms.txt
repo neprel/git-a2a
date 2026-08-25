@@ -15,6 +15,7 @@ Canonical behavior is defined by the repository specification and schemas; the w
 - [FAQ](https://github.com/neprel/git-a2a/blob/main/docs/faq.md)
 - [CLI reference](https://github.com/neprel/git-a2a/blob/main/docs/cli.md)
 - [MCP server](https://github.com/neprel/git-a2a/blob/main/docs/mcp.md)
+- [MCP tool text audit](https://github.com/neprel/git-a2a/blob/main/docs/mcp-tools.md)
 - [A2A module extension](https://git-a2a.com/ext/module/v1)
 - [Manifest schema](https://git-a2a.com/schema/a2amodule.v1.json)
 - [Lock schema](https://git-a2a.com/schema/a2amodule-lock.v1.json)

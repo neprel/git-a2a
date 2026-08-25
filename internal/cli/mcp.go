@@ -60,6 +60,60 @@ type mcpUsageInput struct {
 	Prompt bool `json:"prompt,omitempty" jsonschema:"include the full fresh-agent briefing"`
 }
 
+// MCPToolFact is the enumerable user-facing contract shared by MCP registration and generated
+// documentation. Handler behavior stays next to registration; names, descriptions, access, and
+// annotations stay here so prose cannot silently drift from tools/list.
+type MCPToolFact struct {
+	Name        string
+	Access      string
+	Description string
+	ReadOnly    bool
+	Destructive bool
+	Idempotent  bool
+	OpenWorld   bool
+}
+
+var mcpToolFacts = []MCPToolFact{
+	{"who", "default", "Resolve an intent to the owning agents and their declared contacts.", true, false, false, false},
+	{"show", "default", "Read this module or a locked dependency and optionally its published surface.", true, false, false, false},
+	{"status", "default", "Check dependency, wiring, card, trust, and roster health.", true, false, false, false},
+	{"validate", "default", "Validate manifest and lock files against the git-a2a standard.", true, false, false, false},
+	{"doctor", "default", "Report Git and ecosystem tool prerequisites without installing anything.", true, false, false, false},
+	{"fetch", "default", "Restore disposable dependency cache content from exact lock coordinates.", false, false, true, true},
+	{"explain", "default", "Read the normative generated reference entry for one manifest field.", true, false, false, false},
+	{"usage", "default", "Read the compact or full deterministic briefing for a coding agent.", true, false, false, false},
+	{"add", "--allow-write", "Import a Git module, resolve one commit, and wire declared ecosystems.", false, false, true, false},
+	{"update", "--allow-write", "Resolve tracked refs and transactionally update selected dependencies.", false, false, true, false},
+	{"set", "--allow-write", "Transactionally change a dependency source, ref, path, tracking, or id.", false, false, true, false},
+	{"wire", "--allow-write", "Repair native ecosystem dependency entries from manifest and lock.", false, false, true, false},
+	{"sync", "--allow-write", "Render or check the bounded git-a2a roster in instruction files.", false, false, true, false},
+	{"contact", "--allow-write", "Deliver a request through the owner's first supported declared contact.", false, false, false, true},
+}
+
+// MCPToolFacts returns a copy for deterministic documentation and audits.
+func MCPToolFacts() []MCPToolFact {
+	return append([]MCPToolFact(nil), mcpToolFacts...)
+}
+
+func mcpTool(name string) *mcp.Tool {
+	for _, fact := range mcpToolFacts {
+		if fact.Name != name {
+			continue
+		}
+		return &mcp.Tool{
+			Name:        fact.Name,
+			Description: fact.Description,
+			Annotations: &mcp.ToolAnnotations{
+				ReadOnlyHint:    fact.ReadOnly,
+				DestructiveHint: boolPointer(fact.Destructive),
+				IdempotentHint:  fact.Idempotent,
+				OpenWorldHint:   boolPointer(fact.OpenWorld),
+			},
+		}
+	}
+	panic("unknown MCP tool fact: " + name)
+}
+
 type mcpAddInput struct {
 	Root       string   `json:"root,omitempty" jsonschema:"repository root; must be inside an allowed root (startup dir, --roots, client roots)"`
 	URL        string   `json:"url" jsonschema:"Git repository URL"`
@@ -171,11 +225,7 @@ func (a *App) newMCPServerWithRoots(allowWrite bool, roots *mcpRoots) *mcp.Serve
 			refreshMCPClientRoots(ctx, req.Session, roots, a.Err)
 		},
 	})
-	readOnly := &mcp.ToolAnnotations{ReadOnlyHint: true, OpenWorldHint: boolPointer(false)}
-	addTool := func(tool *mcp.Tool) { tool.Annotations = readOnly }
-
-	tool := &mcp.Tool{Name: "who", Description: "Resolve an intent to the owning agents and their declared contacts."}
-	addTool(tool)
+	tool := mcpTool("who")
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpWhoInput) (*mcp.CallToolResult, mcpCommandResult, error) {
 		args := []string{"who"}
 		if in.ID != "" {
@@ -190,8 +240,7 @@ func (a *App) newMCPServerWithRoots(allowWrite bool, roots *mcpRoots) *mcp.Serve
 		args = append(args, "--json")
 		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, args, true))
 	})
-	tool = &mcp.Tool{Name: "show", Description: "Read this module or a locked dependency and optionally its published surface."}
-	addTool(tool)
+	tool = mcpTool("show")
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpShowInput) (*mcp.CallToolResult, mcpCommandResult, error) {
 		args := []string{"show"}
 		if in.ID != "" {
@@ -203,8 +252,7 @@ func (a *App) newMCPServerWithRoots(allowWrite bool, roots *mcpRoots) *mcp.Serve
 		args = append(args, "--json")
 		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, args, true))
 	})
-	tool = &mcp.Tool{Name: "status", Description: "Check dependency, wiring, card, trust, and roster health."}
-	addTool(tool)
+	tool = mcpTool("status")
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpStatusInput) (*mcp.CallToolResult, mcpCommandResult, error) {
 		args := append([]string{"status"}, in.IDs...)
 		if in.Offline {
@@ -216,20 +264,17 @@ func (a *App) newMCPServerWithRoots(allowWrite bool, roots *mcpRoots) *mcp.Serve
 		args = append(args, "--json")
 		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, args, true))
 	})
-	tool = &mcp.Tool{Name: "validate", Description: "Validate manifest and lock files against the git-a2a standard."}
-	addTool(tool)
+	tool = mcpTool("validate")
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpValidateInput) (*mcp.CallToolResult, mcpCommandResult, error) {
 		args := append([]string{"validate"}, in.Files...)
 		args = append(args, "--json")
 		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, args, true))
 	})
-	tool = &mcp.Tool{Name: "doctor", Description: "Report Git and ecosystem tool prerequisites without installing anything."}
-	addTool(tool)
+	tool = mcpTool("doctor")
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpDoctorInput) (*mcp.CallToolResult, mcpCommandResult, error) {
 		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, []string{"doctor", "--json"}, true))
 	})
-	tool = &mcp.Tool{Name: "fetch", Description: "Restore disposable dependency cache content from exact lock coordinates."}
-	tool.Annotations = &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: boolPointer(false), IdempotentHint: true, OpenWorldHint: boolPointer(true)}
+	tool = mcpTool("fetch")
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpFetchInput) (*mcp.CallToolResult, mcpCommandResult, error) {
 		args := append([]string{"fetch"}, in.IDs...)
 		if in.Surface {
@@ -238,13 +283,11 @@ func (a *App) newMCPServerWithRoots(allowWrite bool, roots *mcpRoots) *mcp.Serve
 		args = append(args, "--json")
 		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, args, true))
 	})
-	tool = &mcp.Tool{Name: "explain", Description: "Read the normative generated reference entry for one manifest field."}
-	addTool(tool)
+	tool = mcpTool("explain")
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpExplainInput) (*mcp.CallToolResult, mcpCommandResult, error) {
 		return mcpResult(a.runMCPCommand(ctx, roots, "", nil, []string{"explain", in.Path, "--json"}, true))
 	})
-	tool = &mcp.Tool{Name: "usage", Description: "Read the compact or full deterministic briefing for a coding agent."}
-	addTool(tool)
+	tool = mcpTool("usage")
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpUsageInput) (*mcp.CallToolResult, mcpCommandResult, error) {
 		args := []string{"usage"}
 		if in.Prompt {
@@ -262,10 +305,7 @@ func (a *App) newMCPServerWithRoots(allowWrite bool, roots *mcpRoots) *mcp.Serve
 }
 
 func (a *App) addMCPWriteTools(server *mcp.Server, roots *mcpRoots) {
-	annotations := &mcp.ToolAnnotations{DestructiveHint: boolPointer(false), OpenWorldHint: boolPointer(false), IdempotentHint: true}
-	register := func(tool *mcp.Tool) { tool.Annotations = annotations }
-	tool := &mcp.Tool{Name: "add", Description: "Import a Git module, resolve one commit, and wire declared ecosystems."}
-	register(tool)
+	tool := mcpTool("add")
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpAddInput) (*mcp.CallToolResult, mcpCommandResult, error) {
 		args := []string{"add", in.URL}
 		if in.ID != "" {
@@ -294,8 +334,7 @@ func (a *App) addMCPWriteTools(server *mcp.Server, roots *mcpRoots) {
 		}
 		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, args, false))
 	})
-	tool = &mcp.Tool{Name: "update", Description: "Resolve tracked refs and transactionally update selected dependencies."}
-	register(tool)
+	tool = mcpTool("update")
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpUpdateInput) (*mcp.CallToolResult, mcpCommandResult, error) {
 		args := append([]string{"update"}, in.IDs...)
 		if in.Check {
@@ -316,8 +355,7 @@ func (a *App) addMCPWriteTools(server *mcp.Server, roots *mcpRoots) {
 		}
 		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, args, false))
 	})
-	tool = &mcp.Tool{Name: "set", Description: "Transactionally change a dependency source, ref, path, tracking, or id."}
-	register(tool)
+	tool = mcpTool("set")
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpSetInput) (*mcp.CallToolResult, mcpCommandResult, error) {
 		args := []string{"set", in.ID}
 		for _, pair := range [][2]string{{"--git", in.Git}, {"--ref", in.Ref}, {"--path", in.Path}, {"--track", in.Track}, {"--id", in.NewID}, {"--vendor", in.Vendor}, {"--vendor-path", in.VendorPath}} {
@@ -339,8 +377,7 @@ func (a *App) addMCPWriteTools(server *mcp.Server, roots *mcpRoots) {
 		}
 		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, args, false))
 	})
-	tool = &mcp.Tool{Name: "wire", Description: "Repair native ecosystem dependency entries from manifest and lock."}
-	register(tool)
+	tool = mcpTool("wire")
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpWireInput) (*mcp.CallToolResult, mcpCommandResult, error) {
 		args := []string{"wire"}
 		if in.ID != "" {
@@ -354,8 +391,7 @@ func (a *App) addMCPWriteTools(server *mcp.Server, roots *mcpRoots) {
 		}
 		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, args, false))
 	})
-	tool = &mcp.Tool{Name: "sync", Description: "Render or check the bounded git-a2a roster in instruction files."}
-	register(tool)
+	tool = mcpTool("sync")
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpSyncInput) (*mcp.CallToolResult, mcpCommandResult, error) {
 		args := []string{"sync"}
 		if in.Check {
@@ -369,10 +405,7 @@ func (a *App) addMCPWriteTools(server *mcp.Server, roots *mcpRoots) {
 		}
 		return mcpResult(a.runMCPCommand(ctx, roots, in.Root, nil, args, false))
 	})
-	contactAnnotations := *annotations
-	contactAnnotations.OpenWorldHint = boolPointer(true)
-	contactAnnotations.IdempotentHint = false
-	tool = &mcp.Tool{Name: "contact", Description: "Deliver a request through the owner's first supported declared contact.", Annotations: &contactAnnotations}
+	tool = mcpTool("contact")
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in mcpContactInput) (*mcp.CallToolResult, mcpCommandResult, error) {
 		args := []string{"contact", in.ID, "--intent", in.Intent, "--message", "-"}
 		if in.Wait {
