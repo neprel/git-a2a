@@ -143,10 +143,10 @@ manifests; never create or move a non-SemVer Git tag named `latest`, because Go 
 module version and release tags are immutable. Explicit versions remain the recommendation for CI.
 Commands that use the moving GHCR `latest` alias include Docker's `--pull=always`; otherwise a
 locally cached old image can keep running after the remote alias moves.
-GitHub currently annotates the pinned `actions/checkout` v4 line because the action declares
-Node 20 while hosted runners force it onto Node 24. This is a maintenance warning, not an
-installer failure: replace the full SHA only with a reviewed official checkout release that
-declares the supported runtime; do not hide or disable the annotation.
+GitHub Actions that execute JavaScript use reviewed official releases declaring the hosted
+runner's supported Node runtime. Every workflow pins their full immutable commit SHA and names
+the reviewed release in a comment; update all occurrences together when GitHub deprecates a
+runtime, and prove the replacement on Linux, macOS, and Windows rather than hiding annotations.
 npm uses token-less trusted publishing from `release.yml` on Node 24 with npm 11.5.1 or newer,
 one publisher binding per launcher/platform package, `id-token: write`, and repository metadata
 matching `neprel/git-a2a`; npm prereleases use dist-tag `next` and stable releases use `latest`.

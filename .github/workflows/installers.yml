@@ -45,7 +45,7 @@ jobs:
             test-arch: arm64
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Parse and dry-run without network
         env:
           GIT_A2A_TEST_OS: ${{ matrix.test-os }}
@@ -60,7 +60,7 @@ jobs:
     if: github.event_name != 'workflow_run'
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Parse with the PowerShell AST
         shell: pwsh
         run: |
@@ -80,7 +80,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install from the public Scoop bucket
         shell: pwsh
         run: |
@@ -100,7 +100,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.live_site
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Download and dry-run the public PowerShell installer
         shell: pwsh
         run: |
