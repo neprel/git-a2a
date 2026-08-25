@@ -9,6 +9,11 @@ on:
       - install.ps1
       - docs/cli.md
       - README.md
+      - adapters/**
+      - internal/cli/setup.go
+      - spec/_.hint
+      - tools/gen-reference.py
+      - tools/gen-spec-page.py
       - scripts/site-package.sh
       - scripts/site-publish.sh
       - Makefile
@@ -21,6 +26,11 @@ on:
       - install.ps1
       - docs/cli.md
       - README.md
+      - adapters/**
+      - internal/cli/setup.go
+      - spec/_.hint
+      - tools/gen-reference.py
+      - tools/gen-spec-page.py
       - scripts/site-package.sh
       - scripts/site-publish.sh
       - Makefile
@@ -41,6 +51,8 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: sites/git-a2a.com/tools/browser/package-lock.json
+      - name: Install HINT spec compiler
+        run: npm install --global --ignore-scripts @openhint/cli@1.5.1 @openhint/hintbook-software-engineer@1.3.1
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod

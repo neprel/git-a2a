@@ -97,6 +97,9 @@ channels, contact kinds, and projected standards on the landing page come only f
 registry in `tools/gen-reference.py`. The same run updates the root README, `spec/README.md`, the
 high-fidelity prototype, and the design handoff; `site-check` fails on any drift. Do not hand-edit
 those marked blocks or repeat a numeric integration claim outside them.
+Because contact kinds compile from normative HINT, the Static site workflow installs the same
+pinned HINT compiler and book versions as CI before invoking `site-check`; its path filter includes
+the registry, adapter tree, setup harness registry, and normative contact source.
 
 # decision Release verification is workflow-identity based {#release_verification}
 
