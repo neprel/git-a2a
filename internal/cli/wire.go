@@ -60,11 +60,6 @@ func (a *App) wire(args []string) int {
 			fmt.Fprintf(a.Err, "wire: dependency %s is not locked\n", original.ID)
 			return 1
 		}
-		module, loadErr := manifest.LoadDir(cache.Dir(root, original.ID))
-		if loadErr != nil {
-			fmt.Fprintf(a.Err, "wire: dependency %s cache: %v\n", original.ID, loadErr)
-			return 1
-		}
 		if original.Vendor != nil {
 			vendorLock, vendorErr := (vendortransport.Manager{Runner: a.runner()}).Apply(a.context(), root, own, original, entry, false)
 			if vendorErr != nil {
@@ -75,6 +70,15 @@ func (a *App) wire(args []string) int {
 				fmt.Fprintf(a.Err, "wire: %s vendored content does not match a2amodule.lock\n", original.ID)
 				return 1
 			}
+		}
+		if entry.Manifest == "none" {
+			output = append(output, fmt.Sprintf("%s: plain git dependency; no exports to wire", original.ID))
+			continue
+		}
+		module, loadErr := manifest.LoadDir(cache.Dir(root, original.ID))
+		if loadErr != nil {
+			fmt.Fprintf(a.Err, "wire: dependency %s cache: %v\n", original.ID, loadErr)
+			return 1
 		}
 		dep := original
 		if ecosystem != "" {

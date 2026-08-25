@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"runtime"
 	"slices"
 	"strings"
@@ -889,7 +890,7 @@ func TestShowSurfaceRecordsFetchedTreeInLock(t *testing.T) {
 	}
 }
 
-func TestAddRemoteWithoutManifestReturnsNothingResolved(t *testing.T) {
+func TestAddRemoteWithoutManifestCreatesPlainDependency(t *testing.T) {
 	tmp := t.TempDir()
 	source := filepath.Join(tmp, "source")
 	bare := filepath.Join(tmp, "empty.git")
@@ -907,8 +908,11 @@ func TestAddRemoteWithoutManifestReturnsNothingResolved(t *testing.T) {
 	var out, errOut bytes.Buffer
 	app := cli.New(&out, &errOut)
 	app.Root = consumer
-	if code := app.Run([]string{"add", "file://" + bare}); code != 2 {
-		t.Fatalf("exit %d, want 2: %s", code, errOut.String())
+	if code := app.Run([]string{"add", "file://" + bare}); code != 0 {
+		t.Fatalf("exit %d, want 0: %s", code, errOut.String())
+	}
+	if !strings.Contains(errOut.String(), "added as a plain git dependency") {
+		t.Fatalf("missing plain dependency note: %s", errOut.String())
 	}
 }
 
@@ -1324,6 +1328,9 @@ func TestDependencyWithBothManifestExtensionsIsRejected(t *testing.T) {
 	git(t, source, "commit", "-m", "ambiguous manifests")
 	git(t, tmp, "clone", "--bare", source, bare)
 	mustMkdir(t, consumer)
+	git(t, consumer, "init", "-b", "main")
+	git(t, consumer, "config", "user.email", "test@example.com")
+	git(t, consumer, "config", "user.name", "Test")
 	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte("schema: 1\nmodule: {id: acme-app}\n"))
 	var out, errOut bytes.Buffer
 	app := cli.New(&out, &errOut)
@@ -1331,6 +1338,94 @@ func TestDependencyWithBothManifestExtensionsIsRejected(t *testing.T) {
 	if code := app.Run([]string{"add", "file://" + bare, "--no-wire"}); code != 1 || !strings.Contains(errOut.String(), "exactly one of") {
 		t.Fatalf("add exit %d, stderr %q", code, errOut.String())
 	}
+}
+
+func TestPlainDependencyDegradesEveryCommandWithoutFailure(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "source")
+	bare := filepath.Join(tmp, "acme-plain.git")
+	consumer := filepath.Join(tmp, "consumer")
+	mustMkdir(t, source)
+	git(t, source, "init", "-b", "main")
+	git(t, source, "config", "user.email", "test@example.com")
+	git(t, source, "config", "user.name", "Test")
+	mustWrite(t, filepath.Join(source, "README.md"), []byte("plain dependency\n"))
+	git(t, source, "add", "README.md")
+	git(t, source, "commit", "-m", "plain source")
+	git(t, tmp, "clone", "--bare", source, bare)
+	git(t, bare, "config", "uploadpack.allowFilter", "true")
+	git(t, bare, "config", "uploadpack.allowAnySHA1InWant", "true")
+	mustMkdir(t, consumer)
+	git(t, consumer, "init", "-b", "main")
+	git(t, consumer, "config", "user.email", "test@example.com")
+	git(t, consumer, "config", "user.name", "Test")
+	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte("schema: 1\nmodule: {id: acme-app}\n"))
+
+	var out, errOut bytes.Buffer
+	app := cli.New(&out, &errOut)
+	app.Root = consumer
+	run := func(want int, args ...string) (string, string) {
+		t.Helper()
+		out.Reset()
+		errOut.Reset()
+		code := app.Run(args)
+		if code != want {
+			t.Fatalf("%v exit %d, want %d:\nstdout:\n%s\nstderr:\n%s", args, code, want, out.String(), errOut.String())
+		}
+		return out.String(), errOut.String()
+	}
+
+	_, addErr := run(0, "add", "file://"+bare, "--no-wire")
+	if !regexp.MustCompile(`note: acme-plain: no a2amodule manifest at [0-9a-f]{7}; added as a plain git dependency`).MatchString(addErr) {
+		t.Fatalf("add warning = %q", addErr)
+	}
+	locked, err := manifest.LoadLock(filepath.Join(consumer, "a2amodule.lock"))
+	if err != nil || locked.Dependencies["acme-plain"].Manifest != "none" {
+		t.Fatalf("plain lock = %#v, %v", locked, err)
+	}
+	if stdout, _ := run(0, "fetch"); !strings.Contains(stdout, "no manifest cache restored") {
+		t.Fatalf("fetch output = %q", stdout)
+	}
+	if stdout, _ := run(0, "status", "--offline"); !strings.Contains(stdout, "plain") || !strings.Contains(stdout, "—") {
+		t.Fatalf("status output = %q", stdout)
+	}
+	if stdout, _ := run(0, "show", "acme-plain"); !strings.Contains(stdout, "plain git dependency; no surface declared") {
+		t.Fatalf("show output = %q", stdout)
+	}
+	if _, stderr := run(2, "show", "acme-plain", "--surface"); !strings.Contains(stderr, "plain git dependency; no surface declared") {
+		t.Fatalf("show --surface error = %q", stderr)
+	}
+	if _, stderr := run(2, "who", "acme-plain"); strings.TrimSpace(stderr) != "no agents declared: acme-plain is not an a2a module" {
+		t.Fatalf("who error = %q", stderr)
+	}
+	message := filepath.Join(tmp, "message.txt")
+	mustWrite(t, message, []byte("question\n"))
+	if _, stderr := run(2, "contact", "acme-plain", "--message", message); strings.TrimSpace(stderr) != "no agents declared: acme-plain is not an a2a module" {
+		t.Fatalf("contact error = %q", stderr)
+	}
+	run(0, "sync")
+	roster, _ := os.ReadFile(filepath.Join(consumer, "AGENTS.md"))
+	if !strings.Contains(string(roster), "`acme-plain` (plain git dependency)") || strings.Contains(string(roster), "Consumer policy (from acme-plain") {
+		t.Fatalf("plain roster = %s", roster)
+	}
+	if stdout, _ := run(0, "wire", "acme-plain", "--no-refresh"); !strings.Contains(stdout, "no exports to wire") {
+		t.Fatalf("wire output = %q", stdout)
+	}
+	run(0, "update", "acme-plain", "--no-refresh")
+	mustWrite(t, filepath.Join(source, "README.md"), []byte("plain dependency v2\n"))
+	git(t, source, "add", "README.md")
+	git(t, source, "commit", "-m", "plain source v2")
+	git(t, source, "push", "file://"+bare, "main")
+	run(0, "update", "acme-plain", "--no-refresh")
+	run(0, "set", "acme-plain", "--ref", "main", "--no-refresh")
+	run(0, "pin", "acme-plain", "--no-refresh")
+	run(0, "unpin", "acme-plain", "--ref", "main", "--no-refresh")
+	run(0, "set", "acme-plain", "--vendor", "copy", "--no-refresh")
+	if _, err := os.Stat(filepath.Join(consumer, "deps", "acme-plain", "README.md")); err != nil {
+		t.Fatalf("plain copy vendoring: %v", err)
+	}
+	run(0, "set", "acme-plain", "--no-vendor", "--no-refresh")
+	run(0, "remove", "acme-plain")
 }
 
 func git(t *testing.T, dir string, args ...string) {

@@ -249,6 +249,12 @@ func (a *App) cardShow(args []string) int {
 	if len(positional) > 1 {
 		agentName = positional[1]
 	}
+	if locked, lockErr := lockfile.Load(a.root()); lockErr == nil {
+		if entry, ok := locked.Dependencies[id]; ok && entry.Manifest == "none" {
+			fmt.Fprintf(a.Err, "card show: %s is a plain git dependency; no cards declared; skipped\n", id)
+			return 0
+		}
+	}
 	dir := filepath.Join(cache.Dir(a.root(), id), "cards")
 	entries, err := os.ReadDir(dir)
 	if err != nil {

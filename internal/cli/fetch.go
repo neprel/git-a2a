@@ -24,6 +24,7 @@ type fetchResult struct {
 	Surface  string `json:"surface,omitempty"`
 	Method   string `json:"method"`
 	Vendor   string `json:"vendor,omitempty"`
+	Plain    bool   `json:"plain,omitempty"`
 }
 
 // fetch restores disposable local cache state from the immutable coordinates and hashes in
@@ -94,6 +95,24 @@ func (a *App) fetch(args []string) int {
 		if !exists || !isLocked || entry.Commit == "" || entry.Manifest == "" {
 			fmt.Fprintf(a.Err, "fetch: dependency %s has no complete lock entry\n", id)
 			return 1
+		}
+		if entry.Manifest == "none" {
+			result := fetchResult{ID: id, Commit: entry.Commit, Manifest: "none", Method: "plain", Plain: true}
+			if dependency.Vendor != nil {
+				vendorLock, vendorErr := (vendortransport.Manager{Runner: a.runner()}).Apply(a.context(), root, own, dependency, entry, false)
+				if vendorErr != nil {
+					fmt.Fprintf(a.Err, "fetch %s vendor: %v\n", id, vendorErr)
+					return 1
+				}
+				if entry.Vendor == nil || vendorLock.Mode != entry.Vendor.Mode || vendorLock.Path != entry.Vendor.Path || vendorLock.Tree != entry.Vendor.Tree {
+					fmt.Fprintf(a.Err, "fetch %s: vendored content does not match a2amodule.lock\n", id)
+					return 1
+				}
+				result.Vendor = vendorLock.Mode + ":" + vendorLock.Path
+			}
+			_ = os.RemoveAll(cache.Dir(root, id))
+			results = append(results, result)
+			continue
 		}
 		work, tempErr := os.MkdirTemp("", "git-a2a-fetch-")
 		if tempErr != nil {
@@ -184,6 +203,10 @@ func (a *App) fetch(args []string) int {
 		fmt.Fprintln(a.Out, string(encoded))
 	} else {
 		for _, result := range results {
+			if result.Plain {
+				fmt.Fprintf(a.Out, "%s: plain git dependency; no manifest cache restored\n", result.ID)
+				continue
+			}
 			line := fmt.Sprintf("%s: fetched %s", result.ID, result.Commit)
 			if result.Surface != "" {
 				line += " surface " + result.Surface
@@ -191,6 +214,6 @@ func (a *App) fetch(args []string) int {
 			fmt.Fprintln(a.Out, line)
 		}
 	}
-	fmt.Fprintf(a.Err, "fetched %d locked dependency cache(s)\n", len(results))
+	fmt.Fprintf(a.Err, "processed %d locked dependency cache(s)\n", len(results))
 	return 0
 }

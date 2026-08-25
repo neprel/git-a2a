@@ -1,0 +1,4 @@
+{
+  "a2amodule.yml": ["id: acme-lib", "git: {{GIT_URL}}"],
+  "a2amodule.lock": ["commit: {{GIT_COMMIT}}", "manifest: none"]
+}

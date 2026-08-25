@@ -190,3 +190,11 @@ conventional consumer-owned `SSL_CERT_FILE` environment variable. The CLI perfor
 explicitly because Go's system-root implementation does not honor that variable consistently on
 macOS and Windows. An absent or unreadable override leaves the platform trust store unchanged;
 the tool never downloads or installs a CA.
+
+# decision Plain git dependencies are a first-class degraded state
+
+A lock entry whose `manifest` is `none` records a successfully resolved repository that did not
+publish either accepted manifest filename. Cache absence is expected for that entry, not a prompt
+to run `fetch`. Git-only mutations and vendoring keep working; surface, agent, card, and export
+operations return the deliberate messages and exit codes in the specification's plain-dependency
+table. When an updated commit begins publishing a manifest, normal module behavior takes over.

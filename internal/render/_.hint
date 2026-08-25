@@ -54,3 +54,10 @@ When `policy.contact-budget` is present, roster rendering sorts its open-vocabul
 deterministic output and labels the values as a published expectation that git-a2a does not
 enforce. A dependency's keys and values pass through the same bounded sanitizer as every other
 dependency-controlled field before entering the managed block.
+
+# decision Plain dependencies render identity without invented ownership
+
+A `manifest: none` lock entry renders as a dependency heading marked “plain git dependency”. It
+may render trusted consumer-owned vendoring state, but never an inferred description, consumer
+policy, surface, agent, or contact table. An absent cache for that entry is expected and does not
+make roster rendering fail.

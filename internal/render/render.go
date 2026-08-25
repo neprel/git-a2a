@@ -43,6 +43,17 @@ func Build(root string, own *manifest.Manifest, l *manifest.Lock, brief bool) (s
 	sort.Strings(ids)
 	for _, id := range ids {
 		entry := l.Dependencies[id]
+		if entry.Manifest == "none" {
+			fmt.Fprintf(&b, "\n### Dependency: `%s` (plain git dependency)\n\n", id)
+			if entry.Vendor != nil {
+				fmt.Fprintf(&b, "> Vendored at `%s` (%s).", safe(entry.Vendor.Path, fieldLimit), safe(entry.Vendor.Mode, fieldLimit))
+				if entry.Vendor.Mode == "submodule" {
+					b.WriteString(" Clone with `--recurse-submodules`; repair an existing clone with `git submodule update --init` or `git-a2a wire`.")
+				}
+				b.WriteString("\n")
+			}
+			continue
+		}
 		dep, err := manifest.LoadDir(cache.Dir(root, id))
 		if err != nil {
 			return "", fmt.Errorf("%s: %w", id, err)

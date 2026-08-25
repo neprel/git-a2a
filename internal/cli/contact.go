@@ -20,6 +20,7 @@ import (
 	contactgitlab "github.com/neprel/git-a2a/internal/contact/gitlabissue"
 	contactinstruction "github.com/neprel/git-a2a/internal/contact/instruction"
 	contactplugin "github.com/neprel/git-a2a/internal/contact/plugin"
+	lockfile "github.com/neprel/git-a2a/internal/lock"
 	"github.com/neprel/git-a2a/internal/manifest"
 	"github.com/neprel/git-a2a/internal/routing"
 )
@@ -69,6 +70,12 @@ func (a *App) contact(args []string) int {
 	if id == "" || (!listDrivers && messagePath == "") {
 		fmt.Fprintln(a.Err, "contact: module id and --message FILE|- are required")
 		return 2
+	}
+	if locked, lockErr := lockfile.Load(a.root()); lockErr == nil {
+		if entry, ok := locked.Dependencies[id]; ok && entry.Manifest == "none" {
+			fmt.Fprintf(a.Err, "no agents declared: %s is not an a2a module\n", id)
+			return 2
+		}
 	}
 	message := ""
 	var err error

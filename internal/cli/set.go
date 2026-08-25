@@ -272,26 +272,33 @@ func (a *App) applySet(o setOptions) int {
 		return 1
 	}
 	res, err := f.Fetch(a.context(), next.Git, next.Ref, defaultPath(next.Path), filepath.Join(work, "new"))
-	if err != nil {
+	nextPlain := fetch.IsMissingManifest(err)
+	if err != nil && !nextPlain {
 		fmt.Fprintf(a.Err, "set: %v\n", err)
 		return 1
 	}
-	nextManifest, err := manifest.Parse(res.Manifest)
-	if err != nil {
-		fmt.Fprintf(a.Err, "set: fetched manifest: %v\n", err)
-		return 1
-	}
-	if nextManifest.Module.ID != expected {
-		fmt.Fprintf(a.Err, "set: module id mismatch: expected %s, fetched %s; no files changed\n", expected, nextManifest.Module.ID)
-		return 1
+	var nextManifest *manifest.Manifest
+	if !nextPlain {
+		nextManifest, err = manifest.Parse(res.Manifest)
+		if err != nil {
+			fmt.Fprintf(a.Err, "set: fetched manifest: %v\n", err)
+			return 1
+		}
+		if nextManifest.Module.ID != expected {
+			fmt.Fprintf(a.Err, "set: module id mismatch: expected %s, fetched %s; no files changed\n", expected, nextManifest.Module.ID)
+			return 1
+		}
 	}
 	verified, verifyErr := a.verifyCommitTrust(root, next, res, resolution.Kind, o.insecureSkipSigners, work)
 	if verifyErr != nil {
 		fmt.Fprintf(a.Err, "set: %v; no files changed\n", verifyErr)
 		return 1
 	}
-	oldManifest, err := manifest.LoadDir(cache.Dir(root, o.id))
-	if err != nil {
+	var oldManifest *manifest.Manifest
+	if oldEntry.Manifest != "none" {
+		oldManifest, err = manifest.LoadDir(cache.Dir(root, o.id))
+	}
+	if oldEntry.Manifest != "none" && err != nil {
 		oldEntry, ok := l.Dependencies[o.id]
 		if !ok {
 			fmt.Fprintf(a.Err, "set: old manifest unavailable and dependency %s is not locked\n", o.id)
@@ -308,8 +315,12 @@ func (a *App) applySet(o setOptions) int {
 			return 1
 		}
 	}
-	sum := sha256.Sum256(res.Manifest)
-	locked := manifest.LockedDependency{Git: next.Git, Ref: next.Ref, Path: defaultPath(next.Path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:]), Verified: verified}
+	manifestHash := "none"
+	if !nextPlain {
+		sum := sha256.Sum256(res.Manifest)
+		manifestHash = "sha256:" + hex.EncodeToString(sum[:])
+	}
+	locked := manifest.LockedDependency{Git: next.Git, Ref: next.Ref, Path: defaultPath(next.Path), Commit: res.Commit, Manifest: manifestHash, Verified: verified}
 	seedVendorLock(own, next, &locked)
 	validated := *own
 	validated.Dependencies = append([]manifest.Dependency(nil), own.Dependencies...)
@@ -352,19 +363,22 @@ func (a *App) applySet(o setOptions) int {
 		return 1
 	}
 	stagedRoot := filepath.Join(work, "staged-cache")
-	if err = cache.SaveAs(stagedRoot, next.ID, res.Manifest, res.Commit, res.Method, res.ManifestName); err != nil {
-		restoreAdapterFiles(root, snapshots)
-		_ = vendorRollback()
-		fmt.Fprintf(a.Err, "set: stage cache: %v\n", err)
-		return 1
+	var cardWarnings []error
+	if !nextPlain {
+		if err = cache.SaveAs(stagedRoot, next.ID, res.Manifest, res.Commit, res.Method, res.ManifestName); err != nil {
+			restoreAdapterFiles(root, snapshots)
+			_ = vendorRollback()
+			fmt.Fprintf(a.Err, "set: stage cache: %v\n", err)
+			return 1
+		}
+		cards, snapshotWarnings := a.snapshotCardsTo(filepath.Join(cache.Dir(stagedRoot, next.ID), "cards"), next.Git, next.Path, res.Commit, nextManifest, f)
+		locked.Cards = cards
+		currentKeys, trustWarnings := inspectCardTrust(nextManifest, filepath.Join(cache.Dir(stagedRoot, next.ID), "cards"), root, next.Git, res.Commit, next.Require)
+		cardKeys, keyWarnings := reconcileCardKeys(oldEntry.CardsKeys, currentKeys, false)
+		locked.CardsKeys = cardKeys
+		cardWarnings = append(snapshotWarnings, trustWarnings...)
+		cardWarnings = append(cardWarnings, keyWarnings...)
 	}
-	cards, cardWarnings := a.snapshotCardsTo(filepath.Join(cache.Dir(stagedRoot, next.ID), "cards"), next.Git, next.Path, res.Commit, nextManifest, f)
-	locked.Cards = cards
-	currentKeys, trustWarnings := inspectCardTrust(nextManifest, filepath.Join(cache.Dir(stagedRoot, next.ID), "cards"), root, next.Git, res.Commit, next.Require)
-	cardKeys, keyWarnings := reconcileCardKeys(oldEntry.CardsKeys, currentKeys, false)
-	locked.CardsKeys = cardKeys
-	cardWarnings = append(cardWarnings, trustWarnings...)
-	cardWarnings = append(cardWarnings, keyWarnings...)
 	oldManifestBytes, ownManifestPath, _ := manifest.ReadDir(root)
 	oldLockBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.lock"))
 	own.Dependencies[idx] = next
@@ -385,7 +399,12 @@ func (a *App) applySet(o setOptions) int {
 		fmt.Fprintf(a.Err, "set: metadata write failed and was rolled back: %v\n", err)
 		return 1
 	}
-	if err = replaceCache(root, next.ID, cache.Dir(stagedRoot, next.ID), work); err != nil {
+	if !nextPlain {
+		err = replaceCache(root, next.ID, cache.Dir(stagedRoot, next.ID), work)
+	} else {
+		err = os.RemoveAll(cache.Dir(root, next.ID))
+	}
+	if err != nil {
 		_ = lockfile.Atomic(ownManifestPath, oldManifestBytes, 0o644)
 		if len(oldLockBytes) > 0 {
 			_ = lockfile.Atomic(filepath.Join(root, "a2amodule.lock"), oldLockBytes, 0o644)
@@ -463,7 +482,7 @@ func rewireSet(ctx context.Context, root string, oldDep, newDep manifest.Depende
 		if !selected(newDep, impl.Ecosystem()) {
 			continue
 		}
-		if oldDep.ID != newDep.ID || oldDep.Git != newDep.Git || oldDep.Path != newDep.Path || oldDep.Vendor != nil && newDep.Vendor == nil {
+		if oldDep.ID != newDep.ID || oldDep.Git != newDep.Git || oldDep.Path != newDep.Path || oldDep.Vendor != nil && newDep.Vendor == nil || oldM != nil && newM == nil {
 			for _, exp := range oldExports {
 				if _, err := impl.Unwire(ctx, root, oldDep, exp); err != nil {
 					return nil, err

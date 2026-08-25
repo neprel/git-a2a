@@ -29,7 +29,12 @@
         "ref": { "type": "string", "minLength": 1 },
         "path": { "$ref": "#/$defs/relativePath" },
         "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
-        "manifest": { "$ref": "#/$defs/sha256" },
+        "manifest": {
+          "oneOf": [
+            { "$ref": "#/$defs/sha256" },
+            { "const": "none" }
+          ]
+        },
         "cards": {
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/sha256" }

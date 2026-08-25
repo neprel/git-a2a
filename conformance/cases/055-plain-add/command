@@ -1,0 +1,1 @@
+["add", "{{GIT_URL}}", "--no-wire"]

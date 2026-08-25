@@ -25,6 +25,12 @@ type Result struct {
 
 type Fetcher struct{ Runner gitx.Runner }
 
+type MissingManifestError struct{ Commit string }
+
+func (e *MissingManifestError) Error() string {
+	return fmt.Sprintf("a2amodule.yml and a2amodule.yaml not found at %s", e.Commit)
+}
+
 func IsMissingManifest(err error) bool {
 	if err == nil {
 		return false
@@ -60,7 +66,7 @@ func (f Fetcher) Fetch(ctx context.Context, url, ref, modulePath, work string) (
 	if len(found) == 1 {
 		return found[0], nil
 	}
-	return Result{}, fmt.Errorf("fetch manifest: a2amodule.yml and a2amodule.yaml not found at %s", resolution.Commit)
+	return Result{Commit: resolution.Commit, Ref: resolution.FullRef}, &MissingManifestError{Commit: resolution.Commit}
 }
 
 func (f Fetcher) fetchResolvedManifest(ctx context.Context, url string, resolution gitx.Resolution, manifestPath, work string) (Result, error) {

@@ -58,3 +58,11 @@ unpin → remove` with every supported native Git ecosystem detected at once. It
 lock commit in every project file, clean offline status, preservation of human manifest text,
 and complete unwiring at the end. Adding an adapter includes it in this scenario in the same
 commit.
+
+# invariant Missing upstream manifests remain an intentional lock state
+
+`manifest: none` means the locked Git commit was resolved successfully but declares no
+`a2amodule.yml` or `a2amodule.yaml`. Internal readers distinguish it from a lost or tampered
+cache: they do not fabricate a cache file, and every command follows the specification's plain
+dependency degradation table while Git resolution, vendoring, and transaction rollback remain
+fully operative.

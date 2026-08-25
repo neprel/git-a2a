@@ -440,7 +440,7 @@ func (l *Lock) Validate() error {
 		if !commitPattern.MatchString(d.Commit) {
 			errs = append(errs, fmt.Errorf("%s.commit: must be 40 lowercase hex characters", p))
 		}
-		if !hashPattern.MatchString(d.Manifest) {
+		if d.Manifest != "none" && !hashPattern.MatchString(d.Manifest) {
 			errs = append(errs, fmt.Errorf("%s.manifest: invalid sha256 hash", p))
 		}
 		for name, hash := range d.Cards {

@@ -1,0 +1,2 @@
+(?m)^added acme-lib at [0-9a-f]{40}$
+(?m)^note: acme-lib: no a2amodule manifest at [0-9a-f]{7}; added as a plain git dependency

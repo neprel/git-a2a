@@ -813,10 +813,25 @@ values and unknown handling are in `vocabulary_consumers`.
 
 One entry in `dependencies`.
 
+A repository without either manifest filename is a **plain git dependency**. `add` derives its
+id from the repository name, warns once, and locks its commit with `manifest: none`. Git-only
+operations remain available and no command treats the absent manifest as a broken cache.
+
+| Command | Plain-dependency behavior | Exit |
+| --- | --- | --- |
+| `fetch` | Restores no manifest or surface, says so; restores requested vendoring. | 0 |
+| `status` | Shows `MANIFEST plain`, `AGENTS —`, checks upstream and vendoring/wiring. | Normal status semantics. |
+| `show` | Prints `plain git dependency; no surface declared`; `--surface` returns that reason. | 0; `--surface` 2. |
+| `who`, `contact` | Prints `no agents declared: &lt;id&gt; is not an a2a module`. | 2 |
+| `sync` | Renders the dependency as `(plain git dependency)` without an upstream policy quote. | 0 |
+| `update`, `set`, `pin`, `unpin`, `remove`, vendoring | Operates on the resolved Git source normally. | Normal mutation semantics. |
+| `wire` | Applies vendoring, then reports that there are no exports to wire. | 0 |
+| dependency card/catalog projection | Skips the dependency with a note. | 0 |
+
 ## field id
 
-string. The dependency&#x27;s `module.id`. Required after `add` (the CLI fills it from the fetched
-manifest); the lock is keyed on it.
+string. The dependency&#x27;s `module.id` for an a2a module, or the repository basename for a plain
+dependency. Required after `add` (the CLI fills it); the lock is keyed on it.
 
 ## field git
 
@@ -836,7 +851,8 @@ the new source and pin together.
 
 ## field path
 
-string. Subdirectory containing the dependency&#x27;s `a2amodule.yml` (monorepo). Default `.`.
+string. Subdirectory containing the dependency&#x27;s `a2amodule.yml` or `a2amodule.yaml`
+(monorepo), or the adopted plain source root. Default `.`.
 
 ## field track
 
@@ -934,7 +950,7 @@ extension keys, preserved.
 
 YAML, written only by the CLI. `schema: 1`; `dependencies:` map keyed by dependency id with
 `git`, `ref`, `path`, `commit` (40-hex, the resolved ref), `manifest` (`sha256:&lt;hex&gt;` of the
-fetched `a2amodule.yml` bytes), `cards` (map agent name → `sha256:&lt;hex&gt;` of the snapshotted
+fetched manifest bytes, or exact token `none` for a plain git dependency), `cards` (map agent name → `sha256:&lt;hex&gt;` of the snapshotted
 card, present only for agents with a `card`), `cards-keys` (map agent name → `{kid,
 thumbprint, jwks, first-seen}` recording the first accepted signature key), `verified` (`signed`
 or `skipped`, absent when commit verification was not required), `surface` (`tree:&lt;40-hex&gt;`, the git tree object id of the surface directory at `commit`,

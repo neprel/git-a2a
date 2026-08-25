@@ -133,20 +133,29 @@ func (a *App) status(args []string) int {
 				}
 			}
 		}
-		cached, _, loadErr := manifest.ReadDir(cache.Dir(root, dep.ID))
-		if loadErr != nil {
-			row.Manifest = "missing"
-			row.failed = true
-			row.Details = append(row.Details, "cache missing — run git-a2a fetch")
+		plain := entry.Manifest == "none"
+		var cached []byte
+		if plain {
+			row.Manifest = "plain"
+			row.Wiring = "none"
+			row.Agents = "—"
 		} else {
-			sum := sha256.Sum256(cached)
-			actual := "sha256:" + hex.EncodeToString(sum[:])
-			if actual != entry.Manifest {
-				row.Manifest = "tampered"
+			var loadErr error
+			cached, _, loadErr = manifest.ReadDir(cache.Dir(root, dep.ID))
+			if loadErr != nil {
+				row.Manifest = "missing"
 				row.failed = true
-				row.Details = append(row.Details, "cached manifest hash differs from lock")
+				row.Details = append(row.Details, "cache missing — run git-a2a fetch")
 			} else {
-				row.Manifest = "clean"
+				sum := sha256.Sum256(cached)
+				actual := "sha256:" + hex.EncodeToString(sum[:])
+				if actual != entry.Manifest {
+					row.Manifest = "tampered"
+					row.failed = true
+					row.Details = append(row.Details, "cached manifest hash differs from lock")
+				} else {
+					row.Manifest = "clean"
+				}
 			}
 		}
 		var depManifest *manifest.Manifest
@@ -179,10 +188,15 @@ func (a *App) status(args []string) int {
 			work := cache.Dir(root, dep.ID)
 			if e := os.MkdirAll(work, 0o755); e == nil {
 				remote, e := (fetch.Fetcher{Runner: a.runner()}).Fetch(a.context(), dep.Git, resolution.Commit, defaultPath(dep.Path), work)
-				if e != nil {
+				if e != nil && !(plain && fetch.IsMissingManifest(e)) {
 					row.Manifest = "remote unreadable"
 					row.failed = true
-				} else {
+				} else if e == nil {
+					if plain {
+						row.Manifest = "module available"
+						row.failed = true
+						row.Details = append(row.Details, "upstream now declares a manifest — run update")
+					}
 					if remoteManifest, parseErr := manifest.Parse(remote.Manifest); parseErr == nil {
 						if remoteManifest.Module.MovedTo != nil {
 							row.Source = "moved → " + remoteManifest.Module.MovedTo.Git

@@ -137,6 +137,14 @@ func (a *App) who(args []string) int {
 			id = args[i]
 		}
 	}
+	if id != "" {
+		if locked, err := lockfile.Load(a.root()); err == nil {
+			if entry, ok := locked.Dependencies[id]; ok && entry.Manifest == "none" {
+				fmt.Fprintf(a.Err, "no agents declared: %s is not an a2a module\n", id)
+				return 2
+			}
+		}
+	}
 	dir := a.root()
 	if id != "" {
 		dir = cache.Dir(a.root(), id)

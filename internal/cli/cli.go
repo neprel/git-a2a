@@ -679,30 +679,39 @@ func (a *App) add(args []string) int {
 	defer os.RemoveAll(work)
 	f := fetch.Fetcher{Runner: a.runner()}
 	res, err := f.Fetch(a.context(), o.url, o.ref, o.path, work)
-	if err != nil {
+	plain := fetch.IsMissingManifest(err)
+	if err != nil && !plain {
 		fmt.Fprintf(a.Err, "add: %v\n", err)
-		if fetch.IsMissingManifest(err) {
+		return 1
+	}
+	var depManifest *manifest.Manifest
+	if plain {
+		if o.id == "" {
+			o.id = dependencyIDFromURL(o.url)
+		}
+		if o.id == "" {
+			fmt.Fprintln(a.Err, "add: could not derive dependency id; pass --id")
 			return 2
 		}
-		return 1
+	} else {
+		depManifest, err = manifest.Parse(res.Manifest)
+		if err != nil {
+			fmt.Fprintf(a.Err, "add: fetched manifest: %v\n", err)
+			return 1
+		}
+		if o.id != "" && o.id != depManifest.Module.ID {
+			fmt.Fprintf(a.Err, "add: expected module %s, fetched %s\n", o.id, depManifest.Module.ID)
+			return 1
+		}
+		o.id = depManifest.Module.ID
 	}
-	depManifest, err := manifest.Parse(res.Manifest)
-	if err != nil {
-		fmt.Fprintf(a.Err, "add: fetched a2amodule.yml: %v\n", err)
-		return 1
-	}
-	if o.id != "" && o.id != depManifest.Module.ID {
-		fmt.Fprintf(a.Err, "add: expected module %s, fetched %s\n", o.id, depManifest.Module.ID)
-		return 1
-	}
-	o.id = depManifest.Module.ID
 	declaredChannel := ""
 	if o.ref == "" {
 		o.ref = strings.TrimPrefix(res.Ref, "refs/heads/")
 		if o.ref == "" {
 			o.ref = "HEAD"
 		}
-		if depManifest.Module.Release != nil && depManifest.Module.Release.Channel != "" {
+		if !plain && depManifest.Module.Release != nil && depManifest.Module.Release.Channel != "" {
 			o.ref = depManifest.Module.Release.Channel
 			next, e := f.Fetch(a.context(), o.url, o.ref, o.path, work)
 			if e != nil {
@@ -750,8 +759,12 @@ func (a *App) add(args []string) int {
 		fmt.Fprintf(a.Err, "add: %v; no files changed\n", verifyErr)
 		return 1
 	}
-	sum := sha256.Sum256(res.Manifest)
-	locked := manifest.LockedDependency{Git: o.url, Ref: o.ref, Path: defaultPath(o.path), Commit: res.Commit, Manifest: "sha256:" + hex.EncodeToString(sum[:]), Verified: verified}
+	manifestHash := "none"
+	if !plain {
+		sum := sha256.Sum256(res.Manifest)
+		manifestHash = "sha256:" + hex.EncodeToString(sum[:])
+	}
+	locked := manifest.LockedDependency{Git: o.url, Ref: o.ref, Path: defaultPath(o.path), Commit: res.Commit, Manifest: manifestHash, Verified: verified}
 	seedVendorLock(own, dep, &locked)
 	validated := *own
 	validated.Dependencies = append([]manifest.Dependency(nil), own.Dependencies...)
@@ -765,27 +778,33 @@ func (a *App) add(args []string) int {
 		return 1
 	}
 	stagedRoot := filepath.Join(work, "staged-cache")
-	if err := cache.SaveAs(stagedRoot, o.id, res.Manifest, res.Commit, res.Method, res.ManifestName); err != nil {
-		fmt.Fprintf(a.Err, "add: stage cache: %v\n", err)
-		return 1
-	}
-	cards, warnings := a.snapshotCardsTo(filepath.Join(cache.Dir(stagedRoot, o.id), "cards"), o.url, o.path, res.Commit, depManifest, f)
-	locked.Cards = cards
-	cardKeys, trustWarnings := inspectCardTrust(depManifest, filepath.Join(cache.Dir(stagedRoot, o.id), "cards"), root, o.url, res.Commit, dep.Require)
-	locked.CardsKeys = cardKeys
-	warnings = append(warnings, trustWarnings...)
-	preflight := filepath.Join(work, "preflight")
-	copyAdapterFiles(root, preflight)
-	if _, err := wireAll(a.context(), preflight, dep, depManifest, locked, false); err != nil {
-		fmt.Fprintf(a.Err, "add: wiring preflight: %v; no files changed\n", err)
-		return 1
+	var warnings []error
+	if !plain {
+		if err := cache.SaveAs(stagedRoot, o.id, res.Manifest, res.Commit, res.Method, res.ManifestName); err != nil {
+			fmt.Fprintf(a.Err, "add: stage cache: %v\n", err)
+			return 1
+		}
+		cards, cardWarnings := a.snapshotCardsTo(filepath.Join(cache.Dir(stagedRoot, o.id), "cards"), o.url, o.path, res.Commit, depManifest, f)
+		locked.Cards = cards
+		cardKeys, trustWarnings := inspectCardTrust(depManifest, filepath.Join(cache.Dir(stagedRoot, o.id), "cards"), root, o.url, res.Commit, dep.Require)
+		locked.CardsKeys = cardKeys
+		warnings = append(cardWarnings, trustWarnings...)
+		preflight := filepath.Join(work, "preflight")
+		copyAdapterFiles(root, preflight)
+		if _, err := wireAll(a.context(), preflight, dep, depManifest, locked, false); err != nil {
+			fmt.Fprintf(a.Err, "add: wiring preflight: %v; no files changed\n", err)
+			return 1
+		}
 	}
 	snapshots := snapshotAdapterFiles(root)
-	outcomes, err := wireAll(a.context(), root, dep, depManifest, locked, !o.noRefresh)
-	if err != nil {
-		restoreAdapterFiles(root, snapshots)
-		fmt.Fprintf(a.Err, "add: wiring failed and was rolled back: %v\n", err)
-		return 1
+	var outcomes []wireOutcome
+	if !plain {
+		outcomes, err = wireAll(a.context(), root, dep, depManifest, locked, !o.noRefresh)
+		if err != nil {
+			restoreAdapterFiles(root, snapshots)
+			fmt.Fprintf(a.Err, "add: wiring failed and was rolled back: %v\n", err)
+			return 1
+		}
 	}
 	vendorRollback, err := a.applyVendorTransition(root, own, nil, dep, nil, &locked, false)
 	if err != nil {
@@ -819,7 +838,12 @@ func (a *App) add(args []string) int {
 		fmt.Fprintf(a.Err, "add: metadata write failed and was rolled back: %v\n", err)
 		return 1
 	}
-	if err = replaceCache(root, o.id, cache.Dir(stagedRoot, o.id), work); err != nil {
+	if !plain {
+		err = replaceCache(root, o.id, cache.Dir(stagedRoot, o.id), work)
+	} else {
+		err = os.RemoveAll(cache.Dir(root, o.id))
+	}
+	if err != nil {
 		rollbackMetadata()
 		restoreAdapterFiles(root, snapshots)
 		_ = vendorRollback()
@@ -831,6 +855,9 @@ func (a *App) add(args []string) int {
 		return 1
 	}
 	fmt.Fprintf(a.Err, "added %s at %s\n", o.id, res.Commit)
+	if plain {
+		fmt.Fprintf(a.Err, "note: %s: no a2amodule manifest at %s; added as a plain git dependency (no exports, agents, or surface declared)\n", o.id, shortCommit(res.Commit))
+	}
 	if declaredChannel != "" {
 		fmt.Fprintf(a.Err, "using declared release channel %s\n", declaredChannel)
 	}
@@ -854,6 +881,24 @@ func defaultPath(p string) string {
 	}
 	return p
 }
+
+func dependencyIDFromURL(raw string) string {
+	trimmed := strings.TrimSuffix(strings.TrimRight(raw, "/"), ".git")
+	if slash := strings.LastIndex(trimmed, "/"); slash >= 0 {
+		trimmed = trimmed[slash+1:]
+	} else if colon := strings.LastIndex(trimmed, ":"); colon >= 0 {
+		trimmed = trimmed[colon+1:]
+	}
+	return sanitizeID(strings.ToLower(trimmed))
+}
+
+func shortCommit(commit string) string {
+	if len(commit) > 7 {
+		return commit[:7]
+	}
+	return commit
+}
+
 func writeManifest(root string, m *manifest.Manifest) error {
 	path, err := manifest.Path(root)
 	if errors.Is(err, os.ErrNotExist) {
@@ -1042,10 +1087,44 @@ func (a *App) update(args []string) int {
 			fetchRef = entry.Commit
 		}
 		res, e := f.Fetch(a.context(), d.Git, fetchRef, defaultPath(d.Path), work)
-		if e != nil {
+		nextPlain := fetch.IsMissingManifest(e)
+		if e != nil && !nextPlain {
 			_ = os.RemoveAll(work)
 			fmt.Fprintf(a.Err, "update %s: %v\n", d.ID, e)
 			return 1
+		}
+		if nextPlain {
+			verified, verifyErr := a.verifyCommitTrust(root, d, res, resolution.Kind, insecureSkipSigners, work)
+			if verifyErr != nil {
+				_ = os.RemoveAll(work)
+				fmt.Fprintf(a.Err, "update %s: %v; lock unchanged\n", d.ID, verifyErr)
+				return 1
+			}
+			entry = manifest.LockedDependency{Git: d.Git, Ref: d.Ref, Path: defaultPath(d.Path), Commit: res.Commit, Manifest: "none", Verified: verified}
+			seedVendorLock(own, d, &entry)
+			vendorRollback, vendorErr := a.applyVendorTransition(root, own, &d, d, &oldEntry, &entry, force)
+			if vendorErr != nil {
+				_ = os.RemoveAll(work)
+				fmt.Fprintf(a.Err, "update %s vendor failed and was rolled back: %v\n", d.ID, vendorErr)
+				return 1
+			}
+			oldLockBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.lock"))
+			l.Dependencies[d.ID] = entry
+			if e = lockfile.Write(root, l); e != nil {
+				_ = vendorRollback()
+				_ = os.RemoveAll(work)
+				fmt.Fprintf(a.Err, "update %s lock write failed and was rolled back: %v\n", d.ID, e)
+				return 1
+			}
+			if e = os.RemoveAll(cache.Dir(root, d.ID)); e != nil {
+				_ = lockfile.Atomic(filepath.Join(root, "a2amodule.lock"), oldLockBytes, 0o644)
+				_ = vendorRollback()
+				_ = os.RemoveAll(work)
+				fmt.Fprintf(a.Err, "update %s cache cleanup failed and was rolled back: %v\n", d.ID, e)
+				return 1
+			}
+			_ = os.RemoveAll(work)
+			continue
 		}
 		depManifest, e := manifest.Parse(res.Manifest)
 		if e != nil {
@@ -1216,6 +1295,9 @@ func (a *App) update(args []string) int {
 }
 
 func cacheNeedsRepair(root, id, expectedHash string) bool {
+	if expectedHash == "none" {
+		return false
+	}
 	b, _, err := manifest.ReadDir(cache.Dir(root, id))
 	if err != nil {
 		return true
@@ -1288,7 +1370,7 @@ func (a *App) remove(args []string) int {
 		return 1
 	}
 	snapshots := snapshotAdapterFiles(root)
-	if !keep {
+	if !keep && entry.Manifest != "none" {
 		depManifest, loadErr := manifest.LoadDir(cache.Dir(root, id))
 		if loadErr != nil {
 			work, tempErr := os.MkdirTemp("", "git-a2a-remove-")
@@ -1390,6 +1472,24 @@ func (a *App) show(args []string) int {
 		}
 	}
 	root := a.root()
+	if id != "" {
+		if locked, lockErr := lockfile.Load(root); lockErr == nil {
+			if entry, ok := locked.Dependencies[id]; ok && entry.Manifest == "none" {
+				if surface {
+					fmt.Fprintf(a.Err, "show: %s is a plain git dependency; no surface declared\n", id)
+					return 2
+				}
+				if jsonOut {
+					body, _ := json.MarshalIndent(map[string]any{"id": id, "plain": true, "git": entry.Git, "commit": entry.Commit, "surface": nil}, "", "  ")
+					fmt.Fprintln(a.Out, string(body))
+				} else {
+					fmt.Fprintf(a.Out, "%s\nplain git dependency; no surface declared\n", id)
+				}
+				fmt.Fprintln(a.Err, "module shown")
+				return 0
+			}
+		}
+	}
 	dir := root
 	if id != "" {
 		dir = cache.Dir(root, id)
