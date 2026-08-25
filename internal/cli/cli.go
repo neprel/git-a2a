@@ -313,7 +313,7 @@ func (a *App) init(args []string) int {
 		return a.runInitInterview(initRequest{ID: *id, IDExplicit: idExplicit, Description: *desc, Surface: *surface, Example: *example, Exports: exports, Interview: true, JSON: *jsonOut})
 	}
 	if _, err := manifest.Path(root); err == nil {
-		fmt.Fprintln(a.Err, "manifest already exists")
+		fmt.Fprintln(a.Err, "manifest already exists; edit it or remove it first")
 		return 1
 	} else if !errors.Is(err, os.ErrNotExist) {
 		fmt.Fprintf(a.Err, "init: %v\n", err)

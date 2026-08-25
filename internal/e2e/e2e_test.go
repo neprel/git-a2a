@@ -1510,6 +1510,71 @@ dependencies:
 	}
 }
 
+func TestPlainDependencyCanBeWiredAfterAddingShim(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "source")
+	bare := filepath.Join(tmp, "acme-late-shim.git")
+	consumer := filepath.Join(tmp, "consumer")
+	mustMkdir(t, source)
+	git(t, source, "init", "-b", "main")
+	git(t, source, "config", "user.email", "test@example.com")
+	git(t, source, "config", "user.name", "Test")
+	mustWrite(t, filepath.Join(source, "README.md"), []byte("plain source\n"))
+	git(t, source, "add", "README.md")
+	git(t, source, "commit", "-m", "plain source")
+	git(t, tmp, "clone", "--bare", source, bare)
+	mustMkdir(t, consumer)
+	mustWrite(t, filepath.Join(consumer, "package.json"), []byte("{\"name\":\"consumer-app\",\"version\":\"1.0.0\"}\n"))
+	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte("schema: 1\nmodule: {id: consumer-app}\n"))
+
+	var out, errOut bytes.Buffer
+	app := cli.New(&out, &errOut)
+	app.Root = consumer
+	if code := app.Run([]string{"add", "file://" + bare}); code != 0 {
+		t.Fatalf("add exit %d: %s", code, errOut.String())
+	}
+	packageJSON, _ := os.ReadFile(filepath.Join(consumer, "package.json"))
+	if strings.Contains(string(packageJSON), "@acme/late-shim") {
+		t.Fatalf("plain dependency wired before shim: %s", packageJSON)
+	}
+
+	own, err := manifest.LoadDir(consumer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(own.Dependencies) != 1 || own.Dependencies[0].ID != "acme-late-shim" {
+		t.Fatalf("dependencies = %#v", own.Dependencies)
+	}
+	own.Dependencies[0].Shim = &manifest.Shim{Exports: []manifest.Export{{Ecosystem: "npm", Name: "@acme/late-shim"}}}
+	body, err := manifest.Marshal(own)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), body)
+
+	out.Reset()
+	errOut.Reset()
+	if code := app.Run([]string{"wire", "acme-late-shim"}); code != 0 {
+		t.Fatalf("wire exit %d:\nstdout=%s\nstderr=%s", code, out.String(), errOut.String())
+	}
+	if !strings.Contains(out.String(), "npm: wired acme-late-shim") || !strings.Contains(errOut.String(), "wired 1 ecosystem entry") {
+		t.Fatalf("wire did not report the shim change:\nstdout=%s\nstderr=%s", out.String(), errOut.String())
+	}
+	packageJSON, _ = os.ReadFile(filepath.Join(consumer, "package.json"))
+	if !strings.Contains(string(packageJSON), `"@acme/late-shim"`) {
+		t.Fatalf("shim export was not wired: %s", packageJSON)
+	}
+
+	out.Reset()
+	errOut.Reset()
+	if code := app.Run([]string{"wire", "acme-late-shim"}); code != 0 {
+		t.Fatalf("second wire exit %d: %s", code, errOut.String())
+	}
+	if strings.TrimSpace(errOut.String()) != "wiring is current" {
+		t.Fatalf("second wire verdict = %q", errOut.String())
+	}
+}
+
 func git(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)

@@ -119,6 +119,33 @@ func TestInitNonTTYUsesDefaultsAndNamesAnswers(t *testing.T) {
 	}
 }
 
+func TestInitRefusesToOverwriteExistingManifest(t *testing.T) {
+	for _, filename := range []string{"a2amodule.yml", "a2amodule.yaml"} {
+		for _, args := range [][]string{{"init"}, {"init", "--answers", "-"}} {
+			t.Run(filename+"_"+strings.Join(args, "_"), func(t *testing.T) {
+				root := t.TempDir()
+				if err := os.WriteFile(filepath.Join(root, filename), []byte("schema: 1\nmodule: {id: acme-existing}\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				var out, errOut bytes.Buffer
+				app := New(&out, &errOut)
+				app.Root = root
+				app.In = strings.NewReader(`{"module.id":"acme-replacement"}`)
+				if code := app.Run(args); code != 1 {
+					t.Fatalf("exit = %d, stderr = %q", code, errOut.String())
+				}
+				if got := strings.TrimSpace(errOut.String()); got != "manifest already exists; edit it or remove it first" {
+					t.Fatalf("stderr = %q", got)
+				}
+				body, err := os.ReadFile(filepath.Join(root, filename))
+				if err != nil || !bytes.Contains(body, []byte("acme-existing")) {
+					t.Fatalf("existing manifest changed: %q, %v", body, err)
+				}
+			})
+		}
+	}
+}
+
 func TestDependencyIDFromWindowsFileURLUsesRepositoryBasename(t *testing.T) {
 	if got := dependencyIDFromURL(`file://C:\Users\runner\repo\acme-plain.git`); got != "acme-plain" {
 		t.Fatalf("id = %q", got)

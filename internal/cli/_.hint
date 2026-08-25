@@ -104,6 +104,14 @@ When a lock entry has `manifest: none`, the CLI projects its consumer-authored `
 `shim.agents` into the ordinary manifest model. Adapter selection, drift, `wire`, `who`, and
 `contact` therefore have one implementation for upstream and shim metadata. If the lock contains
 an upstream manifest hash, the projection is never used and status reports the ignored shim.
+Adding shim exports after a plain dependency was locked is sufficient: a later bare `wire [ID]`
+must apply those exports before it may report `wiring is current`.
+
+# decision Init never replaces an existing manifest implicitly
+
+Writing forms of `init`, including `--answers`, refuse either accepted existing manifest spelling
+with exit 1 and `manifest already exists; edit it or remove it first`. The read-only `--interview`
+form remains available because it does not write.
 
 # decision Explain embeds the generated normative field reference
 

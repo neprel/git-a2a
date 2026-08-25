@@ -665,7 +665,7 @@ operations remain available and no command treats the absent manifest as a broke
 | `who`, `contact` | Prints `no agents declared: <id> is not an a2a module`. | 2 |
 | `sync` | Renders the dependency as `(plain git dependency)` without an upstream policy quote. | 0 |
 | `update`, `set`, `pin`, `unpin`, `remove`, vendoring | Operates on the resolved Git source normally. | Normal mutation semantics. |
-| `wire` | Applies vendoring, then reports that there are no exports to wire. | 0 |
+| `wire` | Applies vendoring; without a shim reports no exports, while `shim.exports` wire exactly like upstream exports. | 0 |
 | dependency card/catalog projection | Skips the dependency with a note. | 0 |
 
 A consumer may attach `shim` metadata to a plain dependency. `shim.exports` has the same shape
@@ -676,6 +676,9 @@ exactly as “described by this repository's shim, not by the dependency”. A s
 the locked commit has `manifest: none`. Once an update finds an upstream manifest, every command
 uses upstream metadata and reports `shim ignored: upstream declares its own manifest`; the shim is
 kept in the consumer manifest so a later plain commit remains deterministic.
+Adding or changing `shim.exports` after `add` takes effect on the next bare `wire [ID]`; the CLI
+may report `wiring is current` only after the selected shim exports are present in detected
+ecosystem manifests.
 
 ## field shim
 
