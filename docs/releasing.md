@@ -14,6 +14,10 @@ changelog follows that story; a raw commit list is not release communication. Th
 git-a2a can keep a dependency's source in the consumer at the same commit used by every package
 manager; submodule/copy transports drive five build systems and native local-path modes; `fetch`
 reconstructs that exact state on a fresh checkout without moving the lock.
+The v1.6.0 story is: a2amodule schema 1 now has an implementation-neutral conformance corpus and
+versioned runner on Linux and Windows; owners can publish non-enforced contact-budget guidance and
+email coordinates while consumers alone provide sendmail or SMTP delivery; the release passes
+conformance version 1 and publishes the normative specification as a generated reader page.
 
 ## GitHub configuration
 
@@ -188,4 +192,8 @@ design, credentials, or platform acceptance:
 - operating-system keystore integration for signing keys (current keys remain ordinary Git/JWKS
   material selected by repository policy);
 - central identity federation or a certificate authority, which remains outside the product
-  boundary.
+  boundary;
+- `git-a2a serve`, because agent hosting remains the owner's infrastructure rather than a CLI
+  responsibility;
+- the compatibility declaration open question from plan 25, until pilot B has run for at least
+  two weeks and included at least two real dependency updates.

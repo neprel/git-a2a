@@ -47,3 +47,10 @@ A dependency with lock `vendor` names its repository-relative path and mode in t
 text. Submodules additionally say to clone with `--recurse-submodules` and repair an existing clone
 with `git submodule update --init` or `git-a2a wire`; copies need no Git clone instruction. This
 state comes from the consumer lock, never from dependency-controlled prose.
+
+# decision Contact budgets are published guidance, not enforcement
+
+When `policy.contact-budget` is present, roster rendering sorts its open-vocabulary keys for
+deterministic output and labels the values as a published expectation that git-a2a does not
+enforce. A dependency's keys and values pass through the same bounded sanitizer as every other
+dependency-controlled field before entering the managed block.
