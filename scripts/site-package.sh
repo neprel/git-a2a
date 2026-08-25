@@ -23,7 +23,7 @@ fi
 for file in .htaccess index.html 404.html robots.txt sitemap.xml llms.txt llms-full.txt install.sh install.ps1; do
   cp "$site_root/$file" "$destination/$file"
 done
-for directory in .well-known assets demo fonts ext schema; do
+for directory in .well-known assets demo fonts ext schema spec; do
   cp -R "$site_root/$directory" "$destination/$directory"
 done
 

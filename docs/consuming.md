@@ -120,6 +120,9 @@ GitLab or Codeberg uses the same `add`, `fetch`, `status`, lock, and vendoring w
 other Git remote—only issue delivery differs. Open kinds can use a consumer-installed
 [contact plugin](contact-plugins.md). See the generated [contact-kind reference](contact-kinds.md). Delivery
 history is not stored.
+Email contacts use consumer-installed `sendmail`, then consumer-owned implicit-TLS SMTP through
+`GITA2A_SMTP_URL` and `GITA2A_SMTP_PASSWORD`, then the same non-delivering instruction fallback.
+The dependency supplies the address and optional subject prefix, never credentials.
 An owner with `accepts-external: false` refuses a consumer from another organisation. Only a
 human CLI invocation can approve the exception with `--external-ok`; MCP cannot bypass it.
 

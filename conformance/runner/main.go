@@ -426,13 +426,14 @@ func readCommand(path string, replacements map[string]string) ([]string, error) 
 	if err != nil {
 		return nil, err
 	}
-	text := string(data)
-	for old, value := range replacements {
-		text = strings.ReplaceAll(text, old, value)
-	}
 	var args []string
-	if err := json.Unmarshal([]byte(text), &args); err != nil {
+	if err := json.Unmarshal(data, &args); err != nil {
 		return nil, fmt.Errorf("command: %w", err)
+	}
+	for index := range args {
+		for old, value := range replacements {
+			args[index] = strings.ReplaceAll(args[index], old, value)
+		}
 	}
 	return args, nil
 }

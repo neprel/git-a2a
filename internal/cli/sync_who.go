@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	lockfile "github.com/neprel/git-a2a/internal/lock"
@@ -88,10 +89,11 @@ func (a *App) sync(args []string) int {
 }
 
 type whoOutput struct {
-	Module  string     `json:"module"`
-	Intent  string     `json:"intent"`
-	Role    string     `json:"role"`
-	Matches []whoMatch `json:"matches"`
+	Module        string            `json:"module"`
+	Intent        string            `json:"intent"`
+	Role          string            `json:"role"`
+	ContactBudget map[string]string `json:"contactBudget,omitempty"`
+	Matches       []whoMatch        `json:"matches"`
 }
 
 type whoMatch struct {
@@ -168,7 +170,11 @@ func (a *App) who(args []string) int {
 			}
 			machineMatches = append(machineMatches, whoMatch{Match: match, AcceptsExternal: acceptsExternal})
 		}
-		output := any(whoOutput{Module: m.Module.ID, Intent: intent, Role: role, Matches: machineMatches})
+		var budget map[string]string
+		if m.Policy != nil {
+			budget = m.Policy.ContactBudget
+		}
+		output := any(whoOutput{Module: m.Module.ID, Intent: intent, Role: role, ContactBudget: budget, Matches: machineMatches})
 		if id != "" {
 			commit := ""
 			if locked, lockErr := lockfile.Load(a.root()); lockErr == nil {
@@ -179,6 +185,18 @@ func (a *App) who(args []string) int {
 		b, _ := json.MarshalIndent(output, "", "  ")
 		fmt.Fprintln(a.Out, string(b))
 	} else {
+		if m.Policy != nil && len(m.Policy.ContactBudget) > 0 {
+			keys := make([]string, 0, len(m.Policy.ContactBudget))
+			for key := range m.Policy.ContactBudget {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			parts := make([]string, 0, len(keys))
+			for _, key := range keys {
+				parts = append(parts, key+"="+m.Policy.ContactBudget[key])
+			}
+			fmt.Fprintf(a.Out, "contact budget (published, not enforced): %s\n", strings.Join(parts, ", "))
+		}
 		for _, match := range matches {
 			external := ""
 			if match.Agent.Trust != nil && match.Agent.Trust.AcceptsExternal != nil && !*match.Agent.Trust.AcceptsExternal {

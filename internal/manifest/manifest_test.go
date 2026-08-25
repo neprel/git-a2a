@@ -340,6 +340,29 @@ dependencies:
 	}
 }
 
+func TestRelativePathsRejectEveryPlatformAbsoluteForm(t *testing.T) {
+	for _, value := range []string{"/var/acme", `\\server\share`, `C:\\acme`, "C:/acme"} {
+		raw := []byte("schema: 1\nmodule:\n  id: consumer\n  surface: " + value + "\n")
+		if _, err := Parse(raw); err == nil || !strings.Contains(err.Error(), "must be a relative path") {
+			t.Fatalf("surface %q error = %v", value, err)
+		}
+	}
+}
+
+func TestContactBudgetIsOpenStringVocabulary(t *testing.T) {
+	raw := []byte("schema: 1\nmodule: {id: consumer}\npolicy:\n  contact-budget:\n    per-consumer-daily: \"2\"\n    note: Coordinate bursts.\n")
+	m, err := Parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Policy.ContactBudget["per-consumer-daily"] != "2" {
+		t.Fatalf("budget = %#v", m.Policy.ContactBudget)
+	}
+	if _, err := Parse([]byte(strings.Replace(string(raw), "Coordinate bursts.", `""`, 1))); err == nil || !strings.Contains(err.Error(), "must not be empty") {
+		t.Fatalf("empty budget value error = %v", err)
+	}
+}
+
 func TestUpdateDependenciesPreservesVendorCollectionStyle(t *testing.T) {
 	original := []byte("schema: 1\nmodule: {id: consumer}\ndependencies:\n  - id: acme-lib\n    git: old\n    vendor: {mode: submodule, path: deps/acme-lib} # keep\n")
 	updated, err := UpdateDependencies(original, []Dependency{{

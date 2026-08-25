@@ -60,7 +60,7 @@ func TestContactPreservesOrderForInstructionDriver(t *testing.T) {
 	var out, errOut bytes.Buffer
 	app := New(&out, &errOut)
 	app.Root = root
-	if code := app.Run([]string{"ask", "acme-lib", "--message", "message.md"}); code != 0 {
+	if code := app.Run([]string{"ask", "acme-lib", "--message", "message.md", "--dry-run"}); code != 0 {
 		t.Fatalf("exit=%d stderr=%s", code, errOut.String())
 	}
 	if strings.Count(strings.TrimSpace(out.String()), "\n") != 0 || !strings.Contains(out.String(), "kind=email") || !strings.Contains(out.String(), "state=instruction") {
@@ -104,7 +104,7 @@ agents:
 	out.Reset()
 	errOut.Reset()
 	app.In = strings.NewReader("question")
-	if code := app.Run([]string{"contact", "acme-lib", "--message", "-", "--external-ok"}); code != 0 || !strings.Contains(out.String(), "kind=email") || !strings.Contains(errOut.String(), "override recorded") {
+	if code := app.Run([]string{"contact", "acme-lib", "--message", "-", "--external-ok", "--dry-run"}); code != 0 || !strings.Contains(out.String(), "kind=email") || !strings.Contains(errOut.String(), "override recorded") {
 		t.Fatalf("override exit=%d out=%q err=%q", code, out.String(), errOut.String())
 	}
 }

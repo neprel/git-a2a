@@ -11,6 +11,7 @@ and route directory paths to their `index.html`.
 | `/` | `index.html` |
 | `/ext/module/v1` | `ext/module/v1/index.html` |
 | `/schema/` | `schema/index.html` |
+| `/spec/` | generated reader copy of `spec/README.md` and normative `spec/_.hint` |
 | `/schema/a2amodule.v1.json` | `schema/a2amodule.v1.json` |
 | `/schema/a2amodule-lock.v1.json` | `schema/a2amodule-lock.v1.json` |
 | `/sitemap.xml` | `sitemap.xml` |
@@ -31,7 +32,7 @@ download-and-run commands receive text rather than an opaque byte response. It i
 server configuration artifact, not a public documentation route.
 
 `scripts/site-package.sh` builds the upload directory from the explicitly listed top-level public
-files, `.htaccess`, plus `.well-known/`, `assets/`, `demo/`, `fonts/`, `ext/`, and `schema/`. It
+files, `.htaccess`, plus `.well-known/`, `assets/`, `demo/`, `fonts/`, `ext/`, `schema/`, and `spec/`. It
 excludes `tools/`, this README, and `sites/design/`; those are reproducibility and operator
 material, not public routes.
 

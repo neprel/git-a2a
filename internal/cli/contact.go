@@ -13,6 +13,7 @@ import (
 	contactcore "github.com/neprel/git-a2a/internal/contact"
 	contacta2a "github.com/neprel/git-a2a/internal/contact/a2a"
 	contactdeclared "github.com/neprel/git-a2a/internal/contact/declared"
+	contactemail "github.com/neprel/git-a2a/internal/contact/email"
 	contactgitea "github.com/neprel/git-a2a/internal/contact/giteaissue"
 	contactgithub "github.com/neprel/git-a2a/internal/contact/githubissue"
 	contactgitlab "github.com/neprel/git-a2a/internal/contact/gitlabissue"
@@ -149,6 +150,8 @@ func (a *App) contactDriver(declared manifest.Contact, consumer *manifest.Manife
 		return contactgitlab.Driver{Client: a.HTTPClient}
 	case "gitea-issue":
 		return contactgitea.Driver{Client: a.HTTPClient}
+	case "email":
+		return contactemail.Driver{}
 	case "http", "exec":
 		return contactdeclared.Driver{ContactKind: declared.Kind, Consent: consent, MCP: a.mcpInvocation, Client: a.HTTPClient}
 	default:
@@ -208,6 +211,13 @@ func (a *App) contactDriverDescription(declared manifest.Contact, consumer *mani
 		}
 		if os.Getenv("GITEA_TOKEN") != "" || os.Getenv("FORGEJO_TOKEN") != "" {
 			return "gitea-rest", "Gitea or Forgejo token available in consumer environment"
+		}
+	case "email":
+		if _, err := exec.LookPath("sendmail"); err == nil {
+			return "sendmail", "sendmail found on consumer PATH"
+		}
+		if os.Getenv("GITA2A_SMTP_URL") != "" && os.Getenv("GITA2A_SMTP_PASSWORD") != "" {
+			return "smtp", "consumer SMTP environment is configured"
 		}
 	case "http":
 		if consumerAllowsHTTP(consumer, declared.URL) {

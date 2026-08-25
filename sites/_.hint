@@ -38,6 +38,9 @@ The site uses hand-written HTML and one CSS and JavaScript file, with no framewo
 analytics, remote fonts, or runtime service. Every page renders from `file://` and an ordinary
 static HTTP server. The only JavaScript behaviours are transcript replay, copy buttons, and
 keyboard-accessible install tabs.
+The `/spec/` reader page is the sole generated HTML exception: `tools/gen-spec-page.py`
+deterministically escapes the exact bytes of `spec/README.md` and normative `spec/_.hint` into
+the shared static page shell. It adds no runtime dependency and GitHub remains canonical for diffs.
 
 # decision Visual source and static asset provenance {#visual_source}
 

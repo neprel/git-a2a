@@ -33,10 +33,19 @@ path component so nested groups survive. Gitea, Forgejo, and Codeberg use the sa
 
 # decision Passive contacts print an actionable record
 
-`url`, `email`, Mattermost, Slack, Discord, Telegram, and Teams do not cause external delivery.
+`url`, Mattermost, Slack, Discord, Telegram, and Teams do not cause external delivery.
 Their drivers emit a one-line instruction naming the declared destination and referring to the
 supplied message without copying multiline message content into stdout. Because instruction
 kinds are real drivers, their declaration order relative to active drivers is preserved.
+
+# decision Email uses consumer transport and owner coordinates
+
+The `email` driver prefers consumer-installed `sendmail` and pipes one RFC 5322 message with
+`-i -t`. Otherwise `GITA2A_SMTP_URL=smtps://user@host[:port]` plus
+`GITA2A_SMTP_PASSWORD` supplies consumer-owned implicit-TLS SMTP credentials. Otherwise it
+returns the existing instruction. The owner supplies only `address` and optional
+`subject-prefix`; neither can inject a header. `--dry-run` remains an instruction, and MCP may
+deliver because email is an external delivery rather than owner-declared local execution.
 
 # decision PATH plugins implement the open contact vocabulary
 
@@ -72,3 +81,5 @@ instruction. HTTP failures use the shared bounded remote-response sanitizer.
   received JSON after quote/bracket injection through `{message}`. This lifecycle layer is
   mandatory: validator-only and driver-only tests can both pass while their composition through a
   fetched manifest is broken, which is how literal JSON braces escaped the first review.
+- A fake SMTP conversation proves auth, envelope, RFC 5322 headers, and body; a sendmail stub
+  proves argv and stdin. Neither test reads a real credential or opens the network.

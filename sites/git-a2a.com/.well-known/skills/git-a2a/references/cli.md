@@ -206,7 +206,8 @@ acme-lib change → owner → library-owner
 [--list-drivers]` uses the first routed contact. Resolution is consumer plugin, built-in driver,
 consumer-consented `http`/`exec`, then an exact instruction. GitHub, GitLab, and Gitea-family issue
 drivers prefer `gh`, `glab`, or `tea`, then their REST API using consumer environment credentials;
-without either they print a prefilled issue deep link. `--wait` selects A2A streaming. `--dry-run`
+without either they print a prefilled issue deep link. Email uses consumer `sendmail`, then
+`GITA2A_SMTP_URL=smtps://user@host` plus `GITA2A_SMTP_PASSWORD`, then an instruction. `--wait` selects A2A streaming. `--dry-run`
 keeps delivery at the instruction layer. `--list-drivers` needs no message and shows the selected
 layer globally or for one dependency's declared kinds. An owner declaration
 `accepts-external: false` refuses a different organisation;

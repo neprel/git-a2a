@@ -36,7 +36,8 @@ required field.
   card; it does not duplicate the card's self-description. Ordered contacts say how the
   agent accepts each request intent.
 - `policy.intents` maps an intent to a role. Consumer permissions are declared under
-  `policy.consumers.may` and `may-not`.
+  `policy.consumers.may` and `may-not`; optional `policy.contact-budget` publishes sorted,
+  open-vocabulary usage expectations without enforcing them.
 - `dependencies` identifies other modules by git URL, ref, optional monorepo `path`, tracking
   mode, and optional ecosystems to wire. An absent `wire` means every detected applicable
   ecosystem; `wire: []` means none; a non-empty list makes exactly those adapters mandatory.

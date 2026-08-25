@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 SITE = ROOT / "sites" / "git-a2a.com"
-PAGES = [SITE / "index.html", SITE / "ext/module/v1/index.html", SITE / "schema/index.html"]
+PAGES = [SITE / "index.html", SITE / "ext/module/v1/index.html", SITE / "schema/index.html", SITE / "spec/index.html"]
 
 
 def fail(message: str) -> None:
@@ -148,6 +148,7 @@ def main() -> None:
         if source.read_bytes() != public.read_bytes():
             fail(f"schema copy differs: {public.name}")
     subprocess.run(["python3", str(ROOT / "tools/sync-skill.py"), "--check"], cwd=ROOT, check=True)
+    subprocess.run(["python3", str(ROOT / "tools/gen-spec-page.py"), "--check"], cwd=ROOT, check=True)
 
     with tempfile.TemporaryDirectory() as temporary:
         package = pathlib.Path(temporary) / "public"
@@ -161,7 +162,7 @@ def main() -> None:
             ".htaccess",
             "index.html", "404.html", "robots.txt", "sitemap.xml", "llms.txt", "llms-full.txt",
             "install.sh", "install.ps1",
-            ".well-known", "assets", "demo", "fonts", "ext", "schema",
+            ".well-known", "assets", "demo", "fonts", "ext", "schema", "spec",
         }
         packaged_top_level = {path.name for path in package.iterdir()}
         if packaged_top_level != expected_top_level:
@@ -253,6 +254,7 @@ def main() -> None:
         "https://git-a2a.com/",
         "https://git-a2a.com/ext/module/v1",
         "https://git-a2a.com/schema/",
+        "https://git-a2a.com/spec/",
     ]
     for page, body, canonical in zip(PAGES, bodies, expected_canonicals):
         if body.count(f'<link rel="canonical" href="{canonical}">') != 1:
@@ -295,7 +297,7 @@ def main() -> None:
                 fail(f"{llms_name} lacks canonical reference {required}")
 
     prototype = (ROOT / "sites/design/git-a2a Landing.dc.html").read_text()
-    for route, page, body in zip(("landing", "extension", "schema"), PAGES, bodies):
+    for route, page, body in zip(("landing", "extension", "schema"), PAGES[:3], bodies[:3]):
         expected = visible_text(prototype, route, prototype=True)
         actual = visible_text(body, route)
         if actual != expected:
@@ -396,8 +398,8 @@ def main() -> None:
     size = sum(path.stat().st_size for path in above_fold)
     if size >= 250 * 1024:
         fail(f"above-the-fold transfer budget exceeded: {size} bytes")
-    print("site-check: visible text on 3 pages matches the design prototype")
-    print(f"site-check: 3 pages valid, links resolved, canonical files synchronized")
+    print("site-check: visible text on 3 designed pages matches the design prototype")
+    print(f"site-check: 4 pages valid, links resolved, canonical files synchronized")
     print("site-check: canonical metadata, structured data, sitemap, and LLM guides valid")
     print("site-check: publication package contains only allowlisted files, two valid demo cards, and their catalog")
     print("site-check: manual publication uses ignored environment settings and staged files")

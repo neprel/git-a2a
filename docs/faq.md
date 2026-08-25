@@ -70,6 +70,10 @@ Yes, after the exact locked cache and required native dependencies are present. 
 `sync` use local files. CI should restore cache from the lock before going offline. Contact
 delivery, moving-ref checks, and missing cache reconstruction naturally need their declared remote.
 
+Email delivery never takes credentials from a dependency manifest. The consumer provides
+`sendmail` or `GITA2A_SMTP_URL` plus `GITA2A_SMTP_PASSWORD`; without either, `contact` prints an
+instruction and makes no network request.
+
 ## Does git-a2a install package managers or run agents?
 
 No. `doctor` reports required tools and installation hints, but never installs them. git-a2a

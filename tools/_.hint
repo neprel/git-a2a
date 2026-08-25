@@ -77,6 +77,13 @@ targets across README, spec, and docs. It rejects an unescaped pipe inside an in
 a Markdown table, because GFM treats that pipe as a cell delimiter even though it is between
 backticks. These files are outputs, never separately authored sources.
 
+# decision Public specification reader is generated from normative sources
+
+`gen-spec-page.py` generates `/spec/index.html` from the exact committed `spec/README.md` overview
+and `spec/_.hint` normative source. It reuses the site's canonical header and footer, HTML-escapes
+both source documents without paraphrasing them, and has a drift-check mode used by `docs-check`
+and `site-check`. The generated reader is the sole generated HTML page; it is never edited by hand.
+
 # decision Transcript captures the status table byte-for-byte
 
 The transcript generator stores command stdout without trimming, collapsing, or reformatting and

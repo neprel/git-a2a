@@ -7,6 +7,7 @@
 [![PyPI](https://img.shields.io/pypi/v/git-a2a)](https://pypi.org/project/git-a2a/)
 [![Homebrew](https://img.shields.io/badge/homebrew-neprel%2Ftap-fbb040)](https://github.com/neprel/homebrew-tap)
 [![MCP Registry](https://img.shields.io/badge/MCP_Registry-io.github.neprel%2Fgit--a2a-5b4ee6)](https://registry.modelcontextprotocol.io/)
+[![a2amodule v1 conformance](https://img.shields.io/badge/a2amodule_v1-conformance_1-0a6c81)](conformance/README.md)
 
 **Import a Git repository together with the agents that own it.**
 
@@ -31,7 +32,7 @@ See the feature end to end in the public
 | Source changes | `set`, `pin`, and `unpin` transactionally change URL, ref, monorepo path, tracking, or identity. |
 | Owners and contacts | `who` routes an intent and path to the declared role, scoped agent, and ordered contacts. |
 | Agent roster | `sync` maintains a bounded dependency/owner block in `AGENTS.md` or another target. |
-| Contact delivery | `contact` sends through A2A or GitHub/GitLab/Gitea-family issues; any tracker can use exact instructions or a consumer plugin. |
+| Contact delivery | `contact` sends through A2A, email, or GitHub/GitLab/Gitea-family issues; any tracker can use exact instructions or a consumer plugin. |
 | Vendoring and build systems | `--vendor submodule` or `--vendor copy` plus CMake/Gradle/MSBuild/Maven/Meson generated includes keep source at the lock commit. |
 | Fresh-checkout restore | `fetch` reconstructs cache and vendored trees from the lock without resolving a new commit. |
 | Cards, catalog, and trust | `card`, `catalog`, and `trust show` verify A2A cards, key/origin pins, signed commits, and ARD catalogs. |
@@ -73,6 +74,8 @@ and the live [`consumer-app`](https://github.com/neprel/git-a2a-demo-acme-app) s
 | Agent harnesses | Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI, OpenCode, Hermes Agent, OpenClaw. |
 | Standards | A2A, AGENTS.md, Agent Skills, ARD catalogs, MCP (listed in the MCP Registry). |
 | Issue delivery | GitHub, GitLab, Gitea, Forgejo, Codeberg, and any tracker through instructions or plugins. |
+
+The reference CLI implements a2amodule schema 1 and passes conformance version 1 on Linux and Windows.
 
 ## Installation
 

@@ -73,7 +73,7 @@ mutation refresh an existing block.
 `contact` may create an A2A task or an issue on GitHub, GitLab, or a Gitea-family forge. Run
 `git-a2a contact [ID] --list-drivers` before automation when transport availability matters.
 Unknown kinds use a consumer-installed `git-a2a-contact-<kind>` plugin or print instructions;
-URL, email, and chat kinds print instructions;
+URL and chat kinds print instructions; email uses consumer sendmail/SMTP or prints an instruction;
 do not invent delivery or store conversation state.
 
 ## Outcomes

@@ -1,0 +1,12 @@
+schema: 1
+module: {id: acme-lib}
+agents:
+  - name: acme-owner
+    role: owner
+    contacts:
+      - kind: email
+        intents: [question]
+        address: owner@example.com
+        subject-prefix: "[acme]"
+policy:
+  contact-budget: {per-consumer-daily: "2"}

@@ -84,6 +84,26 @@ func TestSanitizeCapsRenderedText(t *testing.T) {
 	}
 }
 
+func TestBuildRendersSortedUnenforcedContactBudget(t *testing.T) {
+	root := t.TempDir()
+	cache := filepath.Join(root, ".git-a2a", "cache", "dep")
+	if err := os.MkdirAll(cache, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dep := "schema: 1\nmodule: {id: dep}\npolicy:\n  contact-budget:\n    note: Ask before a burst.\n    per-consumer-daily: \"2\"\n"
+	if err := os.WriteFile(filepath.Join(cache, "a2amodule.yml"), []byte(dep), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	block, err := Build(root, &manifest.Manifest{Schema: 1, Module: manifest.Module{ID: "app"}}, &manifest.Lock{Schema: 1, Dependencies: map[string]manifest.LockedDependency{"dep": {Commit: strings.Repeat("a", 40)}}}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "> Contact budget (from dep @aaaaaaaaaaaa; published expectation, not enforced):\n> - note: Ask before a burst.\n> - per-consumer-daily: 2\n"
+	if !strings.Contains(block, want) {
+		t.Fatalf("budget missing or unsorted:\n%s", block)
+	}
+}
+
 func TestReplaceRejectsMultipleEndDelimiters(t *testing.T) {
 	existing := Begin + "\nmanaged\n" + End + "\n" + End + "\n"
 	if _, err := replace(existing, Begin+"\nnew\n"+End+"\n"); err == nil || !strings.Contains(err.Error(), "more than one end") {

@@ -149,6 +149,14 @@ func (m *Manifest) Validate() error {
 		}
 	}
 	if m.Policy != nil {
+		for key, value := range m.Policy.ContactBudget {
+			if strings.TrimSpace(key) == "" {
+				errs = append(errs, fmt.Errorf("policy.contact-budget: keys must not be empty"))
+			}
+			if strings.TrimSpace(value) == "" {
+				errs = append(errs, fmt.Errorf("policy.contact-budget.%s: must not be empty", key))
+			}
+		}
 		validateExtensions("policy", m.Policy.Extensions, &errs)
 		if m.Policy.Consumers != nil {
 			validateExtensions("policy.consumers", m.Policy.Consumers.Extensions, &errs)
@@ -446,7 +454,10 @@ func validateRelative(path, value string, errs *[]error) {
 		return
 	}
 	normal := strings.ReplaceAll(value, `\`, "/")
-	if filepath.IsAbs(value) || strings.HasPrefix(normal, "../") || strings.Contains(normal, "/../") || normal == ".." {
+	volume := filepath.VolumeName(value)
+	driveAbsolute := len(value) >= 3 && ((value[0] >= 'A' && value[0] <= 'Z') || (value[0] >= 'a' && value[0] <= 'z')) && value[1] == ':' && (value[2] == '/' || value[2] == '\\')
+	portableAbsolute := strings.HasPrefix(value, "/") || strings.HasPrefix(value, `\`) || volume != "" || driveAbsolute
+	if filepath.IsAbs(value) || portableAbsolute || strings.HasPrefix(normal, "../") || strings.Contains(normal, "/../") || normal == ".." {
 		*errs = append(*errs, fmt.Errorf("%s: must be a relative path without ..", path))
 	}
 }

@@ -122,6 +122,25 @@ func writeConsumers(b *strings.Builder, p *manifest.Policy, quoted bool, origin,
 			fmt.Fprintf(b, "- notes: %s\n", notes)
 		}
 	}
+	if p != nil && len(p.ContactBudget) > 0 {
+		keys := make([]string, 0, len(p.ContactBudget))
+		for key := range p.ContactBudget {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		if quoted {
+			fmt.Fprintf(b, "> Contact budget (%s; published expectation, not enforced):\n", origin)
+		} else {
+			b.WriteString("Contact budget (published expectation, not enforced):\n")
+		}
+		for _, key := range keys {
+			if quoted {
+				fmt.Fprintf(b, "> - %s: %s\n", safe(key, fieldLimit), safe(p.ContactBudget[key], fieldLimit))
+			} else {
+				fmt.Fprintf(b, "- %s: %s\n", key, p.ContactBudget[key])
+			}
+		}
+	}
 	_ = id
 }
 

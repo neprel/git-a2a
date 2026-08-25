@@ -191,6 +191,11 @@
           "additionalProperties": { "type": "string", "minLength": 1 }
         },
         "consumers": { "$ref": "#/$defs/consumers" },
+        "contact-budget": {
+          "type": "object",
+          "propertyNames": { "minLength": 1 },
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        },
         "notes": { "type": "string" }
       },
       "patternProperties": { "^x-": {} },

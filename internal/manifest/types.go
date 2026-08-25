@@ -117,10 +117,11 @@ type Trust struct {
 }
 
 type Policy struct {
-	Intents    map[string]string `yaml:"intents,omitempty" json:"intents,omitempty"`
-	Consumers  *Consumers        `yaml:"consumers,omitempty" json:"consumers,omitempty"`
-	Notes      string            `yaml:"notes,omitempty" json:"notes,omitempty"`
-	Extensions map[string]any    `yaml:",inline" json:"-"`
+	Intents       map[string]string `yaml:"intents,omitempty" json:"intents,omitempty"`
+	Consumers     *Consumers        `yaml:"consumers,omitempty" json:"consumers,omitempty"`
+	ContactBudget map[string]string `yaml:"contact-budget,omitempty" json:"contact-budget,omitempty"`
+	Notes         string            `yaml:"notes,omitempty" json:"notes,omitempty"`
+	Extensions    map[string]any    `yaml:",inline" json:"-"`
 }
 
 type Consumers struct {
