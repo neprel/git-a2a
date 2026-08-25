@@ -88,7 +88,8 @@ jobs:
           scoop install git-a2a/git-a2a
           $version = git-a2a --version
           $version
-          $expected = (Get-Content internal/version/VERSION -Raw).Trim()
+          $stableTag = gh release view --repo neprel/git-a2a --json tagName --jq .tagName
+          $expected = ([string]$stableTag).Trim().TrimStart('v')
           $pattern = '^git-a2a ' + [regex]::Escape($expected) + ' .*windows/amd64, channel=scoop\)$'
           if ($version -notmatch $pattern) {
             throw "unexpected Scoop binary: $version"

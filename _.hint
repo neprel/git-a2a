@@ -131,9 +131,11 @@ The README distribution matrix uses a check mark only after the public artifact 
 through that exact channel on its native platform; a generated manifest or a local rebuild is not
 channel verification. A live site installer check must additionally assert its production MIME
 type before executing the downloaded text in dry-run mode.
-Live channel workflows derive their expected stable version from `internal/version/VERSION` after
-checkout. A literal release number in a public-channel assertion makes the first patch release
-look like a failed installation even when the package, checksum, and binary are all correct.
+Live channel workflows derive their expected stable version from the latest non-prerelease GitHub
+Release. This remains correct when a release-candidate checkout already carries the next source
+version while Homebrew and Scoop intentionally still serve the prior stable version. A literal
+release number in a public-channel assertion makes the first patch release look like a failed
+installation even when the package, checksum, and binary are all correct.
 README installation commands likewise use each channel's stable alias rather than a literal
 release number: Go's built-in SemVer query `@latest`, npm's `latest` dist-tag, the GHCR `latest`
 tag, and unversioned PyPI resolution. Stable releases move the npm/GHCR aliases and channel

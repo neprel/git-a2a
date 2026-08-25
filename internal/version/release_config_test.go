@@ -212,13 +212,13 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	if regexp.MustCompile(`(?m)^\s*if:\s*\$\{\{\s*secrets\.`).MatchString(workflow) {
 		t.Error("GitHub Actions does not allow the secrets context directly in an if expression")
 	}
-	for _, required := range []string{"live_channels:", "scoop-live:", "scoop install git-a2a/git-a2a", "channel=scoop", "Get-Content internal/version/VERSION", "workflow_run:", "attestation-live:", "gh attestation verify", "--signer-workflow neprel/git-a2a/.github/workflows/release.yml"} {
+	for _, required := range []string{"live_channels:", "scoop-live:", "scoop install git-a2a/git-a2a", "channel=scoop", "gh release view --repo neprel/git-a2a --json tagName", "TrimStart('v')", "workflow_run:", "attestation-live:", "gh attestation verify", "--signer-workflow neprel/git-a2a/.github/workflows/release.yml"} {
 		if !strings.Contains(installerWorkflow, required) {
 			t.Errorf("installer workflow missing live Scoop check %q", required)
 		}
 	}
 	if strings.Contains(installerWorkflow, `'^git-a2a 1\.0\.0`) {
-		t.Error("live Scoop check must derive the expected version from internal/version/VERSION")
+		t.Error("live Scoop check must derive the expected version from the latest stable GitHub release")
 	}
 	for _, required := range []string{"ubuntu-latest", "macos-latest", "windows-latest", "gh release download", `binary_version="${version%%-*}"`, "go run ./tools/mcp-smoke", "setup --harness codex --dry-run"} {
 		if !strings.Contains(smokeWorkflow, required) {
