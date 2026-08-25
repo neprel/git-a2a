@@ -20,6 +20,8 @@ dist/*
 /build/
 /testdata/consumer-msbuild/bin/
 /testdata/consumer-msbuild/obj/
+/conformance/cases/**/manifest/bin/
+/conformance/cases/**/manifest/obj/
 *.test
 coverage/
 .venv/
