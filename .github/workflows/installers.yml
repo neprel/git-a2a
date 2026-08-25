@@ -77,6 +77,8 @@ jobs:
   scoop-live:
     if: github.event_name == 'workflow_dispatch' && inputs.live_channels
     runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Install from the public Scoop bucket

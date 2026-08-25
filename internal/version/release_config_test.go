@@ -212,7 +212,7 @@ func TestReleaseConfigurationKeepsDistributionGates(t *testing.T) {
 	if regexp.MustCompile(`(?m)^\s*if:\s*\$\{\{\s*secrets\.`).MatchString(workflow) {
 		t.Error("GitHub Actions does not allow the secrets context directly in an if expression")
 	}
-	for _, required := range []string{"live_channels:", "scoop-live:", "scoop install git-a2a/git-a2a", "channel=scoop", "gh release view --repo neprel/git-a2a --json tagName", "TrimStart('v')", "workflow_run:", "attestation-live:", "gh attestation verify", "--signer-workflow neprel/git-a2a/.github/workflows/release.yml"} {
+	for _, required := range []string{"live_channels:", "scoop-live:", "scoop install git-a2a/git-a2a", "channel=scoop", "GH_TOKEN: ${{ github.token }}", "gh release view --repo neprel/git-a2a --json tagName", "TrimStart('v')", "workflow_run:", "attestation-live:", "gh attestation verify", "--signer-workflow neprel/git-a2a/.github/workflows/release.yml"} {
 		if !strings.Contains(installerWorkflow, required) {
 			t.Errorf("installer workflow missing live Scoop check %q", required)
 		}
