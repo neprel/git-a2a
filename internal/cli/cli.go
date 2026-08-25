@@ -892,6 +892,7 @@ func defaultPath(p string) string {
 }
 
 func dependencyIDFromURL(raw string) string {
+	raw = strings.ReplaceAll(raw, `\`, "/")
 	trimmed := strings.TrimSuffix(strings.TrimRight(raw, "/"), ".git")
 	if slash := strings.LastIndex(trimmed, "/"); slash >= 0 {
 		trimmed = trimmed[slash+1:]

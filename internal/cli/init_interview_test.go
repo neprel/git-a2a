@@ -118,3 +118,9 @@ func TestInitNonTTYUsesDefaultsAndNamesAnswers(t *testing.T) {
 		t.Fatalf("stderr = %q", errOut.String())
 	}
 }
+
+func TestDependencyIDFromWindowsFileURLUsesRepositoryBasename(t *testing.T) {
+	if got := dependencyIDFromURL(`file://C:\Users\runner\repo\acme-plain.git`); got != "acme-plain" {
+		t.Fatalf("id = %q", got)
+	}
+}

@@ -205,6 +205,8 @@ publish either accepted manifest filename. Cache absence is expected for that en
 to run `fetch`. Git-only mutations and vendoring keep working; surface, agent, card, and export
 operations return the deliberate messages and exit codes in the specification's plain-dependency
 table. When an updated commit begins publishing a manifest, normal module behavior takes over.
+Repository-basename ID derivation normalizes both slash styles before inspecting a URL, so a
+Windows `file://C:\\...\\acme-lib.git` fixture derives `acme-lib`, never a drive-qualified ID.
 
 # decision Init questions and answers share one renderer
 
