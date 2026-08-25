@@ -3,10 +3,13 @@ from __future__ import annotations
 
 import html
 import difflib
+import errno
 import json
 import os
 import pathlib
+import pty
 import re
+import select
 import shutil
 import subprocess
 import sys
@@ -38,6 +41,76 @@ def capture(arguments: list[str], cwd: pathlib.Path, environment: dict[str, str]
 def run(arguments: list[str], cwd: pathlib.Path, environment: dict[str, str]) -> str:
     result = capture(arguments, cwd, environment)
     return result["stdout"] + result["stderr"]
+
+
+def capture_init_interview(binary: pathlib.Path, cwd: pathlib.Path, environment: dict[str, str]) -> dict[str, object]:
+    pid, master = pty.fork()
+    if pid == 0:
+        os.chdir(cwd)
+        os.execve(str(binary), [str(binary), "init"], environment)
+
+    captured = bytearray()
+    scan_from = 0
+
+    def read_once(timeout: float = 5.0) -> bool:
+        ready, _, _ = select.select([master], [], [], timeout)
+        if not ready:
+            raise RuntimeError("timed out waiting for interactive init output")
+        try:
+            chunk = os.read(master, 4096)
+        except OSError as error:
+            if error.errno == errno.EIO:
+                return False
+            raise
+        if not chunk:
+            return False
+        captured.extend(chunk)
+        return True
+
+    def expect(pattern: bytes) -> str:
+        nonlocal scan_from
+        expression = re.compile(pattern)
+        while True:
+            match = expression.search(bytes(captured), scan_from)
+            if match:
+                scan_from = match.end()
+                return match.group(0).decode("utf-8").rstrip(" ")
+            if not read_once():
+                raise RuntimeError(f"interactive init ended before {pattern!r}\n{captured.decode('utf-8', errors='replace')}")
+
+    def answer(value: str) -> None:
+        os.write(master, value.encode("utf-8") + b"\n")
+
+    try:
+        exchanges = []
+        prompt = expect(rb"Module id \(consumer-app\): ")
+        exchanges.append({"prompt": prompt, "input": "", "defaultAccepted": True})
+        answer("")
+        prompt = expect(rb"Description: ")
+        description = "Polyglot consumer app."
+        exchanges.append({"prompt": prompt, "input": description, "defaultAccepted": False})
+        answer(description)
+        expect(rb"Canonical repository: ")
+        answer("")
+        expect(rb"Languages \([^\r\n]+\): ")
+        answer("")
+        prompt = expect(rb"Exports \(detected: [^)]+\): ")
+        exchanges.append({"prompt": prompt, "input": "", "defaultAccepted": True})
+        answer("")
+        expect(rb"Write a2amodule\.yml\? \[Y/n\] ")
+        answer("")
+        while read_once():
+            pass
+    finally:
+        os.close(master)
+    _, status = os.waitpid(pid, 0)
+    if os.waitstatus_to_exitcode(status) != 0:
+        raise RuntimeError("interactive init failed:\n" + captured.decode("utf-8", errors="replace"))
+    terminal = captured.decode("utf-8").replace("\r\n", "\n")
+    initialized = re.search(r"^initialized module consumer-app$", terminal, re.M)
+    if initialized is None:
+        raise RuntimeError("interactive init did not report initialization:\n" + terminal)
+    return {"stdout": "", "stderr": initialized.group(0) + "\n", "exchanges": exchanges}
 
 
 def exact_lines(raw: str) -> list[str]:
@@ -94,12 +167,50 @@ def fallback(transcript: dict[str, object]) -> str:
         if comment:
             suffix = f'<span class="term-comment">  {html.escape(str(comment))}</span>'
         lines.append(f'<div class="term-line command"><span class="prompt">$ </span>{command}{suffix}</div>')
+        exchanges = raw_group.get("exchanges", [])
+        assert isinstance(exchanges, list)
+        for raw_exchange in exchanges:
+            assert isinstance(raw_exchange, dict)
+            prompt = html.escape(str(raw_exchange["prompt"]))
+            value = html.escape(str(raw_exchange["input"]))
+            separator = " " if value else ""
+            lines.append(f'<div class="term-line exchange"><span class="exchange-prompt">{prompt}</span>{separator}<span class="exchange-input">{value}</span></div>')
         for text, css_class in rendered_lines(raw_group):
             lines.append(f'<div class="term-line {css_class}">{html.escape(text)}</div>')
         if index < len(groups) - 1:
             lines.append('<div class="term-line blank"></div>')
     lines.append('<div class="term-line command"><span class="prompt">$ </span><span class="caret"></span></div>')
     return "".join(lines)
+
+
+def prototype_script(transcript: dict[str, object]) -> str:
+    classes = {"plain": "ok", "dim": "dim", "accent": "acc"}
+    script = []
+    groups = transcript["groups"]
+    assert isinstance(groups, list)
+    for raw_group in groups:
+        assert isinstance(raw_group, dict)
+        script.append({
+            "cmd": raw_group["command"],
+            "comment": raw_group.get("comment", ""),
+            "exchanges": raw_group.get("exchanges", []),
+            "out": [[text, classes[css_class]] for text, css_class in rendered_lines(raw_group)],
+        })
+    return "const SCRIPT = " + json.dumps(script, indent=2, ensure_ascii=False) + ";"
+
+
+def sync_prototype(transcript: dict[str, object], check: bool) -> None:
+    path = ROOT / "sites/design/git-a2a Landing.dc.html"
+    body = path.read_text()
+    pattern = re.compile(r"(// generated-transcript:start\n).*?(\n// generated-transcript:end)", re.S)
+    updated, count = pattern.subn(lambda match: match.group(1) + prototype_script(transcript) + match.group(2), body)
+    if count != 1:
+        raise RuntimeError("design prototype must contain one generated transcript block")
+    if check:
+        if updated != body:
+            raise RuntimeError("design prototype transcript differs from fresh PTY capture")
+    else:
+        path.write_text(updated)
 
 
 def main() -> None:
@@ -180,7 +291,7 @@ def main() -> None:
                 ("git-a2a who acme-lib-utils --intent change", [str(binary), "who", "acme-lib-utils", "--intent", "change"]),
                 ("git-a2a status", [str(binary), "status"]),
             ]
-            results = [capture(arguments, consumer, environment) for _, arguments in commands[:2]]
+            results = [capture_init_interview(binary, consumer, environment), capture(commands[1][1], consumer, environment)]
             run(["go", "mod", "tidy"], consumer, environment)
             results.extend(capture(arguments, consumer, environment) for _, arguments in commands[2:])
             lines = [exact_lines(result["stdout"] + result["stderr"]) for result in results]
@@ -206,7 +317,7 @@ def main() -> None:
                     raise RuntimeError(f"offline Refresh did not materialize {name} with {marker}")
 
             transcript = {
-                "timing": {"initial": 300, "character": 19, "afterCommand": 260, "betweenOutput": 170, "betweenGroups": 420},
+                "timing": {"initial": 300, "character": 19, "inputCharacter": 31, "afterCommand": 260, "betweenOutput": 170, "betweenGroups": 420},
                 "groups": [
                     {"command": commands[0][0], "comment": "# describe this repository", **results[0], "render": render_plan(results[0], ["plain"] * len(lines[0]))},
                     {"command": commands[1][0], **results[1], "render": render_plan(results[1], ["accent", "dim"])},
@@ -222,7 +333,8 @@ def main() -> None:
                         actual.splitlines(), expected.splitlines(), fromfile="assets/transcript.json", tofile="fresh fixture", lineterm=""
                     ))
                     raise RuntimeError("published transcript differs from fresh fixture output:\n" + difference)
-                print("transcript-check: every captured line matches a fresh fixture run (commit normalized)")
+                sync_prototype(transcript, True)
+                print("transcript-check: every captured line and PTY exchange matches a fresh fixture run (commit normalized)")
                 return
             (SITE / "assets/transcript.json").write_text(json.dumps(transcript, indent=2, ensure_ascii=False) + "\n")
 
@@ -241,6 +353,7 @@ def main() -> None:
                 flags=re.S,
             )
             page_path.write_text(page)
+            sync_prototype(transcript, False)
             if network:
                 print("transcript: generated from the public demo repository and public A2A cards")
             else:

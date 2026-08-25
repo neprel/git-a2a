@@ -101,7 +101,7 @@ pre{margin:0}
         <button type="button" onClick="{{ replay }}" style="border:1px solid rgba(255,255,255,.12);background:transparent;color:#a8a89e;font-family:'JetBrains Mono',monospace;font-size:11px;padding:3px 9px;border-radius:6px;cursor:pointer" style-hover="color:#ecece6;border-color:rgba(255,255,255,.28)">replay</button>
         <button type="button" onClick="{{ copyTerm }}" style="border:1px solid rgba(255,255,255,.12);background:transparent;color:#a8a89e;font-family:'JetBrains Mono',monospace;font-size:11px;padding:3px 9px;border-radius:6px;cursor:pointer" style-hover="color:#ecece6;border-color:rgba(255,255,255,.28)">{{ termCopyLabel }}</button>
       </div>
-      <pre style="padding:18px 18px 22px;overflow-x:auto;font-size:13px;line-height:1.85;color:var(--termfg);min-height:236px"><sc-for list="{{ termLines }}" as="ln" hint-placeholder-count="6"><div style="white-space:pre"><span style="color:#6f6f66">{{ ln.prefix }}</span><span style="color:{{ ln.color }}">{{ ln.text }}</span><span style="color:#6f6f66">{{ ln.comment }}</span><sc-if value="{{ ln.caret }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;width:7px;height:15px;background:var(--acc);vertical-align:-3px;animation:blink 1.05s step-end infinite"></span></sc-if></div></sc-for></pre>
+      <pre style="padding:18px 18px 22px;overflow-x:auto;font-size:13px;line-height:1.85;color:var(--termfg);min-height:236px"><sc-for list="{{ termLines }}" as="ln" hint-placeholder-count="6"><div style="white-space:pre"><span style="color:#6f6f66">{{ ln.prefix }}</span><span style="color:{{ ln.color }}">{{ ln.text }}</span><span style="color:#8f8f85">{{ ln.exchangePrompt }}</span><span style="color:#d9d9d1">{{ ln.exchangeInput }}</span><span style="color:#6f6f66">{{ ln.comment }}</span><sc-if value="{{ ln.caret }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;width:7px;height:15px;background:var(--acc);vertical-align:-3px;animation:blink 1.05s step-end infinite"></span></sc-if></div></sc-for></pre>
     </div>
   </section>
 
@@ -354,12 +354,90 @@ vendor:
 
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;cyan&quot;,&quot;amber&quot;],&quot;default&quot;:&quot;cyan&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Theme&quot;},&quot;autoplayTerminal&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Hero&quot;}}">
+// generated-transcript:start
 const SCRIPT = [
-  { cmd: "git-a2a init", comment: "   # describe this repository", out: [["wrote      a2amodule.yml", "ok"], ["module     consumer-app", "dim"]] },
-  { cmd: "git-a2a add ssh://git@github.com/acme/lib-utils.git", comment: "", out: [["fetched    manifest  acme-lib-utils", "dim"], ["resolved   9f2c1ab", "acc"], ["wired      package.json  pyproject.toml  go.mod", "ok"], ["updated    a2amodule.lock  AGENTS.md", "dim"]] },
-  { cmd: "git-a2a who acme-lib-utils --intent change", comment: "", out: [["acme-pm    role spec", "ok"], ["change ->  github-issue  acme/lib-utils  [change-request]", "dim"]] },
-  { cmd: "git-a2a status", comment: "", out: [["acme-lib-utils   upstream up   wiring ok   agents live   @9f2c1ab", "ok"]] }
+  {
+    "cmd": "git-a2a init",
+    "comment": "# describe this repository",
+    "exchanges": [
+      {
+        "prompt": "Module id (consumer-app):",
+        "input": "",
+        "defaultAccepted": true
+      },
+      {
+        "prompt": "Description:",
+        "input": "Polyglot consumer app.",
+        "defaultAccepted": false
+      },
+      {
+        "prompt": "Exports (detected: npm, pypi, golang):",
+        "input": "",
+        "defaultAccepted": true
+      }
+    ],
+    "out": [
+      [
+        "initialized module consumer-app",
+        "ok"
+      ]
+    ]
+  },
+  {
+    "cmd": "git-a2a add https://github.com/neprel/git-a2a-demo-acme-lib",
+    "comment": "",
+    "exchanges": [],
+    "out": [
+      [
+        "added acme-lib-utils at e94dda6350f189655df1728a0bfa9051adcddac5",
+        "acc"
+      ],
+      [
+        "using declared release channel main",
+        "dim"
+      ]
+    ]
+  },
+  {
+    "cmd": "git-a2a who acme-lib-utils --intent change",
+    "comment": "",
+    "exchanges": [],
+    "out": [
+      [
+        "acme-pm (spec)",
+        "ok"
+      ],
+      [
+        "- github-issue neprel/git-a2a-demo-acme-lib labels=change-request,from-agent; Describe the consumer, the need, and the affected languages.",
+        "dim"
+      ]
+    ]
+  },
+  {
+    "cmd": "git-a2a status",
+    "comment": "",
+    "exchanges": [],
+    "out": [
+      [
+        "MODULE          SOURCE     REF          UPSTREAM    MANIFEST  WIRING                               AGENTS  SYNC",
+        "dim"
+      ],
+      [
+        "acme-lib-utils  canonical  branch main  up to date  clean     npm clean, pypi clean, golang clean  up      none",
+        "ok"
+      ],
+      [
+        "consumer-app: manifest valid · agents none · roster none",
+        "dim"
+      ],
+      [
+        "1 dependency: clean",
+        "dim"
+      ]
+    ]
+  }
 ];
+// generated-transcript:end
 const COLORS = { cmd: "var(--termfg)", ok: "#d9d9d1", dim: "#8f8f85", acc: "var(--acc)" };
 const TABS = [
   { id: "sh", label: "curl / irm", cmds: ["curl -fsSL https://git-a2a.com/install.sh | bash", "irm https://git-a2a.com/install.ps1 | iex"], note: "The second line is for Windows PowerShell." },
@@ -425,6 +503,10 @@ class Component extends DCLogic {
     const out = [];
     SCRIPT.forEach(s => {
       out.push({ prefix: "$ ", text: s.cmd, comment: s.comment, color: COLORS.cmd, caret: false });
+      (s.exchanges || []).forEach(e => out.push({
+        prefix: "", text: "", exchangePrompt: e.prompt + (e.input ? " " : ""),
+        exchangeInput: e.input, comment: "", color: COLORS.ok, caret: false
+      }));
       s.out.forEach(o => out.push({ prefix: "  ", text: o[0], comment: "", color: COLORS[o[1]], caret: false }));
       out.push({ prefix: "", text: "", comment: "", color: COLORS.dim, caret: false });
     });
@@ -446,6 +528,12 @@ class Component extends DCLogic {
       if (last) l[l.length - 1] = Object.assign({}, last, { text: text, caret: caret });
       return { lines: l };
     });
+    const patchExchange = text => this.setState(s => {
+      const l = s.lines.slice();
+      const last = l[l.length - 1];
+      if (last) l[l.length - 1] = Object.assign({}, last, { exchangeInput: text });
+      return { lines: l };
+    });
 
     SCRIPT.forEach((s, si) => {
       at(t, () => push({ prefix: "$ ", text: "", comment: "", color: COLORS.cmd, caret: true }));
@@ -459,6 +547,15 @@ class Component extends DCLogic {
         l[l.length - 1] = { prefix: "$ ", text: s.cmd, comment: s.comment, color: COLORS.cmd, caret: false };
         return { lines: l };
       }));
+      (s.exchanges || []).forEach(e => {
+        t += 170;
+        at(t, () => push({ prefix: "", text: "", exchangePrompt: e.prompt + (e.input ? " " : ""), exchangeInput: "", comment: "", color: COLORS.ok, caret: false }));
+        for (let i = 1; i <= e.input.length; i++) {
+          const slice = e.input.slice(0, i);
+          at(t + i * 31, () => patchExchange(slice));
+        }
+        t += e.input.length * 31;
+      });
       s.out.forEach((o, oi) => {
         t += 170;
         at(t, () => push({ prefix: "  ", text: o[0], comment: "", color: COLORS[o[1]], caret: false }));

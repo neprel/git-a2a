@@ -94,7 +94,9 @@ Playwright and axe browser suite; CI does this for every `sites/**` change.
 The automated browser checks cover:
 
 - At 375 px, `document.body.scrollWidth === window.innerWidth`.
-- Reduced motion renders the completed transcript immediately.
+- The dependency diagram stacks in narrative order and stays symmetric at 1440 px.
+- Reduced motion renders the completed transcript and its three PTY exchanges immediately.
+- Normal motion types the captured description answer more slowly than commands.
 - Left/Right, Home, and End move focus and selection across install tabs.
 - Every link and button has a visible teal focus ring.
 - Copy labels say `copied` for 1400 ms and announce the change.
@@ -132,7 +134,8 @@ git-a2a who acme-lib-utils --intent change
 git-a2a status
 ```
 
-`tools/transcript-generate.sh` creates the bare repository and uses process-scoped Git
+`tools/transcript-generate.sh` creates the bare repository, drives the real `git-a2a init`
+through a PTY by waiting for each real prompt and sending scripted answers, and uses process-scoped Git
 `insteadOf` settings for npm's SSH form and the displayed HTTPS module URL. npm, uv, and Go resolve
 the dependency from that local bare repository: npm and uv refresh their lock files, and an
 offline `go mod tidy` verifies the Go module path. No machine path reaches the output. During the
@@ -140,11 +143,14 @@ run, `python3 -m http.server` serves the two committed v1.0 cards under
 `tools/transcript-fixture/cards/`, making the `AGENTS` result genuinely `up`.
 
 The JSON stores each command's stdout and stderr verbatim, including line endings and alignment
-spaces. Rendering splits only the newline delimiters and gives every output line
+spaces. The init group additionally stores the three selected real PTY exchanges as prompt,
+input, and default-acceptance records; hidden setup questions are still driven and asserted by the
+same script. Rendering splits only the newline delimiters and gives every output line
 `white-space: pre` in JetBrains Mono. The verdict-only `who` stderr remains captured but is not
 displayed, as required by the design. The HTML contains the same finished transcript for
-no-JavaScript and `file://` operation. `site-check` runs the fixture afresh and compares every
-captured line, normalizing only the dependency commit hash; it also rejects warnings or an
+no-JavaScript and `file://` operation, and the design prototype's script is generated from the
+same capture. `site-check` runs the fixture afresh and compares every captured line and exchange,
+normalizing only the dependency commit hash; it also rejects warnings or an
 unhealthy result.
 
 Set `SITE_NET=1` when running the transcript generator to reproduce the same four-command session

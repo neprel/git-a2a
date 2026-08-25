@@ -238,20 +238,22 @@ Sequence (prompt `$ ` in `#6f6f66`, `user-select:none`; command text `--termfg`;
 plain output `#d9d9d1`; dim output `#8f8f85`; the resolved commit line in `--acc`):
 
 1. `git-a2a init`  + trailing comment `# describe this repository`
-   - `wrote      a2amodule.yml` (plain)
-   - `module     consumer-app` (dim)
-2. `git-a2a add ssh://git@github.com/acme/lib-utils.git`
-   - `fetched    manifest  acme-lib-utils` (dim)
-   - `resolved   9f2c1ab` (**accent**)
-   - `wired      package.json  pyproject.toml  go.mod` (plain)
-   - `updated    a2amodule.lock  AGENTS.md` (dim)
+   - real PTY exchange `Module id (consumer-app):` (dim prompt); Enter accepts the displayed default
+   - real PTY exchange `Description:` (dim prompt) + typed `Polyglot consumer app.` (plain)
+   - real PTY exchange `Exports (detected: npm, pypi, golang):` (dim prompt); Enter accepts the detected exports
+   - `initialized module consumer-app` (plain)
+2. `git-a2a add https://github.com/neprel/git-a2a-demo-acme-lib`
+   - `added acme-lib-utils at <captured commit>` (**accent**)
+   - `using declared release channel main` (dim)
 3. `git-a2a who acme-lib-utils --intent change`
-   - `acme-pm    role spec` (plain)
-   - `change ->  github-issue  acme/lib-utils  [change-request]` (dim)
+   - `acme-pm (spec)` (plain)
+   - the captured GitHub issue instruction (dim)
 4. `git-a2a status`
-   - `acme-lib-utils   upstream up   wiring ok   agents live   @9f2c1ab` (plain)
+   - the byte-aligned status header (dim) and dependency row (plain)
+   - the consumer verdict and `1 dependency: clean` footer (dim)
 
-Timing: 300ms initial delay; **19ms per character** while typing; 260ms pause after a command
+Timing: 300ms initial delay; **19ms per command character**, **31ms per answer character**;
+260ms pause after a command
 completes; **170ms between output lines**; 420ms blank line between command groups; a blinking
 caret is left at a final empty prompt when the sequence finishes.
 Caret: 7px × 15px `--acc` block, `animation: blink 1.05s step-end infinite` (0–49% opaque,

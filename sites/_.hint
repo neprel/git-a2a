@@ -71,8 +71,12 @@ as its no-JavaScript and `file://` fallback. Output lines use `white-space: pre`
 Reduced motion skips typing, replay clears every timer, and the terminal copy action returns only
 the four commands. The site gate reruns `tools/transcript-generate.sh --check` and permits only the
 resolved fixture commit hash to vary.
-The transcript harness connects every captured command to a null stdin so terminal inheritance
-cannot turn the visually unchanged `git-a2a init` command into an interactive session.
+The transcript harness connects non-interactive commands to null stdin, but drives `git-a2a init`
+through a real PTY with prompt-by-prompt scripted answers. Its captured `exchanges` retain the real
+prompt, typed input, and whether Enter accepted the displayed default; the same PTY script runs in
+check mode. Prompts render dim, inputs render plain and type more slowly than commands, while
+reduced motion and the no-JavaScript fallback show the completed exchange immediately. No prompt,
+input, or initialization line is authored separately from that capture.
 
 The public demo source is `neprel/git-a2a-demo-acme-lib` and its consumer is
 `neprel/git-a2a-demo-acme-app`. `SITE_NET=1` reruns the transcript against those public GitHub

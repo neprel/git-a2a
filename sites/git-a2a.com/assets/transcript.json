@@ -2,6 +2,7 @@
   "timing": {
     "initial": 300,
     "character": 19,
+    "inputCharacter": 31,
     "afterCommand": 260,
     "betweenOutput": 170,
     "betweenGroups": 420
@@ -11,12 +12,28 @@
       "command": "git-a2a init",
       "comment": "# describe this repository",
       "stdout": "",
-      "stderr": "init: non-interactive input; accepting computed defaults (pass --answers <file>, or --answers - to read answers from stdin)\ninitialized module consumer-app\n",
+      "stderr": "initialized module consumer-app\n",
+      "exchanges": [
+        {
+          "prompt": "Module id (consumer-app):",
+          "input": "",
+          "defaultAccepted": true
+        },
+        {
+          "prompt": "Description:",
+          "input": "Polyglot consumer app.",
+          "defaultAccepted": false
+        },
+        {
+          "prompt": "Exports (detected: npm, pypi, golang):",
+          "input": "",
+          "defaultAccepted": true
+        }
+      ],
       "render": [
         {
           "stream": "stderr",
           "classes": [
-            "plain",
             "plain"
           ]
         }

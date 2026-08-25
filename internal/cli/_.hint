@@ -229,3 +229,6 @@ The init interview is a single ordered Go data structure. Human, text, JSON, non
 and `--answers` consume it; only the final field-path answer map reaches manifest construction.
 TTY prompting is injectable for tests, `?` prints only the current why-line, and confirmation
 happens after the exact manifest preview. Unknown answer keys are sorted before the exit-2 error.
+Human prompts show a scalar default in parentheses, omit empty defaults, and summarize detected
+exports by ecosystem instead of dumping their JSON coordinates. Pressing Enter still accepts the
+full computed value; a non-empty answer continues to use the same JSON/YAML-compatible parser.

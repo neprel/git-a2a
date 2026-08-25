@@ -87,10 +87,24 @@
     return row;
   };
   const caret = () => { const row = line('command', ''); const mark = document.createElement('span'); mark.className = 'caret'; row.append(mark); };
+  const exchangeLine = (exchange, input = exchange.input) => {
+    const row = document.createElement('div');
+    row.className = 'term-line exchange';
+    row.dataset.defaultAccepted = String(Boolean(exchange.defaultAccepted));
+    const prompt = document.createElement('span');
+    prompt.className = 'exchange-prompt'; prompt.textContent = exchange.prompt;
+    const value = document.createElement('span');
+    value.className = 'exchange-input'; value.textContent = input;
+    row.append(prompt);
+    if (exchange.input) row.append(escapeText(' '));
+    row.append(value); body.append(row); body.scrollTop = body.scrollHeight;
+    return value;
+  };
   const finished = () => {
     body.replaceChildren();
     window.gitA2ATranscript.groups.forEach((group, index) => {
       line('command', group.command, group.comment);
+      (group.exchanges || []).forEach(exchange => exchangeLine(exchange));
       outputLines(group).forEach(item => line(item.class, item.text));
       if (index < window.gitA2ATranscript.groups.length - 1) line('blank', '');
     });
@@ -100,25 +114,53 @@
     clearTimers(); body.replaceChildren();
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) { finished(); return; }
     const timing = window.gitA2ATranscript.timing;
-    let wait = timing.initial;
-    window.gitA2ATranscript.groups.forEach((group, groupIndex) => {
-      later(() => {
-        const row = line('command', '', group.comment);
-        const note = row.querySelector('.term-comment');
-        if (note) note.remove();
-        let index = 0;
-        const type = () => {
-          if (index < group.command.length) { row.append(escapeText(group.command[index++])); later(type, timing.character); return; }
-          if (group.comment) { const span = document.createElement('span'); span.className = 'term-comment'; span.textContent = `  ${group.comment}`; row.append(span); }
-          outputLines(group).forEach((item, outputIndex) => later(() => line(item.class, item.text), timing.afterCommand + outputIndex * timing.betweenOutput));
+    const groups = window.gitA2ATranscript.groups;
+    const playGroup = groupIndex => {
+      if (groupIndex >= groups.length) { caret(); return; }
+      const group = groups[groupIndex];
+      const row = line('command', '');
+      let commandIndex = 0;
+      const playOutputs = outputIndex => {
+        const output = outputLines(group);
+        if (outputIndex < output.length) {
+          line(output[outputIndex].class, output[outputIndex].text);
+          later(() => playOutputs(outputIndex + 1), timing.betweenOutput);
+          return;
+        }
+        if (groupIndex < groups.length - 1) line('blank', '');
+        later(() => playGroup(groupIndex + 1), timing.betweenGroups);
+      };
+      const playExchange = exchangeIndex => {
+        const exchanges = group.exchanges || [];
+        if (exchangeIndex >= exchanges.length) { playOutputs(0); return; }
+        const exchange = exchanges[exchangeIndex];
+        const input = exchangeLine(exchange, '');
+        let inputIndex = 0;
+        const typeInput = () => {
+          if (inputIndex < exchange.input.length) {
+            input.append(escapeText(exchange.input[inputIndex++]));
+            later(typeInput, timing.inputCharacter);
+            return;
+          }
+          later(() => playExchange(exchangeIndex + 1), timing.betweenOutput);
         };
-        type();
-      }, wait);
-      wait += group.command.length * timing.character + timing.afterCommand + outputLines(group).length * timing.betweenOutput;
-      if (groupIndex < window.gitA2ATranscript.groups.length - 1) later(() => line('blank', ''), wait);
-      wait += timing.betweenGroups;
-    });
-    later(caret, wait);
+        typeInput();
+      };
+      const typeCommand = () => {
+        if (commandIndex < group.command.length) {
+          row.append(escapeText(group.command[commandIndex++]));
+          later(typeCommand, timing.character);
+          return;
+        }
+        if (group.comment) {
+          const note = document.createElement('span'); note.className = 'term-comment';
+          note.textContent = `  ${group.comment}`; row.append(note);
+        }
+        later(() => playExchange(0), timing.afterCommand);
+      };
+      typeCommand();
+    };
+    later(() => playGroup(0), timing.initial);
   };
   replay.addEventListener('click', play);
   play();

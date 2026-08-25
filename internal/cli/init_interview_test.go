@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/neprel/git-a2a/internal/manifest"
 )
 
 func TestInitInterviewJSONReportsOrderedComputedFacts(t *testing.T) {
@@ -118,6 +120,23 @@ func TestInitNonTTYUsesDefaultsAndNamesAnswers(t *testing.T) {
 	got, _, _ := strings.Cut(errOut.String(), "\n")
 	if got != want {
 		t.Fatalf("first stderr line = %q", got)
+	}
+}
+
+func TestInitQuestionPromptsUseReadableDefaultsAndDetectedExports(t *testing.T) {
+	exports := []manifest.Export{{Ecosystem: "npm", Name: "consumer-app"}, {Ecosystem: "golang", Name: "acme.dev/consumer-app"}}
+	questions := []struct {
+		question interviewQuestion
+		want     string
+	}{
+		{interviewQuestion{FieldPath: "module.id", Prompt: "Module id", Default: "consumer-app"}, "Module id (consumer-app): "},
+		{interviewQuestion{FieldPath: "module.description", Prompt: "Description", Default: ""}, "Description: "},
+		{interviewQuestion{FieldPath: "module.exports", Prompt: "Exports", Default: exports}, "Exports (detected: npm, golang): "},
+	}
+	for _, test := range questions {
+		if got := initQuestionPrompt(test.question); got != test.want {
+			t.Errorf("prompt = %q, want %q", got, test.want)
+		}
 	}
 }
 

@@ -242,8 +242,7 @@ func (a *App) askInitQuestions(spec interviewSpec, reader *bufio.Reader) map[str
 	answers := map[string]any{}
 	for _, q := range spec.Questions {
 		for {
-			def, _ := json.Marshal(q.Default)
-			fmt.Fprintf(a.Err, "%s [%s]: ", q.Prompt, def)
+			fmt.Fprint(a.Err, initQuestionPrompt(q))
 			line, err := reader.ReadString('\n')
 			if err != nil && len(line) == 0 {
 				fmt.Fprintln(a.Err, "init: input ended")
@@ -272,6 +271,29 @@ func (a *App) askInitQuestions(spec interviewSpec, reader *bufio.Reader) map[str
 		}
 	}
 	return answers
+}
+
+func initQuestionPrompt(q interviewQuestion) string {
+	if value, ok := q.Default.(string); ok {
+		if value == "" {
+			return q.Prompt + ": "
+		}
+		return fmt.Sprintf("%s (%s): ", q.Prompt, value)
+	}
+	if q.FieldPath == "module.exports" {
+		if exports, ok := q.Default.([]manifest.Export); ok && len(exports) > 0 {
+			ecosystems := make([]string, 0, len(exports))
+			for _, export := range exports {
+				ecosystems = append(ecosystems, export.Ecosystem)
+			}
+			return fmt.Sprintf("%s (detected: %s): ", q.Prompt, strings.Join(ecosystems, ", "))
+		}
+	}
+	def, _ := json.Marshal(q.Default)
+	if string(def) == "[]" || string(def) == "null" {
+		return q.Prompt + ": "
+	}
+	return fmt.Sprintf("%s (%s): ", q.Prompt, def)
 }
 
 func manifestFromInterview(example string, answers map[string]any) (*manifest.Manifest, error) {

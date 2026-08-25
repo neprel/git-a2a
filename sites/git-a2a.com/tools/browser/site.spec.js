@@ -49,8 +49,20 @@ test.describe('reduced motion', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
     await expect(page.locator('#terminal-body')).toContainText('1 dependency: clean');
+    const exchanges = page.locator('#terminal-body .exchange');
+    await expect(exchanges).toHaveCount(3);
+    await expect(exchanges.nth(0)).toHaveText('Module id (consumer-app):');
+    await expect(exchanges.nth(0)).toHaveAttribute('data-default-accepted', 'true');
+    await expect(exchanges.nth(1)).toHaveText('Description: Polyglot consumer app.');
+    await expect(exchanges.nth(2)).toHaveText('Exports (detected: npm, pypi, golang):');
     await expect(page.locator('#terminal-body .caret')).toHaveCount(1);
   });
+});
+
+test('interactive transcript types the captured answer', async ({ page }) => {
+  await page.goto('/');
+  const description = page.locator('#terminal-body .exchange').filter({ hasText: /^Description:/ });
+  await expect(description.locator('.exchange-input')).toHaveText('Polyglot consumer app.', { timeout: 5000 });
 });
 
 test('status header and row preserve byte-aligned columns', async ({ page }) => {
