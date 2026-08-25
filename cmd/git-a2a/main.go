@@ -6,4 +6,8 @@ import (
 	"github.com/neprel/git-a2a/internal/cli"
 )
 
-func main() { os.Exit(cli.New(os.Stdout, os.Stderr).Run(os.Args[1:])) }
+func main() {
+	app := cli.New(os.Stdout, os.Stderr)
+	app.In = os.Stdin
+	os.Exit(app.Run(os.Args[1:]))
+}

@@ -57,6 +57,35 @@ func TestDoctorJSONIsReadyWithOnlySupportedGit(t *testing.T) {
 	}
 }
 
+func TestDoctorReportsOnboardingCompletion(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "a2amodule.yml"), []byte("schema: 1\nmodule: {id: acme-app}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out, errOut bytes.Buffer
+	app := New(&out, &errOut)
+	app.Root = root
+	app.Home = t.TempDir()
+	if code := app.Run([]string{"setup"}); code != 0 {
+		t.Fatalf("setup exit %d: %s", code, errOut.String())
+	}
+	out.Reset()
+	errOut.Reset()
+	if code := app.Run([]string{"sync"}); code != 0 {
+		t.Fatalf("sync exit %d: %s", code, errOut.String())
+	}
+	out.Reset()
+	errOut.Reset()
+	_ = app.Run([]string{"doctor", "--json"})
+	var report doctorReport
+	if err := json.Unmarshal(out.Bytes(), &report); err != nil {
+		t.Fatal(err)
+	}
+	if report.Onboarding != (doctorOnboarding{Manifest: "present", Setup: "current", Roster: "current"}) {
+		t.Fatalf("onboarding = %+v", report.Onboarding)
+	}
+}
+
 func TestStatusVerboseShowsMissingDetectedTool(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("fake POSIX PATH")

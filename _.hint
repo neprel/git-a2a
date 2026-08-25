@@ -305,6 +305,11 @@ command that writes is idempotent and deterministic: same inputs, same bytes. Co
 the clock or randomness into anything they write; the lock carries commits and hashes, not
 timestamps.
 
+Interactivity is permitted in exactly one place: `git-a2a init` when stdin is a TTY and neither
+`--yes` nor `--answers` is present. Every other command is permanently non-interactive. The init
+interview and non-interactive answers path share one ordered question specification and one
+renderer, so identical repository facts plus identical field-path answers produce identical bytes.
+
 # decision Toolchains are prerequisites: detected and named, never installed {#prerequisites}
 
 git-a2a wires dependencies by driving the ecosystems' own tools (`yarn`/`npm`/`pnpm`/`bun`,

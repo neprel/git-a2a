@@ -1,0 +1,7 @@
+module.id: acme-answers
+module.description: Deterministic answers
+module.repository: https://github.com/acme/answers
+module.languages: [go]
+module.exports:
+  - ecosystem: golang
+    name: github.com/acme/answers

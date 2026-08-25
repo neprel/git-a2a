@@ -1,7 +1,8 @@
 # git-a2a command reference
 
 Every command accepts the global `--timeout DURATION` option (default `120s`) and `--yes` as a
-non-interactive no-op for automation. No command prompts for input. Requested data is written to
+non-interactive default-selection flag. Only `init` may prompt, and only on a TTY without
+`--yes` or `--answers`. Requested data is written to
 stdout; verdicts and advisories go to stderr. Exit `0` means success, `1` means a
 completed check found drift/failure, and `2` means invalid input or nothing resolved.
 The repository's `.hint` sources and the commands used to read them are explained in
@@ -10,11 +11,17 @@ The repository's `.hint` sources and the commands used to read them are explaine
 ## init
 
 `git-a2a init [--id ID] [--description TEXT] [--surface DIR] [--export ECOSYSTEM=NAME]
-[--example lib|app] [--yes]`
-creates `a2amodule.yml` and adds `.git-a2a/` to `.gitignore`. Repeat `--export`; `--yes` is an
-accepted no-op for automation. `--example lib|app` writes a complete, commented owner or
-consumer manifest; it may be combined with `--id`, but not the other content flags. Exit `1` if
-a manifest already exists; invalid combinations exit `2`.
+[--example lib|app] [--interview [--json] | --answers FILE|-] [--yes]`
+creates canonical `a2amodule.yml` and adds `.git-a2a/` to `.gitignore`. Repeat `--export`.
+On a TTY, plain `init` asks the ordered interview questions, prints defaults and a manifest
+preview, and confirms the write; `?` prints a question's why-line. Non-TTY input accepts computed
+defaults and names `--answers` instead of blocking. `--interview` is read-only and prints each
+question's field path, prompt, why, computed default, confidence, and validation; `--json` makes
+that briefing structured. `--answers FILE|-` accepts a JSON or YAML map keyed by those field
+paths; missing keys use defaults and unknown keys exit `2` in sorted order. Given the same
+repository state and answers, TTY and answers modes write byte-identical manifests.
+`--example lib|app` writes a complete commented baseline and composes with `--answers`.
+Exit `1` if a write would replace a manifest; invalid answers/combinations exit `2`.
 
 ```text
 $ git-a2a init --id acme-app --yes

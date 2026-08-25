@@ -11,11 +11,12 @@
       "command": "git-a2a init",
       "comment": "# describe this repository",
       "stdout": "",
-      "stderr": "initialized module consumer-app\n",
+      "stderr": "init: non-interactive input; accepting computed defaults (use --answers FILE|- to provide answers)\ninitialized module consumer-app\n",
       "render": [
         {
           "stream": "stderr",
           "classes": [
+            "plain",
             "plain"
           ]
         }

@@ -38,11 +38,25 @@ update, remove, fetch, show, or sync.
 
 ## Author a module
 
-1. Run `git-a2a init --id ID --yes`.
-2. Describe module identity, native exports, the deliberately public surface, agents, contacts,
+### Onboard a repository
+
+1. Run `git-a2a version`; if the binary is absent, use the installation table in the project README.
+2. Run `git-a2a setup --check`, then `git-a2a setup` when guidance is missing or stale.
+3. Run `git-a2a init --interview --json`. Ask the human only questions whose computed default has
+   `confidence: low`; accept high-confidence detected exports unless the repository contradicts them.
+4. Pass the field-path answer map to `git-a2a init --answers -`.
+5. Run `git-a2a validate && git-a2a sync && git-a2a status`.
+6. Report the manifest, `.gitignore`, and `AGENTS.md` diff to the human.
+
+The MCP surface deliberately has no `init_interview` tool: onboarding writes repository guidance
+and remains a reviewable CLI-first flow; MCP clients receive this recipe through `usage --prompt`.
+
+After onboarding:
+
+1. Describe module identity, native exports, the deliberately public surface, agents, contacts,
    routing policy, consumer boundary, and release channel.
-3. Validate with `git-a2a validate` and canonicalize with `git-a2a fmt --check`.
-4. Export cards with `git-a2a card export AGENT` and the catalog with
+2. Validate with `git-a2a validate` and canonicalize with `git-a2a fmt --check`.
+3. Export cards with `git-a2a card export AGENT` and the catalog with
    `git-a2a catalog export` when publishing discovery metadata.
 
 Read [the authoring guide](references/authoring.md) for the workflow and

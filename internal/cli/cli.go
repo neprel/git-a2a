@@ -48,6 +48,9 @@ type App struct {
 	HTTPClient    *http.Client
 	ctx           context.Context
 	mcpInvocation bool
+	yes           bool
+	// Interactive overrides terminal detection in tests. Nil uses stdin's device mode.
+	Interactive *bool
 }
 
 func New(out, errOut io.Writer) *App {
@@ -165,7 +168,7 @@ func (a *App) usage() {
 func (a *App) commandUsage(command string) {
 	type help struct{ usage, example string }
 	helpByCommand := map[string]help{
-		"init":           {"git-a2a init [--id ID] [--description TEXT] [--surface DIR] [--export ECOSYSTEM=NAME] [--example lib|app]", "git-a2a init --id consumer-app --yes"},
+		"init":           {"git-a2a init [--id ID] [--description TEXT] [--surface DIR] [--export ECOSYSTEM=NAME] [--example lib|app] [--interview [--json]|--answers FILE|-] [--yes]", "git-a2a init --interview --json"},
 		"validate":       {"git-a2a validate [FILE ...] [--json] [--schema-report]", "git-a2a validate a2amodule.yml --schema-report"},
 		"add":            {"git-a2a add URL [--id ID] [--path DIR] [--track locked|floating] [--wire LIST|--no-wire] [--vendor submodule|copy] [--vendor-path PATH] [--no-refresh] [--insecure-skip-signers]", "git-a2a add https://github.com/acme/lib.git --vendor submodule"},
 		"set":            {"git-a2a set ID [--git URL] [--ref REF] [--path DIR] [--track locked|floating] [--id NEW-ID] [--vendor submodule|copy|--no-vendor] [--vendor-path PATH] [--force] [--dry-run] [--no-refresh] [--insecure-skip-signers]", "git-a2a set acme-lib --vendor copy"},
@@ -255,6 +258,7 @@ func (a *App) parseGlobalOptions(args []string) ([]string, error) {
 		} else if strings.HasPrefix(args[i], "--timeout=") {
 			value = strings.TrimPrefix(args[i], "--timeout=")
 		} else if args[i] == "--yes" {
+			a.yes = true
 			continue
 		} else {
 			filtered = append(filtered, args[i])
@@ -281,14 +285,33 @@ func (a *App) init(args []string) int {
 	desc := fs.String("description", "", "description")
 	surface := fs.String("surface", "", "surface directory")
 	example := fs.String("example", "", "complete commented example: lib or app")
-	_ = fs.Bool("yes", false, "accept defaults (no-op)")
+	interview := fs.Bool("interview", false, "print the deterministic interview specification")
+	jsonOut := fs.Bool("json", false, "print interview as JSON")
+	answers := fs.String("answers", "", "read field-path answers from JSON or YAML FILE|-")
+	_ = fs.Bool("yes", false, "accept computed defaults")
 	var exports stringList
 	fs.Var(&exports, "export", "ecosystem=name")
 	if fs.Parse(args) != nil {
 		return 2
 	}
+	idExplicit := *id != ""
 	root := a.root()
 	manifestPath := filepath.Join(root, manifest.CanonicalName)
+	if *id == "" {
+		abs, _ := filepath.Abs(root)
+		*id = sanitizeID(strings.ToLower(filepath.Base(abs)))
+	}
+	if *jsonOut && !*interview {
+		fmt.Fprintln(a.Err, "init: --json requires --interview")
+		return 2
+	}
+	if *interview {
+		if *example != "" && *example != "lib" && *example != "app" {
+			fmt.Fprintln(a.Err, "init: --example must be lib or app")
+			return 2
+		}
+		return a.runInitInterview(initRequest{ID: *id, IDExplicit: idExplicit, Description: *desc, Surface: *surface, Example: *example, Exports: exports, Interview: true, JSON: *jsonOut})
+	}
 	if _, err := manifest.Path(root); err == nil {
 		fmt.Fprintln(a.Err, "manifest already exists")
 		return 1
@@ -296,20 +319,19 @@ func (a *App) init(args []string) int {
 		fmt.Fprintf(a.Err, "init: %v\n", err)
 		return 1
 	}
-	if *id == "" {
-		abs, _ := filepath.Abs(root)
-		*id = sanitizeID(strings.ToLower(filepath.Base(abs)))
-	}
 	if *example != "" {
 		if *example != "lib" && *example != "app" {
 			fmt.Fprintf(a.Err, "init: --example must be lib or app\n")
 			return 2
 		}
-		if *desc != "" || *surface != "" || len(exports) > 0 {
+		if (*desc != "" || *surface != "" || len(exports) > 0) && *answers == "" {
 			fmt.Fprintln(a.Err, "init: --example cannot be combined with --description, --surface, or --export")
 			return 2
 		}
 		body := exampleManifest(*example, *id)
+		if *answers != "" {
+			return a.runInitInterview(initRequest{ID: *id, IDExplicit: idExplicit, Description: *desc, Surface: *surface, Example: *example, Exports: exports, Answers: *answers})
+		}
 		if _, err := manifest.Parse(body); err != nil {
 			fmt.Fprintf(a.Err, "init: embedded example is invalid: %v\n", err)
 			return 1
@@ -325,33 +347,12 @@ func (a *App) init(args []string) int {
 		fmt.Fprintf(a.Err, "initialized %s example module %s\n", *example, *id)
 		return 0
 	}
-	m := &manifest.Manifest{Schema: 1, Module: manifest.Module{ID: *id, Description: *desc, Surface: *surface}}
-	for _, item := range exports {
-		parts := strings.SplitN(item, "=", 2)
-		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-			fmt.Fprintf(a.Err, "invalid --export %q\n", item)
-			return 2
+	if !a.yes {
+		if !a.inputIsTerminal() && *answers == "" {
+			fmt.Fprintln(a.Err, "init: non-interactive input; accepting computed defaults (use --answers FILE|- to provide answers)")
 		}
-		m.Module.Exports = append(m.Module.Exports, manifest.Export{Ecosystem: parts[0], Name: parts[1]})
 	}
-	if len(m.Module.Exports) == 0 {
-		m.Module.Exports = detectExports(root)
-	}
-	if err := m.Validate(); err != nil {
-		fmt.Fprintf(a.Err, "manifest: %v\n", err)
-		return 1
-	}
-	b, _ := manifest.Marshal(m)
-	if err := lockfile.Atomic(manifestPath, b, 0o644); err != nil {
-		fmt.Fprintf(a.Err, "init: %v\n", err)
-		return 1
-	}
-	if err := ensureIgnored(root); err != nil {
-		fmt.Fprintf(a.Err, "init: %v\n", err)
-		return 1
-	}
-	fmt.Fprintf(a.Err, "initialized module %s\n", m.Module.ID)
-	return 0
+	return a.runInitInterview(initRequest{ID: *id, IDExplicit: idExplicit, Description: *desc, Surface: *surface, Exports: exports, Answers: *answers})
 }
 
 func sanitizeID(id string) string {

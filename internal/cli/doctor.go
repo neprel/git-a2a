@@ -1,8 +1,11 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 
 	"github.com/neprel/git-a2a/adapters"
@@ -10,14 +13,22 @@ import (
 	"github.com/neprel/git-a2a/internal/cache"
 	lockfile "github.com/neprel/git-a2a/internal/lock"
 	"github.com/neprel/git-a2a/internal/manifest"
+	"github.com/neprel/git-a2a/internal/render"
 	vendortransport "github.com/neprel/git-a2a/internal/vendor"
 )
 
 type doctorReport struct {
-	Ready  bool                 `json:"ready"`
-	Tools  []adapter.ToolStatus `json:"tools"`
-	Vendor []doctorVendorState  `json:"vendor,omitempty"`
-	Trust  []doctorTrustState   `json:"trust,omitempty"`
+	Ready      bool                 `json:"ready"`
+	Onboarding doctorOnboarding     `json:"onboarding"`
+	Tools      []adapter.ToolStatus `json:"tools"`
+	Vendor     []doctorVendorState  `json:"vendor,omitempty"`
+	Trust      []doctorTrustState   `json:"trust,omitempty"`
+}
+
+type doctorOnboarding struct {
+	Manifest string `json:"manifest"`
+	Setup    string `json:"setup"`
+	Roster   string `json:"roster"`
 }
 
 type doctorTrustState struct {
@@ -50,7 +61,7 @@ func (a *App) doctor(args []string) int {
 		fmt.Fprintf(a.Err, "doctor: %v\n", err)
 		return 1
 	}
-	report := doctorReport{Ready: true}
+	report := doctorReport{Ready: true, Onboarding: a.doctorOnboarding()}
 	git := adapter.InspectTool(a.context(), adapter.GitTool())
 	report.Tools = append(report.Tools, git)
 	if !git.Ready {
@@ -131,6 +142,7 @@ func (a *App) doctor(args []string) int {
 		body, _ := json.MarshalIndent(report, "", "  ")
 		fmt.Fprintln(a.Out, string(body))
 	} else {
+		fmt.Fprintf(a.Out, "onboarding manifest %s · setup %s · roster %s\n", report.Onboarding.Manifest, report.Onboarding.Setup, report.Onboarding.Roster)
 		for _, status := range report.Tools {
 			if !status.Found {
 				fmt.Fprintln(a.Out, adapter.MissingToolError{Requirement: status.ToolRequirement}.Error())
@@ -173,6 +185,39 @@ func (a *App) doctor(args []string) int {
 	}
 	fmt.Fprintf(a.Err, "%d prerequisite(s): %d missing or incompatible\n", len(report.Tools), missing)
 	return 1
+}
+
+func (a *App) doctorOnboarding() doctorOnboarding {
+	state := doctorOnboarding{Manifest: "missing", Setup: "missing or stale", Roster: "none"}
+	own, err := manifest.LoadDir(a.root())
+	if err != nil {
+		return state
+	}
+	state.Manifest = "present"
+	harnesses, _ := detectHarnesses(a.root(), a.home())
+	if files, filesErr := a.setupFiles(harnesses); filesErr == nil {
+		current := true
+		for _, file := range files {
+			body, readErr := os.ReadFile(file.path)
+			if readErr != nil || !bytes.Equal(body, file.body) {
+				current = false
+				break
+			}
+		}
+		if current {
+			state.Setup = "current"
+		}
+	}
+	agents := filepath.Join(a.root(), "AGENTS.md")
+	if render.HasManagedBlock(agents) {
+		state.Roster = "stale"
+		if locked, lockErr := lockfile.Load(a.root()); lockErr == nil {
+			if block, buildErr := render.Build(a.root(), own, locked, false); buildErr == nil && render.Current(agents, block) {
+				state.Roster = "current"
+			}
+		}
+	}
+	return state
 }
 
 func doctorRequirements(root string) ([]adapter.ToolRequirement, error) {

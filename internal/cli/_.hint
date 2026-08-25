@@ -205,3 +205,10 @@ publish either accepted manifest filename. Cache absence is expected for that en
 to run `fetch`. Git-only mutations and vendoring keep working; surface, agent, card, and export
 operations return the deliberate messages and exit codes in the specification's plain-dependency
 table. When an updated commit begins publishing a manifest, normal module behavior takes over.
+
+# decision Init questions and answers share one renderer
+
+The init interview is a single ordered Go data structure. Human, text, JSON, non-TTY defaults,
+and `--answers` consume it; only the final field-path answer map reaches manifest construction.
+TTY prompting is injectable for tests, `?` prints only the current why-line, and confirmation
+happens after the exact manifest preview. Unknown answer keys are sorted before the exit-2 error.

@@ -23,7 +23,9 @@ CARD_PORT = 18765
 
 
 def capture(arguments: list[str], cwd: pathlib.Path, environment: dict[str, str]) -> dict[str, str]:
-    result = subprocess.run(arguments, cwd=cwd, env=environment, capture_output=True)
+    result = subprocess.run(
+        arguments, cwd=cwd, env=environment, stdin=subprocess.DEVNULL, capture_output=True
+    )
     if result.returncode != 0:
         raise RuntimeError(
             f"{arguments!r} exited {result.returncode}\n"

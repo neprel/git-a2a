@@ -37,6 +37,13 @@ refuse dirty replacement without `--force`; see [Vendored dependencies](vendorin
 trees without resolving a moving ref or changing durable files. `update` intentionally asks the
 remote what a ref means now and may move the lock.
 
+## Can I depend on a repository that has no a2amodule manifest?
+
+Yes. It is locked as a plain Git dependency, so update, pinning, vendoring, and removal remain
+available without pretending that it published exports or owners. If the consumer knows the
+native coordinates or tracker, add consumer-owned `dependencies[].shim.exports` and `shim.agents`;
+the real upstream manifest automatically takes precedence when one appears.
+
 ## How does this relate to A2A?
 
 A2A defines native Agent Cards and agent-to-agent messaging. `a2amodule.yml` binds a repository

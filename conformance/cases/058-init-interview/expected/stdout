@@ -1,0 +1,8 @@
+"fieldPath": "module.id"
+"fieldPath": "module.description"
+"fieldPath": "module.repository"
+"fieldPath": "module.languages"
+"fieldPath": "module.exports"
+"ecosystem": "npm"
+"name": "@acme/interview"
+"confidence": "high"

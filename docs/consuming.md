@@ -105,6 +105,32 @@ git-a2a wire acme-lib-utils --ecosystem npm --no-refresh
 select a different commit. An explicitly required ecosystem that cannot express the source fails;
 under implicit wiring it is reported as `not wired`.
 
+## Depending on a repository that is not an a2a module
+
+`add` accepts an ordinary Git repository and locks it with `manifest: none`. Git-only update,
+pinning, vendoring, and removal continue to work; commands that need exports, surface, or agents
+say that the dependency is plain instead of inventing metadata. A consumer can declare a trusted
+local shim until the owner adopts a manifest:
+
+```yaml
+dependencies:
+  - id: acme-legacy-lib
+    git: https://github.com/acme/legacy-lib
+    shim:
+      exports:
+        - {ecosystem: npm, name: "@acme/legacy-lib"}
+      agents:
+        - name: acme-maintainer
+          role: owner
+          contacts:
+            - {intents: [question, change], kind: github-issue, repo: acme/legacy-lib}
+      notes: Consumer-owned adoption metadata.
+```
+
+Shim exports wire through normal adapters and shim agents route through `who` and `contact`.
+When an updated commit publishes its own manifest, upstream metadata wins and status reports the
+ignored shim.
+
 ## Ask the owner
 
 ```sh

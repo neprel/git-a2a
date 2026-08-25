@@ -637,6 +637,18 @@ list of strings, optional, default `[commit]`. Changing it changes the prohibite
 into consumer rosters; downstream agents remain responsible for obeying the declaration. Known
 values and unknown handling are in `vocabulary_consumers`.
 
+# decision Init interviewing is one deterministic authoring contract {#init_interview}
+
+The ordered interview contains, for every question, a manifest field path, prompt, one-line reason,
+computed default, confidence (`low` or `high`), and validation rule. Defaults come only from the
+same repository state: directory identity, origin URL, detected package manifests, and existing
+agent-guidance filenames. `module.id` and `module.description` are always low-confidence; detected
+exports are high-confidence. Human TTY answers and a JSON/YAML `--answers FILE|-` field-path map
+feed the same manifest renderer. Missing keys accept defaults; unknown keys exit 2 in sorted order.
+Therefore identical repository state plus identical answers produces byte-identical output.
+`--interview [--json]` only reports this contract and never writes. `--example lib|app` may provide
+the baseline before answers override fields; generators continue to write canonical `.yml`.
+
 # entity dependency {#dependency}
 
 One entry in `dependencies`.

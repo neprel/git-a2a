@@ -61,6 +61,8 @@ as its no-JavaScript and `file://` fallback. Output lines use `white-space: pre`
 Reduced motion skips typing, replay clears every timer, and the terminal copy action returns only
 the four commands. The site gate reruns `tools/transcript-generate.sh --check` and permits only the
 resolved fixture commit hash to vary.
+The transcript harness connects every captured command to a null stdin so terminal inheritance
+cannot turn the visually unchanged `git-a2a init` command into an interactive session.
 
 The public demo source is `neprel/git-a2a-demo-acme-lib` and its consumer is
 `neprel/git-a2a-demo-acme-app`. `SITE_NET=1` reruns the transcript against those public GitHub

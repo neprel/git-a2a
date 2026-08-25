@@ -39,6 +39,14 @@ Repository reference: https://github.com/neprel/git-a2a/blob/main/docs/manifest-
 
 const promptAppendix = `
 
+Onboard a repository:
+1. Run git-a2a version; if absent, use the installation table in the README.
+2. Run git-a2a setup --check, then git-a2a setup if guidance is missing or stale.
+3. Run git-a2a init --interview --json; ask the human only questions marked confidence low.
+4. Send the resulting field-path map to git-a2a init --answers -.
+5. Run git-a2a validate && git-a2a sync && git-a2a status.
+6. Report the a2amodule.yml, .gitignore, and AGENTS.md diff to the human.
+
 Fresh-agent workflow:
 1. Run git-a2a status -v before changing dependency state.
 2. If cache is absent after clone, run git-a2a fetch; do not commit .git-a2a/.
