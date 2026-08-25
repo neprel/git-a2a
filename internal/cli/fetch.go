@@ -52,7 +52,7 @@ func (a *App) fetch(args []string) int {
 		fmt.Fprintln(a.Err, "fetch: a2amodule.lock is required; run git-a2a add or update first")
 		return 1
 	}
-	own, err := manifest.Load(filepath.Join(root, "a2amodule.yml"))
+	own, err := manifest.LoadDir(root)
 	if err != nil {
 		fmt.Fprintf(a.Err, "fetch: own manifest: %v\n", err)
 		return 2
@@ -131,7 +131,7 @@ func (a *App) fetch(args []string) int {
 			return 1
 		}
 		stagedRoot := filepath.Join(work, "staged")
-		if saveErr := cache.Save(stagedRoot, id, res.Manifest, res.Commit, "lock-"+res.Method); saveErr != nil {
+		if saveErr := cache.SaveAs(stagedRoot, id, res.Manifest, res.Commit, "lock-"+res.Method, res.ManifestName); saveErr != nil {
 			_ = os.RemoveAll(work)
 			fmt.Fprintf(a.Err, "fetch %s: cache: %v\n", id, saveErr)
 			return 1

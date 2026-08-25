@@ -421,8 +421,8 @@ func (a *App) addMCPResources(server *mcp.Server) {
 		read                         func() (string, error)
 	}
 	resources := []resourceSpec{
-		{"a2amodule://manifest", "manifest", "Current a2amodule.yml module contract.", "application/yaml", func() (string, error) {
-			body, err := os.ReadFile(filepath.Join(a.root(), "a2amodule.yml"))
+		{"a2amodule://manifest", "manifest", "Current a2amodule.yml or a2amodule.yaml module contract.", "application/yaml", func() (string, error) {
+			body, _, err := manifest.ReadDir(a.root())
 			return string(body), err
 		}},
 		{"a2amodule://lock", "lock", "Current deterministic a2amodule.lock resolutions.", "application/yaml", func() (string, error) {
@@ -430,7 +430,7 @@ func (a *App) addMCPResources(server *mcp.Server) {
 			return string(body), err
 		}},
 		{"a2amodule://roster", "roster", "Freshly rendered git-a2a AGENTS.md managed block.", "text/markdown", func() (string, error) {
-			own, err := manifest.Load(filepath.Join(a.root(), "a2amodule.yml"))
+			own, err := manifest.LoadDir(a.root())
 			if err != nil {
 				return "", err
 			}

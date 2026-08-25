@@ -1,6 +1,7 @@
 # app The a2amodule standard
 
-This folder is the normative description of `a2amodule.yml`, `a2amodule.lock`, the local state
+This folder is the normative description of `a2amodule.yml` (also accepted as
+`a2amodule.yaml`), `a2amodule.lock`, the local state
 directory `.git-a2a/`, and the A2A card projection. It is written for two readers: an agent or
 human authoring a manifest for their repository, and the implementer of any tool that consumes
 one (the reference CLI lives in `cmd/`, but nothing here depends on it). `spec/examples/` holds
@@ -17,8 +18,8 @@ schema is what `git-a2a validate` enforces.
 # term module
 
 The unit of ownership and import: a git repository, or a subdirectory of one, that carries an
-`a2amodule.yml`. Repository is the default unit, following git's own boundary; a subdirectory
-module exists for monorepos and is addressed by consumers with `path:`.
+`a2amodule.yml` or `a2amodule.yaml`. Repository is the default unit, following git's own
+boundary; a subdirectory module exists for monorepos and is addressed by consumers with `path:`.
 
 # term surface
 
@@ -101,7 +102,11 @@ product code), `reviewer`, `support`. The set is open.
 | `locked` | Pins every supported ecosystem to the one commit recorded in the lock. | Switching to it replaces floating native refs with the resolved commit. | Rejected by validation. |
 | `floating` | Writes a branch/tag form where the adapter supports it while still recording the observed commit. | Switching to it lets native tools follow the declared ref independently. | Rejected by validation. |
 
-# entity a2amodule.yml {#manifest}
+# entity a2amodule.yml or a2amodule.yaml {#manifest}
+
+The canonical filename is `a2amodule.yml`; `.yaml` is an accepted alternate. Readers probe
+`.yml` before `.yaml`, generators write `.yml`, and a directory containing both is invalid
+because a module has exactly one manifest. Fetched caches retain the upstream filename.
 
 Top-level keys, in canonical order: `schema`, `module`, `agents`, `policy`, `settings`,
 `dependencies`. `schema`, `module` and `module.id` are required; everything else is optional.

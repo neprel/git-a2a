@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/neprel/git-a2a/internal/cache"
@@ -38,7 +37,7 @@ func (a *App) wire(args []string) int {
 		}
 	}
 	root := a.root()
-	own, err := manifest.Load(filepath.Join(root, "a2amodule.yml"))
+	own, err := manifest.LoadDir(root)
 	if err != nil {
 		fmt.Fprintf(a.Err, "wire: own manifest: %v\n", err)
 		return 2
@@ -61,7 +60,7 @@ func (a *App) wire(args []string) int {
 			fmt.Fprintf(a.Err, "wire: dependency %s is not locked\n", original.ID)
 			return 1
 		}
-		module, loadErr := manifest.Load(filepath.Join(cache.Dir(root, original.ID), "a2amodule.yml"))
+		module, loadErr := manifest.LoadDir(cache.Dir(root, original.ID))
 		if loadErr != nil {
 			fmt.Fprintf(a.Err, "wire: dependency %s cache: %v\n", original.ID, loadErr)
 			return 1

@@ -3,11 +3,11 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"sort"
 
 	"github.com/neprel/git-a2a/adapters"
 	"github.com/neprel/git-a2a/internal/adapter"
+	"github.com/neprel/git-a2a/internal/cache"
 	lockfile "github.com/neprel/git-a2a/internal/lock"
 	"github.com/neprel/git-a2a/internal/manifest"
 	vendortransport "github.com/neprel/git-a2a/internal/vendor"
@@ -63,7 +63,7 @@ func (a *App) doctor(args []string) int {
 			report.Ready = false
 		}
 	}
-	if own, loadErr := manifest.Load(filepath.Join(a.root(), "a2amodule.yml")); loadErr == nil {
+	if own, loadErr := manifest.LoadDir(a.root()); loadErr == nil {
 		if locked, lockErr := lockfile.Load(a.root()); lockErr == nil {
 			manager := vendortransport.Manager{Runner: a.runner()}
 			for _, dependency := range own.Dependencies {
@@ -83,7 +83,7 @@ func (a *App) doctor(args []string) int {
 				if len(entry.CardsKeys) > 0 {
 					trustState.Keys = "locked"
 				}
-				if cached, cacheErr := manifest.Load(filepath.Join(a.root(), ".git-a2a", "cache", dependency.ID, "a2amodule.yml")); cacheErr == nil {
+				if cached, cacheErr := manifest.LoadDir(cache.Dir(a.root(), dependency.ID)); cacheErr == nil {
 					for _, agent := range cached.Agents {
 						if agent.Trust != nil {
 							if agent.Trust.Signatures {
@@ -191,7 +191,7 @@ func doctorRequirements(root string) ([]adapter.ToolRequirement, error) {
 			byTool[tool.Command] = tool
 		}
 	}
-	if own, err := manifest.Load(filepath.Join(root, "a2amodule.yml")); err == nil {
+	if own, err := manifest.LoadDir(root); err == nil {
 		for _, dep := range own.Dependencies {
 			if dep.Wire == nil {
 				continue

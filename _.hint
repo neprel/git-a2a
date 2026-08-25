@@ -36,9 +36,12 @@ developer with a shell. Anything specific to one fleet tool is an example in `sp
 
 # decision One manifest file at the repository root, one lock next to it {#one_file}
 
-The standard is `a2amodule.yml` at the repository root (a module may also live in a
-subdirectory of a monorepo, in which case the file sits in that subdirectory and consumers
-address it with `path:`). Its presence is the signal that a repository participates. All
+The canonical standard filename is `a2amodule.yml` at the repository root; the accepted
+alternate spelling is `a2amodule.yaml`. Readers probe `.yml` first and then `.yaml`, while
+`init` and generators always write `.yml`. Exactly one may exist in a module directory; both
+present is a validation error. A module may also live in a subdirectory of a monorepo, in which
+case the file sits in that subdirectory and consumers address it with `path:`. Its presence is
+the signal that a repository participates. All
 sections — `module`, `agents`, `policy`, `dependencies` — live in that one file so that a
 reader, a reviewer and `git diff` see the whole contract at once. `a2amodule.lock` records
 what was resolved. Local state (fetched manifests, card snapshots, surface checkouts) lives in

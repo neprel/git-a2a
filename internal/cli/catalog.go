@@ -30,7 +30,7 @@ func (a *App) catalog(args []string) int {
 		}
 	}
 	root := a.root()
-	m, err := manifest.Load(filepath.Join(root, "a2amodule.yml"))
+	m, err := manifest.LoadDir(root)
 	if err != nil {
 		fmt.Fprintf(a.Err, "catalog export: %v\n", err)
 		return 2

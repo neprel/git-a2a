@@ -20,6 +20,7 @@ import (
 type Result struct {
 	Manifest            []byte
 	Commit, Ref, Method string
+	ManifestName        string
 }
 
 type Fetcher struct{ Runner gitx.Runner }
@@ -29,7 +30,8 @@ func IsMissingManifest(err error) bool {
 		return false
 	}
 	message := strings.ToLower(err.Error())
-	return strings.Contains(message, "a2amodule.yml") && (strings.Contains(message, "does not exist") || strings.Contains(message, "not present") || strings.Contains(message, "not found"))
+	manifestNamed := strings.Contains(message, "a2amodule.yml") || strings.Contains(message, "a2amodule.yaml")
+	return manifestNamed && (strings.Contains(message, "does not exist") || strings.Contains(message, "not present") || strings.Contains(message, "not found"))
 }
 
 func (f Fetcher) Fetch(ctx context.Context, url, ref, modulePath, work string) (Result, error) {
@@ -43,8 +45,26 @@ func (f Fetcher) Fetch(ctx context.Context, url, ref, modulePath, work string) (
 	if err != nil {
 		return Result{}, err
 	}
+	var found []Result
+	for _, name := range []string{"a2amodule.yml", "a2amodule.yaml"} {
+		manifestPath := path.Join(modulePath, name)
+		result, fetchErr := f.fetchResolvedManifest(ctx, url, resolution, manifestPath, work)
+		if fetchErr == nil {
+			result.ManifestName = name
+			found = append(found, result)
+		}
+	}
+	if len(found) == 2 {
+		return Result{}, fmt.Errorf("fetch manifest: exactly one of a2amodule.yml or a2amodule.yaml may be present")
+	}
+	if len(found) == 1 {
+		return found[0], nil
+	}
+	return Result{}, fmt.Errorf("fetch manifest: a2amodule.yml and a2amodule.yaml not found at %s", resolution.Commit)
+}
+
+func (f Fetcher) fetchResolvedManifest(ctx context.Context, url string, resolution gitx.Resolution, manifestPath, work string) (Result, error) {
 	commit := resolution.Commit
-	manifestPath := path.Join(modulePath, "a2amodule.yml")
 	if b, err := f.archiveResolved(ctx, url, resolution, manifestPath); err == nil {
 		// Some Git-for-Windows upload-archive configurations translate LF blobs to CRLF.
 		// Lock hashes describe repository objects, so verify any potentially translated
@@ -58,6 +78,8 @@ func (f Fetcher) Fetch(ctx context.Context, url, ref, modulePath, work string) (
 	}
 	if b, err := f.sparse(ctx, url, commit, manifestPath, work); err == nil {
 		return Result{Manifest: b, Commit: commit, Ref: resolution.FullRef, Method: "sparse"}, nil
+	} else if IsMissingManifest(err) {
+		return Result{}, err
 	}
 	b, err := f.shallow(ctx, url, commit, manifestPath, work)
 	if err != nil {

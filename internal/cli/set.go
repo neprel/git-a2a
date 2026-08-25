@@ -195,7 +195,7 @@ func (a *App) unpin(args []string) int {
 
 func (a *App) applySet(o setOptions) int {
 	root := a.root()
-	own, err := manifest.Load(filepath.Join(root, "a2amodule.yml"))
+	own, err := manifest.LoadDir(root)
 	if err != nil {
 		fmt.Fprintf(a.Err, "set: %v\n", err)
 		return 2
@@ -290,7 +290,7 @@ func (a *App) applySet(o setOptions) int {
 		fmt.Fprintf(a.Err, "set: %v; no files changed\n", verifyErr)
 		return 1
 	}
-	oldManifest, err := manifest.Load(filepath.Join(cache.Dir(root, o.id), "a2amodule.yml"))
+	oldManifest, err := manifest.LoadDir(cache.Dir(root, o.id))
 	if err != nil {
 		oldEntry, ok := l.Dependencies[o.id]
 		if !ok {
@@ -352,7 +352,7 @@ func (a *App) applySet(o setOptions) int {
 		return 1
 	}
 	stagedRoot := filepath.Join(work, "staged-cache")
-	if err = cache.Save(stagedRoot, next.ID, res.Manifest, res.Commit, res.Method); err != nil {
+	if err = cache.SaveAs(stagedRoot, next.ID, res.Manifest, res.Commit, res.Method, res.ManifestName); err != nil {
 		restoreAdapterFiles(root, snapshots)
 		_ = vendorRollback()
 		fmt.Fprintf(a.Err, "set: stage cache: %v\n", err)
@@ -365,7 +365,7 @@ func (a *App) applySet(o setOptions) int {
 	locked.CardsKeys = cardKeys
 	cardWarnings = append(cardWarnings, trustWarnings...)
 	cardWarnings = append(cardWarnings, keyWarnings...)
-	oldManifestBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.yml"))
+	oldManifestBytes, ownManifestPath, _ := manifest.ReadDir(root)
 	oldLockBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.lock"))
 	own.Dependencies[idx] = next
 	delete(l.Dependencies, o.id)
@@ -374,7 +374,7 @@ func (a *App) applySet(o setOptions) int {
 		err = lockfile.Write(root, l)
 	}
 	if err != nil {
-		_ = lockfile.Atomic(filepath.Join(root, "a2amodule.yml"), oldManifestBytes, 0o644)
+		_ = lockfile.Atomic(ownManifestPath, oldManifestBytes, 0o644)
 		if len(oldLockBytes) > 0 {
 			_ = lockfile.Atomic(filepath.Join(root, "a2amodule.lock"), oldLockBytes, 0o644)
 		} else {
@@ -386,7 +386,7 @@ func (a *App) applySet(o setOptions) int {
 		return 1
 	}
 	if err = replaceCache(root, next.ID, cache.Dir(stagedRoot, next.ID), work); err != nil {
-		_ = lockfile.Atomic(filepath.Join(root, "a2amodule.yml"), oldManifestBytes, 0o644)
+		_ = lockfile.Atomic(ownManifestPath, oldManifestBytes, 0o644)
 		if len(oldLockBytes) > 0 {
 			_ = lockfile.Atomic(filepath.Join(root, "a2amodule.lock"), oldLockBytes, 0o644)
 		} else {

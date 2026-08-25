@@ -129,7 +129,7 @@ func (a *App) cardExport(args []string) int {
 		fmt.Fprintln(a.Err, "card export: agent name is required")
 		return 2
 	}
-	m, err := manifest.Load(filepath.Join(a.root(), "a2amodule.yml"))
+	m, err := manifest.LoadDir(a.root())
 	if err != nil {
 		fmt.Fprintf(a.Err, "card export: %v\n", err)
 		return 2
@@ -236,7 +236,7 @@ func (a *App) cardShow(args []string) int {
 		fmt.Fprintln(a.Err, "card show: expected [ID] [AGENT]")
 		return 2
 	}
-	m, err := manifest.Load(filepath.Join(a.root(), "a2amodule.yml"))
+	m, err := manifest.LoadDir(a.root())
 	if err != nil {
 		fmt.Fprintf(a.Err, "card show: %v\n", err)
 		return 2

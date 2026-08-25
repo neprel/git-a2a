@@ -32,7 +32,7 @@ func TestAuthoringHelpersBuildValidManifest(t *testing.T) {
 			t.Fatalf("%v exit %d: %s", args, code, errOut.String())
 		}
 	}
-	m, err := manifest.Load(filepath.Join(root, "a2amodule.yml"))
+	m, err := manifest.LoadDir(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestAuthoringHelpersBuildValidManifest(t *testing.T) {
 	if code := app.Run([]string{"agent", "remove", "acme-owner"}); code != 0 {
 		t.Fatalf("remove exit %d: %s", code, errOut.String())
 	}
-	m, err = manifest.Load(filepath.Join(root, "a2amodule.yml"))
+	m, err = manifest.LoadDir(root)
 	if err != nil || len(m.Agents) != 0 {
 		t.Fatalf("agents after remove = %#v, %v", m.Agents, err)
 	}

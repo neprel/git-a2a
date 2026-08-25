@@ -38,6 +38,9 @@ func (r translatedArchiveRunner) Run(_ context.Context, _ string, _ []byte, args
 	case "clone", "sparse-checkout", "fetch", "checkout":
 		return nil, nil
 	case "show":
+		if strings.HasSuffix(args[len(args)-1], "a2amodule.yaml") {
+			return nil, fmt.Errorf("a2amodule.yaml not found")
+		}
 		return r.blob, nil
 	default:
 		return nil, fmt.Errorf("unexpected command %s", command)
@@ -99,7 +102,7 @@ func TestArchiveSelectedFirst(t *testing.T) {
 	if got.Method != "archive" || !bytes.Equal(got.Manifest, body) {
 		t.Fatalf("got %#v", got)
 	}
-	if len(r.calls) != 3 {
+	if len(r.calls) < 3 {
 		t.Fatalf("calls: %v", r.calls)
 	}
 }

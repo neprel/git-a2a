@@ -1258,6 +1258,81 @@ func assertPolyglotPins(t *testing.T, root string) {
 	}
 }
 
+func TestYAMLManifestExtensionAcrossOwnModuleAndDependency(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "source")
+	bare := filepath.Join(tmp, "acme-lib.git")
+	consumer := filepath.Join(tmp, "consumer")
+	mustMkdir(t, source)
+	git(t, source, "init", "-b", "main")
+	git(t, source, "config", "user.email", "test@example.com")
+	git(t, source, "config", "user.name", "Test")
+	mustWrite(t, filepath.Join(source, "a2amodule.yaml"), []byte("schema: 1\nmodule:\n  id: acme-yaml-lib\n  release: {channel: main}\n"))
+	git(t, source, "add", "a2amodule.yaml")
+	git(t, source, "commit", "-m", "yaml manifest")
+	git(t, tmp, "clone", "--bare", source, bare)
+	git(t, bare, "config", "uploadpack.allowFilter", "true")
+	git(t, bare, "config", "uploadpack.allowAnySHA1InWant", "true")
+
+	mustMkdir(t, consumer)
+	mustWrite(t, filepath.Join(consumer, "a2amodule.yaml"), []byte("schema: 1\nmodule: {id: acme-yaml-app}\n"))
+	var out, errOut bytes.Buffer
+	app := cli.New(&out, &errOut)
+	app.Root = consumer
+	if code := app.Run([]string{"add", "file://" + bare, "--no-wire"}); code != 0 {
+		t.Fatalf("add exit %d: %s", code, errOut.String())
+	}
+	if _, err := os.Stat(filepath.Join(consumer, ".git-a2a", "cache", "acme-yaml-lib", "a2amodule.yaml")); err != nil {
+		t.Fatalf("dependency cache did not preserve .yaml: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(consumer, "a2amodule.yml")); !os.IsNotExist(err) {
+		t.Fatalf("mutation created canonical manifest beside .yaml: %v", err)
+	}
+	out.Reset()
+	errOut.Reset()
+	if code := app.Run([]string{"status", "--offline"}); code != 0 {
+		t.Fatalf("status exit %d:\n%s\n%s", code, out.String(), errOut.String())
+	}
+}
+
+func TestBothManifestExtensionsAreRejected(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range []string{"a2amodule.yml", "a2amodule.yaml"} {
+		mustWrite(t, filepath.Join(root, name), []byte("schema: 1\nmodule: {id: acme-both}\n"))
+	}
+	var out, errOut bytes.Buffer
+	app := cli.New(&out, &errOut)
+	app.Root = root
+	if code := app.Run([]string{"validate"}); code != 1 || !strings.Contains(errOut.String(), "exactly one of") {
+		t.Fatalf("validate exit %d, stderr %q", code, errOut.String())
+	}
+}
+
+func TestDependencyWithBothManifestExtensionsIsRejected(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "source")
+	bare := filepath.Join(tmp, "acme-both.git")
+	consumer := filepath.Join(tmp, "consumer")
+	mustMkdir(t, source)
+	git(t, source, "init", "-b", "main")
+	git(t, source, "config", "user.email", "test@example.com")
+	git(t, source, "config", "user.name", "Test")
+	for _, name := range []string{"a2amodule.yml", "a2amodule.yaml"} {
+		mustWrite(t, filepath.Join(source, name), []byte("schema: 1\nmodule: {id: acme-both}\n"))
+	}
+	git(t, source, "add", "a2amodule.yml", "a2amodule.yaml")
+	git(t, source, "commit", "-m", "ambiguous manifests")
+	git(t, tmp, "clone", "--bare", source, bare)
+	mustMkdir(t, consumer)
+	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte("schema: 1\nmodule: {id: acme-app}\n"))
+	var out, errOut bytes.Buffer
+	app := cli.New(&out, &errOut)
+	app.Root = consumer
+	if code := app.Run([]string{"add", "file://" + bare, "--no-wire"}); code != 1 || !strings.Contains(errOut.String(), "exactly one of") {
+		t.Fatalf("add exit %d, stderr %q", code, errOut.String())
+	}
+}
+
 func git(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)

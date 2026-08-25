@@ -48,7 +48,7 @@ func (a *App) trust(args []string) int {
 		return 2
 	}
 	root := a.root()
-	own, err := manifest.Load(filepath.Join(root, "a2amodule.yml"))
+	own, err := manifest.LoadDir(root)
 	if err != nil {
 		fmt.Fprintf(a.Err, "trust show: %v\n", err)
 		return 2
@@ -76,7 +76,7 @@ func (a *App) trust(args []string) int {
 			result.CardOrigin = dependency.Require.CardOrigin
 		}
 		result.Verified = entry.Verified
-		if cached, loadErr := manifest.Load(filepath.Join(cache.Dir(root, dependency.ID), "a2amodule.yml")); loadErr == nil {
+		if cached, loadErr := manifest.LoadDir(cache.Dir(root, dependency.ID)); loadErr == nil {
 			for _, agent := range cached.Agents {
 				if agent.Trust == nil {
 					continue

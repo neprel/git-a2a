@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/neprel/git-a2a/internal/cache"
 	lockfile "github.com/neprel/git-a2a/internal/lock"
 	"github.com/neprel/git-a2a/internal/manifest"
 	"github.com/neprel/git-a2a/internal/render"
@@ -36,7 +37,7 @@ func (a *App) sync(args []string) int {
 			return 2
 		}
 	}
-	own, err := manifest.Load(filepath.Join(a.root(), "a2amodule.yml"))
+	own, err := manifest.LoadDir(a.root())
 	if err != nil {
 		fmt.Fprintf(a.Err, "sync: %v\n", err)
 		return 2
@@ -136,11 +137,11 @@ func (a *App) who(args []string) int {
 			id = args[i]
 		}
 	}
-	p := filepath.Join(a.root(), "a2amodule.yml")
+	dir := a.root()
 	if id != "" {
-		p = filepath.Join(a.root(), ".git-a2a", "cache", id, "a2amodule.yml")
+		dir = cache.Dir(a.root(), id)
 	}
-	m, err := manifest.Load(p)
+	m, err := manifest.LoadDir(dir)
 	if err != nil {
 		if id != "" && errors.Is(err, os.ErrNotExist) {
 			fmt.Fprintf(a.Err, "who: %v; run git-a2a fetch\n", err)

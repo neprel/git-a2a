@@ -65,7 +65,7 @@ func (a *App) status(args []string) int {
 		}
 	}
 	root := a.root()
-	own, err := manifest.Load(filepath.Join(root, "a2amodule.yml"))
+	own, err := manifest.LoadDir(root)
 	if err != nil {
 		fmt.Fprintf(a.Err, "status: no valid manifest: %v\n", err)
 		return 2
@@ -133,7 +133,7 @@ func (a *App) status(args []string) int {
 				}
 			}
 		}
-		cached, loadErr := os.ReadFile(filepath.Join(cache.Dir(root, dep.ID), "a2amodule.yml"))
+		cached, _, loadErr := manifest.ReadDir(cache.Dir(root, dep.ID))
 		if loadErr != nil {
 			row.Manifest = "missing"
 			row.failed = true

@@ -288,9 +288,12 @@ func (a *App) init(args []string) int {
 		return 2
 	}
 	root := a.root()
-	manifestPath := filepath.Join(root, "a2amodule.yml")
-	if _, err := os.Stat(manifestPath); err == nil {
+	manifestPath := filepath.Join(root, manifest.CanonicalName)
+	if _, err := manifest.Path(root); err == nil {
 		fmt.Fprintln(a.Err, "manifest already exists")
+		return 1
+	} else if !errors.Is(err, os.ErrNotExist) {
+		fmt.Fprintf(a.Err, "init: %v\n", err)
 		return 1
 	}
 	if *id == "" {
@@ -473,11 +476,15 @@ func (a *App) validate(args []string) int {
 		paths = append(paths, arg)
 	}
 	if len(paths) == 0 {
-		for _, name := range []string{"a2amodule.yml", "a2amodule.lock"} {
-			p := filepath.Join(a.root(), name)
-			if _, err := os.Stat(p); err == nil {
-				paths = append(paths, p)
-			}
+		if p, err := manifest.Path(a.root()); err == nil {
+			paths = append(paths, p)
+		} else if !errors.Is(err, os.ErrNotExist) {
+			fmt.Fprintf(a.Err, "validate: %v\n", err)
+			return 1
+		}
+		lockPath := filepath.Join(a.root(), "a2amodule.lock")
+		if _, err := os.Stat(lockPath); err == nil {
+			paths = append(paths, lockPath)
 		}
 	}
 	if len(paths) == 0 {
@@ -494,7 +501,13 @@ func (a *App) validate(args []string) int {
 		if isLock {
 			_, err = manifest.LoadLock(p)
 		} else {
-			_, err = manifest.Load(p)
+			base := filepath.Base(p)
+			if base == manifest.CanonicalName || base == manifest.AlternateName {
+				_, err = manifest.Path(filepath.Dir(p))
+			}
+			if err == nil {
+				_, err = manifest.Load(p)
+			}
 		}
 		if err != nil {
 			failed = true
@@ -653,7 +666,7 @@ func (a *App) add(args []string) int {
 		return 2
 	}
 	root := a.root()
-	own, err := manifest.Load(filepath.Join(root, "a2amodule.yml"))
+	own, err := manifest.LoadDir(root)
 	if err != nil {
 		fmt.Fprintf(a.Err, "add: own manifest: %v\n", err)
 		return 2
@@ -752,7 +765,7 @@ func (a *App) add(args []string) int {
 		return 1
 	}
 	stagedRoot := filepath.Join(work, "staged-cache")
-	if err := cache.Save(stagedRoot, o.id, res.Manifest, res.Commit, res.Method); err != nil {
+	if err := cache.SaveAs(stagedRoot, o.id, res.Manifest, res.Commit, res.Method, res.ManifestName); err != nil {
 		fmt.Fprintf(a.Err, "add: stage cache: %v\n", err)
 		return 1
 	}
@@ -780,7 +793,7 @@ func (a *App) add(args []string) int {
 		fmt.Fprintf(a.Err, "add: vendor failed and was rolled back: %v\n", err)
 		return 1
 	}
-	oldManifestBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.yml"))
+	oldManifestBytes, ownManifestPath, _ := manifest.ReadDir(root)
 	oldLockBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.lock"))
 	if predeclared >= 0 {
 		own.Dependencies[predeclared] = dep
@@ -792,7 +805,7 @@ func (a *App) add(args []string) int {
 		err = lockfile.Write(root, l)
 	}
 	rollbackMetadata := func() {
-		_ = lockfile.Atomic(filepath.Join(root, "a2amodule.yml"), oldManifestBytes, 0o644)
+		_ = lockfile.Atomic(ownManifestPath, oldManifestBytes, 0o644)
 		if len(oldLockBytes) > 0 {
 			_ = lockfile.Atomic(filepath.Join(root, "a2amodule.lock"), oldLockBytes, 0o644)
 		} else {
@@ -842,7 +855,12 @@ func defaultPath(p string) string {
 	return p
 }
 func writeManifest(root string, m *manifest.Manifest) error {
-	path := filepath.Join(root, "a2amodule.yml")
+	path, err := manifest.Path(root)
+	if errors.Is(err, os.ErrNotExist) {
+		path = filepath.Join(root, manifest.CanonicalName)
+	} else if err != nil {
+		return err
+	}
 	original, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		original = nil
@@ -866,7 +884,7 @@ func refreshExistingManagedBlock(root string) error {
 	if !render.HasManagedBlock(path) {
 		return nil
 	}
-	own, err := manifest.Load(filepath.Join(root, "a2amodule.yml"))
+	own, err := manifest.LoadDir(root)
 	if err != nil {
 		return err
 	}
@@ -926,7 +944,7 @@ func (a *App) update(args []string) int {
 		}
 	}
 	root := a.root()
-	own, err := manifest.Load(filepath.Join(root, "a2amodule.yml"))
+	own, err := manifest.LoadDir(root)
 	if err != nil {
 		fmt.Fprintf(a.Err, "update: own manifest: %v\n", err)
 		return 2
@@ -983,7 +1001,7 @@ func (a *App) update(args []string) int {
 					changed++
 				}
 			}
-			if cachedManifest, loadErr := manifest.Load(filepath.Join(cache.Dir(root, d.ID), "a2amodule.yml")); loadErr == nil {
+			if cachedManifest, loadErr := manifest.LoadDir(cache.Dir(root, d.ID)); loadErr == nil {
 				currentKeys, warnings := inspectCardTrust(cachedManifest, filepath.Join(cache.Dir(root, d.ID), "cards"), root, d.Git, entry.Commit, d.Require)
 				for _, warning := range warnings {
 					advisories = append(advisories, fmt.Sprintf("warning: %s card trust: %v", d.ID, warning))
@@ -1066,13 +1084,13 @@ func (a *App) update(args []string) int {
 		if resolution.Kind == "tag" && entry.Commit != "" && entry.Commit != res.Commit {
 			advisories = append(advisories, fmt.Sprintf("tag %s moved from %s to %s", d.Ref, short(entry.Commit), short(res.Commit)))
 		}
-		oldManifest, _ := os.ReadFile(filepath.Join(cache.Dir(root, d.ID), "a2amodule.yml"))
+		oldManifest, _, _ := manifest.ReadDir(cache.Dir(root, d.ID))
 		if review && !bytes.Equal(oldManifest, res.Manifest) {
 			fmt.Fprint(a.Out, textDiff(d.ID+" manifest", oldManifest, res.Manifest))
 		}
 		sum := sha256.Sum256(res.Manifest)
 		stagedRoot := filepath.Join(work, "staged-cache")
-		if e = cache.Save(stagedRoot, d.ID, res.Manifest, res.Commit, res.Method); e != nil {
+		if e = cache.SaveAs(stagedRoot, d.ID, res.Manifest, res.Commit, res.Method, res.ManifestName); e != nil {
 			_ = os.RemoveAll(work)
 			fmt.Fprintf(a.Err, "update %s: stage cache: %v\n", d.ID, e)
 			return 1
@@ -1198,7 +1216,7 @@ func (a *App) update(args []string) int {
 }
 
 func cacheNeedsRepair(root, id, expectedHash string) bool {
-	b, err := os.ReadFile(filepath.Join(cache.Dir(root, id), "a2amodule.yml"))
+	b, _, err := manifest.ReadDir(cache.Dir(root, id))
 	if err != nil {
 		return true
 	}
@@ -1243,7 +1261,7 @@ func (a *App) remove(args []string) int {
 		return 2
 	}
 	root := a.root()
-	m, err := manifest.Load(filepath.Join(root, "a2amodule.yml"))
+	m, err := manifest.LoadDir(root)
 	if err != nil {
 		fmt.Fprintf(a.Err, "remove: %v\n", err)
 		return 2
@@ -1271,7 +1289,7 @@ func (a *App) remove(args []string) int {
 	}
 	snapshots := snapshotAdapterFiles(root)
 	if !keep {
-		depManifest, loadErr := manifest.Load(filepath.Join(cache.Dir(root, id), "a2amodule.yml"))
+		depManifest, loadErr := manifest.LoadDir(cache.Dir(root, id))
 		if loadErr != nil {
 			work, tempErr := os.MkdirTemp("", "git-a2a-remove-")
 			if tempErr != nil {
@@ -1322,7 +1340,7 @@ func (a *App) remove(args []string) int {
 		fmt.Fprintf(a.Err, "remove: vendor: %v\n", vendorErr)
 		return 1
 	}
-	oldManifestBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.yml"))
+	oldManifestBytes, ownManifestPath, _ := manifest.ReadDir(root)
 	oldLockBytes, _ := os.ReadFile(filepath.Join(root, "a2amodule.lock"))
 	m.Dependencies = append(m.Dependencies[:idx], m.Dependencies[idx+1:]...)
 	if err := writeManifest(root, m); err != nil {
@@ -1333,7 +1351,7 @@ func (a *App) remove(args []string) int {
 	}
 	delete(l.Dependencies, id)
 	if err = lockfile.Write(root, l); err != nil {
-		_ = lockfile.Atomic(filepath.Join(root, "a2amodule.yml"), oldManifestBytes, 0o644)
+		_ = lockfile.Atomic(ownManifestPath, oldManifestBytes, 0o644)
 		if len(oldLockBytes) > 0 {
 			_ = lockfile.Atomic(filepath.Join(root, "a2amodule.lock"), oldLockBytes, 0o644)
 		}
@@ -1372,11 +1390,11 @@ func (a *App) show(args []string) int {
 		}
 	}
 	root := a.root()
-	p := filepath.Join(root, "a2amodule.yml")
+	dir := root
 	if id != "" {
-		p = filepath.Join(cache.Dir(root, id), "a2amodule.yml")
+		dir = cache.Dir(root, id)
 	}
-	m, err := manifest.Load(p)
+	m, err := manifest.LoadDir(dir)
 	if err != nil {
 		if id != "" && errors.Is(err, os.ErrNotExist) {
 			fmt.Fprintf(a.Err, "show: %v; run git-a2a fetch\n", err)
@@ -1407,7 +1425,7 @@ func (a *App) show(args []string) int {
 			fmt.Fprintln(a.Err, "show: no dependency surface declared")
 			return 2
 		}
-		own, _ := manifest.Load(filepath.Join(root, "a2amodule.yml"))
+		own, _ := manifest.LoadDir(root)
 		var d *manifest.Dependency
 		for i := range own.Dependencies {
 			if own.Dependencies[i].ID == id {
@@ -1464,7 +1482,12 @@ func (a *App) format(args []string) int {
 		}
 	}
 	if len(paths) == 0 {
-		paths = append(paths, "a2amodule.yml")
+		manifestPath, err := manifest.Path(a.root())
+		if err != nil {
+			fmt.Fprintln(a.Err, "no manifest found")
+			return 2
+		}
+		paths = append(paths, manifestPath)
 	}
 	resolved := make([]string, 0, len(paths))
 	for _, path := range paths {
@@ -1473,7 +1496,11 @@ func (a *App) format(args []string) int {
 			p = filepath.Join(a.root(), p)
 		}
 		if info, err := os.Stat(p); err == nil && info.IsDir() {
-			p = filepath.Join(p, "a2amodule.yml")
+			p, err = manifest.Path(p)
+			if err != nil {
+				fmt.Fprintf(a.Err, "fmt: %s: %v\n", path, err)
+				return 2
+			}
 		}
 		resolved = append(resolved, p)
 	}
@@ -1485,9 +1512,16 @@ func (a *App) format(args []string) int {
 	}
 	results := make([]formatResult, 0, len(resolved))
 	for _, p := range resolved {
+		base := filepath.Base(p)
+		if base == manifest.CanonicalName || base == manifest.AlternateName {
+			if _, err := manifest.Path(filepath.Dir(p)); err != nil {
+				fmt.Fprintf(a.Err, "fmt: %s: %v\n", p, err)
+				return 1
+			}
+		}
 		original, err := os.ReadFile(p)
 		if err != nil {
-			if len(paths) == 1 && paths[0] == "a2amodule.yml" {
+			if len(paths) == 1 && filepath.Dir(paths[0]) == a.root() {
 				fmt.Fprintln(a.Err, "no manifest found")
 			} else {
 				fmt.Fprintf(a.Err, "fmt: %s: %v\n", p, err)

@@ -24,6 +24,56 @@ var (
 
 const CurrentSchema = 1
 
+const (
+	CanonicalName = "a2amodule.yml"
+	AlternateName = "a2amodule.yaml"
+)
+
+// Path resolves the single manifest in dir. The canonical .yml spelling is
+// probed first, but repositories may use .yaml. Keeping this rule here avoids
+// subtly different behavior between CLI commands, the cache, and renderers.
+func Path(dir string) (string, error) {
+	yml := filepath.Join(dir, CanonicalName)
+	yaml := filepath.Join(dir, AlternateName)
+	_, ymlErr := os.Stat(yml)
+	_, yamlErr := os.Stat(yaml)
+	ymlExists := ymlErr == nil
+	yamlExists := yamlErr == nil
+	if ymlExists && yamlExists {
+		return "", fmt.Errorf("exactly one of %s or %s may be present", CanonicalName, AlternateName)
+	}
+	if ymlExists {
+		return yml, nil
+	}
+	if yamlExists {
+		return yaml, nil
+	}
+	if ymlErr != nil && !errors.Is(ymlErr, os.ErrNotExist) {
+		return "", ymlErr
+	}
+	if yamlErr != nil && !errors.Is(yamlErr, os.ErrNotExist) {
+		return "", yamlErr
+	}
+	return "", &os.PathError{Op: "open", Path: yml, Err: os.ErrNotExist}
+}
+
+func LoadDir(dir string) (*Manifest, error) {
+	p, err := Path(dir)
+	if err != nil {
+		return nil, err
+	}
+	return Load(p)
+}
+
+func ReadDir(dir string) ([]byte, string, error) {
+	p, err := Path(dir)
+	if err != nil {
+		return nil, "", err
+	}
+	b, err := os.ReadFile(p)
+	return b, p, err
+}
+
 type UnsupportedSchemaError struct {
 	Schema int
 }

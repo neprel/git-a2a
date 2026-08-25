@@ -3,7 +3,6 @@ package render
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"unicode"
@@ -44,7 +43,7 @@ func Build(root string, own *manifest.Manifest, l *manifest.Lock, brief bool) (s
 	sort.Strings(ids)
 	for _, id := range ids {
 		entry := l.Dependencies[id]
-		dep, err := manifest.Load(filepath.Join(cache.Dir(root, id), "a2amodule.yml"))
+		dep, err := manifest.LoadDir(cache.Dir(root, id))
 		if err != nil {
 			return "", fmt.Errorf("%s: %w", id, err)
 		}

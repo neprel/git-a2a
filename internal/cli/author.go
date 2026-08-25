@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -111,7 +109,7 @@ func (a *App) agentList(args []string) int {
 	if fs.Parse(args) != nil || fs.NArg() != 0 {
 		return 2
 	}
-	m, err := manifest.Load(filepath.Join(a.root(), "a2amodule.yml"))
+	m, err := manifest.LoadDir(a.root())
 	if err != nil {
 		fmt.Fprintf(a.Err, "agent list: %v\n", err)
 		return 2
@@ -236,8 +234,7 @@ func (a *App) policy(args []string) int {
 var errNotFound = fmt.Errorf("not found")
 
 func (a *App) mutateManifest(command string, mutate func(*manifest.Manifest) error, edit func([]byte) ([]byte, error), success string) int {
-	path := filepath.Join(a.root(), "a2amodule.yml")
-	original, err := os.ReadFile(path)
+	original, path, err := manifest.ReadDir(a.root())
 	if err != nil {
 		fmt.Fprintf(a.Err, "%s: %v\n", command, err)
 		return 2

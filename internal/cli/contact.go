@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/neprel/git-a2a/internal/cache"
 	contactcore "github.com/neprel/git-a2a/internal/contact"
 	contacta2a "github.com/neprel/git-a2a/internal/contact/a2a"
 	contactdeclared "github.com/neprel/git-a2a/internal/contact/declared"
@@ -82,13 +83,13 @@ func (a *App) contact(args []string) int {
 			return 2
 		}
 	}
-	m, err := manifest.Load(filepath.Join(a.root(), ".git-a2a", "cache", id, "a2amodule.yml"))
+	m, err := manifest.LoadDir(cache.Dir(a.root(), id))
 	if err != nil {
 		fmt.Fprintf(a.Err, "contact: %v\n", err)
 		return 2
 	}
 	matches, role := routing.Resolve(m, intent, "")
-	consumer, ownErr := manifest.Load(filepath.Join(a.root(), "a2amodule.yml"))
+	consumer, ownErr := manifest.LoadDir(a.root())
 	if ownErr != nil {
 		consumer = nil
 		if matchesDeclineExternal(matches) {
