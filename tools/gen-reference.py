@@ -541,7 +541,7 @@ def site_fact_rows(rows: list[tuple[str, str, str]], prototype: bool) -> str:
 
 def update_fact_surfaces(rows: list[tuple[str, str, str]], check: bool) -> None:
     native = ", ".join(label for _, label in NATIVE_ECOSYSTEMS)
-    export_copy = f"How to import the module in each ecosystem. {len(NATIVE_ECOSYSTEMS)} native ecosystems today: {native}."
+    export_copy = f"How to import the module in each ecosystem. Native ecosystems today: {native}."
     generated_block(ROOT / "README.md", "readme", markdown_fact_table(rows), check)
     channel_rows = "\n".join([
         "| --- | --- | --- |",
@@ -562,7 +562,7 @@ def update_fact_surfaces(rows: list[tuple[str, str, str]], check: bool) -> None:
     generated_block(ROOT / "sites/design/git-a2a Landing.dc.html", "site-works", site_fact_rows(rows, True), check)
     generated_block(ROOT / "sites/design/README.md", "design-export", f'  - `exports` — "{export_copy}"', check)
     design_rows = [
-        "Six generated chip rows, gap 24px. Row labels use the existing mono micro style; chips use the existing pill tokens.",
+        "Generated chip rows use a 24px gap. Row labels use the existing mono micro style; chips use the existing pill tokens.",
         *[f"- **{layer.upper()}** — " + " · ".join(item.strip() for item in items.split(",")) for layer, items, _ in rows],
     ]
     generated_block(ROOT / "sites/design/README.md", "design-works", "\n".join(design_rows), check)

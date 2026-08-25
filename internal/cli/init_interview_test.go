@@ -114,8 +114,10 @@ func TestInitNonTTYUsesDefaultsAndNamesAnswers(t *testing.T) {
 	if code := app.Run([]string{"init"}); code != 0 {
 		t.Fatalf("exit %d: %s", code, errOut.String())
 	}
-	if !strings.Contains(errOut.String(), "accepting computed defaults") || !strings.Contains(errOut.String(), "--answers FILE|-") {
-		t.Fatalf("stderr = %q", errOut.String())
+	want := "init: non-interactive input; accepting computed defaults (pass --answers <file>, or --answers - to read answers from stdin)"
+	got, _, _ := strings.Cut(errOut.String(), "\n")
+	if got != want {
+		t.Fatalf("first stderr line = %q", got)
 	}
 }
 

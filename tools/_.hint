@@ -90,7 +90,9 @@ known contact kinds, and projected standards. Adapter entries carry their packag
 generation fails when code and the registry disagree; contact kinds are compiled from
 `spec/_.hint`; harness labels are checked against setup's implementation. Generated markers are
 mandatory and check mode never rewrites them. Both `docs-check` and `site-check` invoke check mode,
-so prose cannot silently retain a stale count or omit a registered integration.
+so prose cannot silently retain a stale list or omit a registered integration. Public enumeration
+copy names the registry entries without a numeric total; cardinalities are reserved for internal
+audits because a public count becomes stale independently of the generated list.
 
 # decision Public specification reader is generated from normative sources
 

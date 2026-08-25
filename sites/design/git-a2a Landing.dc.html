@@ -38,6 +38,10 @@ code,pre{font-family:'JetBrains Mono',ui-monospace,monospace}
 pre{margin:0}
 @keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.idea-grid{display:grid;grid-template-columns:minmax(210px,1fr) minmax(180px,.9fr) minmax(210px,1fr);gap:clamp(14px,2vw,28px);align-items:stretch}.idea-column{display:grid;grid-template-rows:auto 28px 1fr;min-width:0}.idea-box{border:1px solid var(--line2);border-radius:10px;background:var(--bg2);padding:14px;min-width:0}.idea-micro{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg3);letter-spacing:.06em;text-transform:uppercase}.idea-title{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500;margin:7px 0 11px}.idea-chips{display:flex;flex-wrap:wrap;gap:7px}.idea-file,.idea-agent{font-family:'JetBrains Mono',monospace;border:1px solid var(--line);border-radius:6px}.idea-file{font-size:11.5px;padding:5px 8px}.idea-agent{font-size:11px;padding:4px 7px;color:var(--fg2)}.idea-highlight{border-color:var(--acc);background:var(--accsoft)}.idea-muted{color:var(--fg3)}.idea-dashed{border-style:dashed;color:var(--fg3)}.idea-owner{height:28px;border-left:1px solid var(--line2);margin-left:14px;position:relative}.idea-owner span{position:absolute;left:7px;top:7px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3)}.idea-flows{display:grid;grid-template-rows:auto 28px 1fr;min-width:0}.idea-code-flow{align-self:center;padding-top:25px}.idea-flow-label,.idea-flow-meta{text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;line-height:1.35}.idea-flow-label{color:var(--acc)}.idea-flow-meta{color:var(--fg3);margin-top:5px;white-space:nowrap}.idea-arrow{height:9px;display:flex;align-items:center;margin-top:5px;flex-direction:row-reverse}.idea-arrow::before{content:'';height:1px;background:var(--acc);flex:1}.idea-arrow::after{content:'';border-right:6px solid var(--acc);border-top:4px solid transparent;border-bottom:4px solid transparent}.idea-arrow-right{flex-direction:row}.idea-arrow-right::after{border-right:0;border-left:6px solid var(--line2)}.idea-agent-flows{grid-row:3;align-self:center;display:grid;gap:12px}.idea-agent-flows .idea-flow-label{color:var(--fg3)}.idea-agent-flows .idea-arrow::before{background:var(--line2)}.idea-agent-flows .idea-arrow::after{border-right-color:var(--line2)}
+@media(max-width:760px){.idea-grid{grid-template-columns:minmax(0,1fr);gap:18px}.idea-flows{grid-template-rows:auto auto;gap:15px;padding:4px 0}.idea-code-flow{padding:0}.idea-flow-meta{white-space:normal}.idea-arrow{height:26px;flex-direction:column}.idea-arrow::before{width:1px;height:auto}.idea-arrow::after,.idea-arrow-right::after{border:0;border-top:6px solid var(--acc);border-left:4px solid transparent;border-right:4px solid transparent}.idea-agent-flows{grid-row:auto;gap:10px}.idea-agent-flows .idea-arrow::after{border-top-color:var(--line2)}}
+.idea-grid{grid-template-areas:'library-repo code-flow consumer-repo' 'library-owns . consumer-owns' 'library-agent agent-flows consumer-agent';grid-template-rows:auto 28px auto}.idea-column,.idea-flows{display:contents}.idea-column:first-child>.idea-box:first-child{grid-area:library-repo}.idea-column:first-child>.idea-owner{grid-area:library-owns}.idea-column:first-child>.idea-box:last-child{grid-area:library-agent}.idea-column:last-child>.idea-box:first-child{grid-area:consumer-repo}.idea-column:last-child>.idea-owner{grid-area:consumer-owns}.idea-column:last-child>.idea-box:last-child{grid-area:consumer-agent}.idea-code-flow{grid-area:code-flow}.idea-agent-flows{grid-area:agent-flows}
+@media(max-width:760px){.idea-grid{grid-template-areas:'library-repo' 'library-owns' 'library-agent' 'code-flow' 'agent-flows' 'consumer-repo' 'consumer-owns' 'consumer-agent';grid-template-rows:auto 28px auto auto auto auto 28px auto}.idea-code-flow,.idea-agent-flows{padding-block:4px}}
 </style>
 </helmet>
 
@@ -106,66 +110,13 @@ pre{margin:0}
       <h2 style="margin:0 0 8px;font-size:26px;letter-spacing:-.02em;font-weight:600">The idea in one diagram</h2>
       <p style="margin:0 0 44px;font-size:15.5px;color:var(--fg2);max-width:620px">A dependency is a module and its owner: the code, how to import it in every ecosystem you use, and whom to ask about it.</p>
 
-      <div role="img" aria-label="Diagram: the library repository acme-lib-utils holds a2amodule.yml. Three arrows — a branch, a tag or a commit, each resolved to one commit — wire it into the consumer repository's package.json, pyproject.toml and go.mod. A fourth arrow goes from the consumer to the library's owning agent, reachable over A2A, a chat channel or an issue tracker." style="display:grid;grid-template-columns:minmax(0,1fr);gap:0;background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:clamp(20px,3vw,36px)">
-        <div style="display:grid;grid-template-columns:minmax(200px,1fr) minmax(120px,1.1fr) minmax(200px,1fr);gap:clamp(12px,2vw,28px);align-items:start" data-om-diagram>
-
-          <div style="display:grid;gap:14px">
-            <div style="border:1px solid var(--line2);border-radius:10px;background:var(--bg2);padding:14px">
-              <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg3);margin-bottom:8px">library repo · git</div>
-              <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500;margin-bottom:12px">acme-lib-utils</div>
-              <div style="display:flex;flex-direction:column;gap:6px">
-                <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;padding:5px 8px;border:1px solid var(--acc);border-radius:6px;background:var(--accsoft);color:var(--fg)">a2amodule.yml</div>
-                <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;color:var(--fg3)">surface/</div>
-              </div>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;padding-left:14px">
-              <span style="width:1px;height:22px;background:var(--line2);display:block"></span>
-              <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--fg3)">owns</span>
-            </div>
-            <div style="border:1px solid var(--line2);border-radius:10px;background:var(--bg2);padding:14px">
-              <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg3);margin-bottom:8px">owning agent</div>
-              <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500;margin-bottom:12px">acme-lib-utils · owner</div>
-              <div style="display:flex;flex-wrap:wrap;gap:6px">
-                <span style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px 7px;border:1px solid var(--line);border-radius:5px;color:var(--fg2)">A2A card</span>
-                <span style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px 7px;border:1px solid var(--line);border-radius:5px;color:var(--fg2)">chat</span>
-                <span style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px 7px;border:1px solid var(--line);border-radius:5px;color:var(--fg2)">issue</span>
-              </div>
-            </div>
-          </div>
-
-          <div style="display:flex;flex-direction:column;padding-top:44px;height:100%">
-            <div style="display:grid;gap:10px">
-            <div style="display:grid;gap:3px">
-              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc);text-align:center;letter-spacing:.02em">branch 'main'</span>
-              <div style="display:flex;align-items:center"><span style="flex:1 1 auto;height:1px;background:var(--acc)"></span><span style="width:0;height:0;border-left:6px solid var(--acc);border-top:4px solid transparent;border-bottom:4px solid transparent"></span></div>
-            </div>
-            <div style="display:grid;gap:3px">
-              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc);text-align:center;letter-spacing:.02em">tag 'v1.2.3'</span>
-              <div style="display:flex;align-items:center"><span style="flex:1 1 auto;height:1px;background:var(--acc)"></span><span style="width:0;height:0;border-left:6px solid var(--acc);border-top:4px solid transparent;border-bottom:4px solid transparent"></span></div>
-            </div>
-            <div style="display:grid;gap:3px">
-              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc);text-align:center;letter-spacing:.02em">@9f2c1ab</span>
-              <div style="display:flex;align-items:center"><span style="flex:1 1 auto;height:1px;background:var(--acc)"></span><span style="width:0;height:0;border-left:6px solid var(--acc);border-top:4px solid transparent;border-bottom:4px solid transparent"></span></div>
-            </div>
-            </div>
-            <div style="display:grid;gap:3px;margin-top:auto;padding-bottom:38px">
-              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg3);text-align:center">ask</span>
-              <div style="display:flex;align-items:center;flex-direction:row-reverse"><span style="flex:1 1 auto;height:1px;background:var(--line2)"></span><span style="width:0;height:0;border-right:6px solid var(--line2);border-top:4px solid transparent;border-bottom:4px solid transparent"></span></div>
-            </div>
-          </div>
-
-          <div style="border:1px solid var(--line2);border-radius:10px;background:var(--bg2);padding:14px;height:100%;display:flex;flex-direction:column">
-            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg3);margin-bottom:8px">consumer repo · your repo</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500;margin-bottom:12px">consumer-app</div>
-            <div style="display:flex;flex-direction:column;gap:6px;flex:1 1 auto">
-              <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;color:var(--fg)">package.json</div>
-              <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;color:var(--fg)">pyproject.toml</div>
-              <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;color:var(--fg)">go.mod</div>
-              <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;padding:5px 8px;border:1px dashed var(--line2);border-radius:6px;color:var(--fg3);margin-top:auto">a2amodule.lock · AGENTS.md</div>
-            </div>
-          </div>
+      <div role="img" aria-label="Diagram: consumer-app depends on one locked commit of acme-lib-utils. Each repository is owned by an agent. The consumer agent uses the AGENTS.md roster to ask the owning agent questions, request changes, report bugs, and receive answers or delivered changes." style="display:grid;grid-template-columns:minmax(0,1fr);gap:0;background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:clamp(20px,3vw,36px)">
+        <div class="idea-grid">
+          <div class="idea-column"><div class="idea-box"><div class="idea-micro">library repo</div><div class="idea-title">acme-lib-utils</div><div class="idea-chips"><span class="idea-file idea-highlight">a2amodule.yml</span><span class="idea-file idea-muted">surface/</span></div></div><div class="idea-owner"><span>owns</span></div><div class="idea-box"><div class="idea-micro">owning agent</div><div class="idea-title">acme-lib-utils · owner</div><div class="idea-chips"><span class="idea-agent">A2A card</span><span class="idea-agent">chat</span><span class="idea-agent">issue</span></div></div></div>
+          <div class="idea-flows"><div class="idea-code-flow"><div class="idea-flow-label">depends on · one locked commit</div><div class="idea-flow-meta">branch 'main' · tag 'v1.2.3' · @9f2c1ab</div><div class="idea-arrow"></div></div><div class="idea-agent-flows"><div><div class="idea-flow-label">ask: question / change / bug</div><div class="idea-arrow"></div></div><div><div class="idea-arrow idea-arrow-right"></div><div class="idea-flow-label">answer · deliver</div></div></div></div>
+          <div class="idea-column"><div class="idea-box"><div class="idea-micro">consumer repo</div><div class="idea-title">consumer-app</div><div class="idea-chips"><span class="idea-file idea-highlight">a2amodule.yml</span><span class="idea-file">package.json</span><span class="idea-file">pyproject.toml</span><span class="idea-file">go.mod</span><span class="idea-file idea-dashed">a2amodule.lock · AGENTS.md</span></div></div><div class="idea-owner"><span>owns</span></div><div class="idea-box"><div class="idea-micro">consumer agent</div><div class="idea-title">consumer-app · agent</div><div class="idea-chips"><span class="idea-agent">AGENTS.md roster</span><span class="idea-agent">whom to ask</span></div></div></div>
         </div>
-        <p style="margin:28px 0 0;padding-top:20px;border-top:1px solid var(--line);font-size:14px;color:var(--fg2)">Import the code. Know the owner. Ask the right agent.</p>
+        <p style="margin:28px 0 0;padding-top:20px;border-top:1px solid var(--line);font-size:14px;color:var(--fg2)">Repositories reference code. Agents talk. git-a2a keeps both wired.</p>
       </div>
     </div>
   </section>
@@ -245,7 +196,7 @@ pre{margin:0}
           <div style="border-left:2px solid var(--acc);padding:2px 0 2px 16px">
             <div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--acc);margin-bottom:5px">exports</div>
             <!-- generated-facts:site-export:start -->
-<p style="margin:0;font-size:14.5px;line-height:1.55;color:var(--fg2)">How to import the module in each ecosystem. 13 native ecosystems today: npm, uv/PyPI, Go, Cargo, SwiftPM, Pub, Bundler, Composer, Mix, Cabal/Stack, Zig, Clojure, Nix.</p>
+<p style="margin:0;font-size:14.5px;line-height:1.55;color:var(--fg2)">How to import the module in each ecosystem. Native ecosystems today: npm, uv/PyPI, Go, Cargo, SwiftPM, Pub, Bundler, Composer, Mix, Cabal/Stack, Zig, Clojure, Nix.</p>
 <!-- generated-facts:site-export:end -->
           </div>
           <div style="border-left:2px solid var(--acc);padding:2px 0 2px 16px">

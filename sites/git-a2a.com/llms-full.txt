@@ -1310,8 +1310,9 @@ On a TTY, plain `init` asks the ordered interview questions, prints defaults and
 preview, and confirms the write; `?` prints a question's why-line. Non-TTY input accepts computed
 defaults and names `--answers` instead of blocking. `--interview` is read-only and prints each
 question's field path, prompt, why, computed default, confidence, and validation; `--json` makes
-that briefing structured. `--answers FILE|-` accepts a JSON or YAML map keyed by those field
-paths; missing keys use defaults and unknown keys exit `2` in sorted order. Given the same
+that briefing structured. `--answers <file>` accepts a JSON or YAML map keyed by those field
+paths; use `--answers -` to read the map from stdin. Missing keys use defaults and unknown keys
+exit `2` in sorted order. Given the same
 repository state and answers, TTY and answers modes write byte-identical manifests.
 `--example lib|app` writes a complete commented baseline and composes with `--answers`.
 Exit `1` if a write would replace a manifest; invalid answers/combinations exit `2`.

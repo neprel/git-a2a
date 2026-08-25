@@ -68,7 +68,7 @@ func (a *App) contact(args []string) int {
 		return a.listContactDrivers(nil, nil)
 	}
 	if id == "" || (!listDrivers && messagePath == "") {
-		fmt.Fprintln(a.Err, "contact: module id and --message FILE|- are required")
+		fmt.Fprintln(a.Err, "contact: module id and --message <file> (or \"-\" for stdin) are required")
 		return 2
 	}
 	message := ""

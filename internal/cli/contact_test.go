@@ -122,6 +122,18 @@ func TestContactListDriversNeedsNoMessage(t *testing.T) {
 	}
 }
 
+func TestContactMissingArgumentsNamesFileAndStdinClearly(t *testing.T) {
+	var out, errOut bytes.Buffer
+	app := New(&out, &errOut)
+	if code := app.Run([]string{"contact"}); code != 2 {
+		t.Fatalf("exit=%d stderr=%q", code, errOut.String())
+	}
+	want := "contact: module id and --message <file> (or \"-\" for stdin) are required\n"
+	if got := errOut.String(); got != want {
+		t.Fatalf("stderr=%q, want %q", got, want)
+	}
+}
+
 func TestContactMCPRefusesDeclaredExec(t *testing.T) {
 	root := t.TempDir()
 	cache := filepath.Join(root, ".git-a2a", "cache", "acme-lib")

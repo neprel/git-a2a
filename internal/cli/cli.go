@@ -287,7 +287,7 @@ func (a *App) init(args []string) int {
 	example := fs.String("example", "", "complete commented example: lib or app")
 	interview := fs.Bool("interview", false, "print the deterministic interview specification")
 	jsonOut := fs.Bool("json", false, "print interview as JSON")
-	answers := fs.String("answers", "", "read field-path answers from JSON or YAML FILE|-")
+	answers := fs.String("answers", "", "read field-path answers from JSON or YAML <file>, or \"-\" for stdin")
 	_ = fs.Bool("yes", false, "accept computed defaults")
 	var exports stringList
 	fs.Var(&exports, "export", "ecosystem=name")
@@ -349,7 +349,7 @@ func (a *App) init(args []string) int {
 	}
 	if !a.yes {
 		if !a.inputIsTerminal() && *answers == "" {
-			fmt.Fprintln(a.Err, "init: non-interactive input; accepting computed defaults (use --answers FILE|- to provide answers)")
+			fmt.Fprintln(a.Err, "init: non-interactive input; accepting computed defaults (pass --answers <file>, or --answers - to read answers from stdin)")
 		}
 	}
 	return a.runInitInterview(initRequest{ID: *id, IDExplicit: idExplicit, Description: *desc, Surface: *surface, Exports: exports, Answers: *answers})

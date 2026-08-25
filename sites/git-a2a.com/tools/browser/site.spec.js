@@ -23,6 +23,25 @@ test('mobile layout has no horizontal overflow', async ({ page }) => {
   expect(dimensions.body).toBe(dimensions.viewport);
 });
 
+test('dependency diagram is symmetric and stacks in narrative order', async ({ page }) => {
+  await page.goto('/');
+  const mobileOrder = await page.locator('.diagram-grid > *, .diagram-column > *, .diagram-flows > *')
+    .evaluateAll(elements => elements
+      .filter(element => getComputedStyle(element).display !== 'contents')
+      .map(element => ({ text: element.textContent.trim(), top: element.getBoundingClientRect().top })));
+  const top = text => mobileOrder.find(item => item.text.includes(text)).top;
+  expect(top('library repo')).toBeLessThan(top('owning agent'));
+  expect(top('owning agent')).toBeLessThan(top('depends on · one locked commit'));
+  expect(top('answer · deliver')).toBeLessThan(top('consumer repo'));
+  expect(top('consumer repo')).toBeLessThan(top('consumer agent'));
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const boxes = page.locator('.diagram-column .diagram-box');
+  const positions = await boxes.evaluateAll(elements => elements.map(element => element.getBoundingClientRect().top));
+  expect(positions[0]).toBeCloseTo(positions[2], 1);
+  expect(positions[1]).toBeCloseTo(positions[3], 1);
+});
+
 test.describe('reduced motion', () => {
   test.use({ reducedMotion: 'reduce' });
 

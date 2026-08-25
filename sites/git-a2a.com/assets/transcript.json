@@ -11,7 +11,7 @@
       "command": "git-a2a init",
       "comment": "# describe this repository",
       "stdout": "",
-      "stderr": "init: non-interactive input; accepting computed defaults (use --answers FILE|- to provide answers)\ninitialized module consumer-app\n",
+      "stderr": "init: non-interactive input; accepting computed defaults (pass --answers <file>, or --answers - to read answers from stdin)\ninitialized module consumer-app\n",
       "render": [
         {
           "stream": "stderr",

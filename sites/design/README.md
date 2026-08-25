@@ -72,42 +72,33 @@ background (Idea, Manifest, Install, footer) and the rest use `--bg`. Vertical s
 H2 + a 15.5px `--fg2` lead, then a panel: `--bg`, 1px `--line`, radius 14px, padding
 `clamp(20px, 3vw, 36px)`.
 
-Inside, a 3-column grid, gap `clamp(12px, 2vw, 28px)`, `align-items:start`:
-`minmax(200px,1fr) minmax(120px,1.1fr) minmax(200px,1fr)`.
+Inside, two symmetric card columns flank a flow plane. Each card column is `minmax(210px,1fr)`;
+the flow plane is `minmax(180px,.9fr)`; gap is `clamp(14px, 2vw, 28px)`.
 
-- **Column 1 (top):** "library repo · git" box — 1px `--line2`, radius 10px, `--bg2`, padding 14px.
-  Micro-label JetBrains Mono 11px `--fg3`; title `acme-lib-utils` mono 13px weight 500; then two
-  file chips (mono 11.5px, padding 5px/8px, radius 6px): `a2amodule.yml` highlighted with a 1px
-  `--acc` border and `--accsoft` background, and `surface/` with a 1px `--line` border in `--fg3`.
-- **Column 1 (connector):** a 1px × 22px `--line2` vertical rule with the label "owns" (mono 10.5px,
-  `--fg3`), indented 14px.
-- **Column 1 (bottom):** "owning agent" box, same styling — title `acme-lib-utils · owner`, then
-  three chips (mono 11px, 1px `--line`, radius 5px, `--fg2`): A2A card, chat, issue.
-- **Column 2 (middle):** `display:flex; flex-direction:column; padding-top:44px; height:100%`.
-  Top group: three arrows, gap 10px. Each arrow is a label above a line:
-  label mono **10px** in **`--acc`**, centered, `letter-spacing:.02em` —
-  **`branch 'main'`**, **`tag 'v1.2.3'`**, **`@9f2c1ab`** in that order;
-  line is a flex row: `flex:1 1 auto; height:1px; background:--acc` plus a CSS-triangle arrowhead
-  (`border-left:6px solid --acc; border-top/bottom:4px solid transparent`) pointing right.
-  Bottom group: `margin-top:auto; padding-bottom:38px` — the "ask" arrow, label mono 10px `--fg3`,
-  line and arrowhead in `--line2`, pointing **left** (`flex-direction:row-reverse`, arrowhead uses
-  `border-right`). It aligns with the owning-agent box.
-- **Column 3:** "consumer repo · your repo" box, `height:100%`, flex column. Title `consumer-app`.
-  Three file chips with 1px `--line` borders in `--fg`: `package.json`, `pyproject.toml`, `go.mod`.
-  Then, pushed to the bottom with `margin-top:auto`, a **dashed** `--line2` chip in `--fg3`:
-  `a2amodule.lock · AGENTS.md`.
-- **Caption** under the grid, separated by 20px padding above a 1px `--line` rule, 14px `--fg2`:
-  "Import the code. Know the owner. Ask the right agent."
+- **Library column:** a `LIBRARY REPO` card titled `acme-lib-utils`, with `a2amodule.yml` and
+  `surface/` chips; a vertical rule labelled `owns`; then an `OWNING AGENT` card titled
+  `acme-lib-utils · owner`, with A2A card, chat, and issue chips.
+- **Consumer column:** a `CONSUMER REPO` card titled `consumer-app`, with `a2amodule.yml`,
+  `package.json`, `pyproject.toml`, `go.mod`, and the dashed `a2amodule.lock · AGENTS.md` chip;
+  a vertical rule labelled `owns`; then a `CONSUMER AGENT` card titled `consumer-app · agent`,
+  with `AGENTS.md roster` and `whom to ask` chips.
+- **Code flow:** one accent arrow points from consumer to library. Its label is
+  `depends on · one locked commit`; the secondary line is
+  `branch 'main' · tag 'v1.2.3' · @9f2c1ab`.
+- **Agent flow:** two neutral arrows align with the agent cards. `ask: question / change / bug`
+  points consumer → owner; `answer · deliver` points owner → consumer.
+- **Caption:** "Repositories reference code. Agents talk. git-a2a keeps both wired."
+
+Boxes retain the established 1px `--line2`, 10px radius, `--bg2`, 14px padding treatment; chips
+retain the established file and agent tokens. Flow labels are centered JetBrains Mono 10px.
 
 Accessibility: the grid wrapper carries `role="img"` and this `aria-label` verbatim —
-"Diagram: the library repository acme-lib-utils holds a2amodule.yml. Three arrows — a branch, a
-tag or a commit, each resolved to one commit — wire it into the consumer repository's
-package.json, pyproject.toml and go.mod. A fourth arrow goes from the consumer to the library's
-owning agent, reachable over A2A, a chat channel or an issue tracker."
+"Diagram: consumer-app depends on one locked commit of acme-lib-utils. Each repository is owned
+by an agent. The consumer agent uses the AGENTS.md roster to ask the owning agent questions,
+request changes, report bugs, and receive answers or delivered changes."
 
-**Responsive:** at narrow widths the three columns stack vertically. The middle arrow column
-should rotate to vertical (arrowheads pointing down) or be replaced by simple vertical connectors
-carrying the same three labels; do not let it collapse to zero height.
+**Responsive:** at 760px and below, stack the library pair, the flow plane, then the consumer pair.
+Arrows become vertical connectors and the diagram must not create horizontal scrolling at 375px.
 
 #### Section 3 — "What you can do"
 Six cards in `grid-template-columns: repeat(auto-fit, minmax(288px, 1fr))` with **`gap:1px` over a
@@ -139,7 +130,7 @@ Two columns, `repeat(auto-fit, minmax(300px, 1fr))`, gap 28px, `align-items:star
 - **Right:** three callouts, gap 14px. Each is a **2px `--acc` left border** with 16px left padding:
   a mono 12.5px `--acc` title, then 14.5px / 1.55 `--fg2` body.
 <!-- generated-facts:design-export:start -->
-  - `exports` — "How to import the module in each ecosystem. 13 native ecosystems today: npm, uv/PyPI, Go, Cargo, SwiftPM, Pub, Bundler, Composer, Mix, Cabal/Stack, Zig, Clojure, Nix."
+  - `exports` — "How to import the module in each ecosystem. Native ecosystems today: npm, uv/PyPI, Go, Cargo, SwiftPM, Pub, Bundler, Composer, Mix, Cabal/Stack, Zig, Clojure, Nix."
 <!-- generated-facts:design-export:end -->
   - `agents + contacts` — "Which agents own which part of the module, and how each one wants to be contacted per kind of request — a question, a change request, a bug."
   - `policy` — "What consumers may and may not do, and which agent handles which intent. `a2amodule.lock` records what was resolved."
@@ -149,7 +140,7 @@ inside itself; the page must never scroll sideways.
 
 #### Section 5 — "Works with what you have"
 <!-- generated-facts:design-works:start -->
-Six generated chip rows, gap 24px. Row labels use the existing mono micro style; chips use the existing pill tokens.
+Generated chip rows use a 24px gap. Row labels use the existing mono micro style; chips use the existing pill tokens.
 - **NATIVE ECOSYSTEMS** — npm · uv/PyPI · Go · Cargo · SwiftPM · Pub · Bundler · Composer · Mix · Cabal/Stack · Zig · Clojure · Nix
 - **BUILD SYSTEMS** — CMake · Gradle · Maven · MSBuild · Meson
 - **AGENT HARNESSES** — Claude Code · Codex · Cursor · GitHub Copilot · Gemini CLI · OpenCode · Hermes Agent · OpenClaw

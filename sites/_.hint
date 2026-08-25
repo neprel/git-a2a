@@ -49,6 +49,16 @@ its prototypes are references, never production markup. IBM Plex Sans and JetBra
 pinned OFL WOFF2 assets. Wordmark glyphs are outlined by the committed CoreText generator,
 size-specific favicons by ImageMagick, and social cards by the committed headless-Chrome template.
 
+# invariant Dependency and ownership diagram is symmetric
+
+The landing diagram has two paired columns: `LIBRARY REPO` above its `OWNING AGENT` and
+`CONSUMER REPO` above its `CONSUMER AGENT`, with both vertical links labelled `owns`. One code
+arrow points consumer to library and says `depends on · one locked commit`; paired agent arrows
+say `ask: question / change / bug` and `answer · deliver`. The consumer is visibly a module through
+its own `a2amodule.yml`, while its agent names the `AGENTS.md roster` as the source of whom to ask.
+At 375px the library pair, flows, and consumer pair stack in that order without horizontal scroll.
+The production page, high-fidelity prototype, and handoff carry the same labels and caption.
+
 # invariant The transcript is real and accessible {#transcript}
 
 `assets/transcript.json` contains real CLI stdout and stderr bytes from the repository's canonical
@@ -92,11 +102,12 @@ The structured data links to the moving Releases page and therefore does not car
 
 # invariant Enumerable integration copy is generated
 
-Counts and lists of native ecosystems, vendored build systems, agent harnesses, distribution
+Lists of native ecosystems, vendored build systems, agent harnesses, distribution
 channels, contact kinds, and projected standards on the landing page come only from the checked
 registry in `tools/gen-reference.py`. The same run updates the root README, `spec/README.md`, the
 high-fidelity prototype, and the design handoff; `site-check` fails on any drift. Do not hand-edit
-those marked blocks or repeat a numeric integration claim outside them.
+those marked blocks or state a numeric total for a public integration list; internal audit documents
+may calculate counts without turning them into durable public copy.
 Because contact kinds compile from normative HINT, the Static site workflow installs the same
 pinned HINT compiler and book versions as CI before invoking `site-check`; its path filter includes
 the registry, adapter tree, setup harness registry, and normative contact source.

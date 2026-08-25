@@ -144,6 +144,13 @@ agent can pass them to any command without discovering command-specific exceptio
 not prompt. Read commands `who`, `show`, `status`, `doctor`, `validate`, `explain`, and `usage`
 offer JSON; output written to a non-TTY contains no ANSI escapes.
 
+# invariant Human stdin guidance is unambiguous
+
+Compact usage signatures may use `FILE|-`, but diagnostics and explanatory flag prose name the two
+forms explicitly: `<file>` for a path and `"-" for stdin`. In particular, non-interactive `init`
+prints `pass --answers <file>, or --answers - to read answers from stdin`, and a missing contact
+message prints `--message <file> (or "-" for stdin)`.
+
 # decision Schema coverage is reported from written YAML, not zero-valued Go fields
 
 `validate --schema-report` augments an ordinary successful validation with schema number and the
