@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -85,6 +86,45 @@ func TestManifestExtension(t *testing.T) {
 	b = append(b, []byte("x-test: yes\n")...)
 	if _, err := Parse(b); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestUnsupportedSchemaHasActionableExactError(t *testing.T) {
+	_, err := Parse([]byte("schema: 2\nmodule: {id: demo}\n"))
+	if err == nil || err.Error() != "schema 2 is newer than this tool supports (1); upgrade git-a2a" {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestSchemaReportListsOnlyPresentOptionalPaths(t *testing.T) {
+	raw := []byte(`schema: 1
+module:
+  id: acme-lib
+  description: ""
+  release:
+    tags: false
+  exports:
+    - ecosystem: npm
+      name: "@acme/lib"
+      notes: stable
+agents: []
+policy:
+  intents: {change: owner}
+x-feature: enabled
+`)
+	schema, features, err := SchemaReport(raw, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if schema != 1 {
+		t.Fatalf("schema = %d", schema)
+	}
+	want := []string{
+		"agents", "module.description", "module.exports", "module.exports[].notes",
+		"module.release", "module.release.tags", "policy", "policy.intents", "x-feature",
+	}
+	if !reflect.DeepEqual(features, want) {
+		t.Fatalf("features = %#v, want %#v", features, want)
 	}
 }
 

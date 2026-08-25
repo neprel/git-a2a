@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -19,7 +20,7 @@ func TestValidatePrintsVerdictFirst(t *testing.T) {
 	var out, errOut bytes.Buffer
 	app := New(&out, &errOut)
 	app.Root = root
-	if code := app.Run([]string{"validate", path}); code != 1 {
+	if code := app.Run([]string{"validate", path}); code != 2 {
 		t.Fatalf("exit %d", code)
 	}
 	first := strings.Split(strings.TrimSpace(errOut.String()), "\n")[0]
@@ -117,7 +118,7 @@ func TestValidateJSONIsStructuredOnSuccessAndFailure(t *testing.T) {
 	}
 	var out, errOut bytes.Buffer
 	app := New(&out, &errOut)
-	if code := app.Run([]string{"validate", valid, invalid, "--json"}); code != 1 {
+	if code := app.Run([]string{"validate", valid, invalid, "--json"}); code != 2 {
 		t.Fatalf("exit %d: %s", code, errOut.String())
 	}
 	var records []validateResult
@@ -126,6 +127,50 @@ func TestValidateJSONIsStructuredOnSuccessAndFailure(t *testing.T) {
 	}
 	if len(records) != 2 || !records[0].Valid || records[1].Valid || records[1].Error == "" {
 		t.Fatalf("records = %#v", records)
+	}
+}
+
+func TestValidateSchemaReportHumanAndJSON(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "a2amodule.yml")
+	if err := os.WriteFile(path, []byte("schema: 1\nmodule:\n  id: demo\n  release: {tags: false}\nagents: []\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out, errOut bytes.Buffer
+	app := New(&out, &errOut)
+	if code := app.Run([]string{"validate", path, "--schema-report"}); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	want := path + ": valid\n  schema: 1\n  feature: agents\n  feature: module.release\n  feature: module.release.tags\n"
+	if out.String() != want {
+		t.Fatalf("output:\n%s\nwant:\n%s", out.String(), want)
+	}
+	out.Reset()
+	errOut.Reset()
+	if code := app.Run([]string{"validate", path, "--schema-report", "--json"}); code != 0 {
+		t.Fatalf("JSON exit %d: %s", code, errOut.String())
+	}
+	var records []validateResult
+	if err := json.Unmarshal(out.Bytes(), &records); err != nil {
+		t.Fatal(err)
+	}
+	if len(records) != 1 || records[0].Schema != 1 || !reflect.DeepEqual(records[0].Features, []string{"agents", "module.release", "module.release.tags"}) {
+		t.Fatalf("records = %#v", records)
+	}
+}
+
+func TestValidateRefusesNewerSchemaWithExitTwo(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "a2amodule.yml")
+	if err := os.WriteFile(path, []byte("schema: 2\nmodule: {id: demo}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out, errOut bytes.Buffer
+	if code := New(&out, &errOut).Run([]string{"validate", path}); code != 2 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	want := path + ": schema 2 is newer than this tool supports (1); upgrade git-a2a"
+	if !strings.Contains(errOut.String(), want) {
+		t.Fatalf("stderr = %q, want %q", errOut.String(), want)
 	}
 }
 

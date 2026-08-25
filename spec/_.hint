@@ -110,7 +110,9 @@ Unknown keys are errors except `x-*`.
 ## field schema
 
 integer; the format version of this file. Value `1` for this specification. A consumer that
-sees a larger value than it knows must refuse the file (exit 2), not guess.
+sees a larger value than it knows must refuse the file (exit 2), not guess, with
+`schema <value> is newer than this tool supports (1); upgrade git-a2a`. A smaller or otherwise
+invalid value is an ordinary validation failure (exit 1).
 
 ## field module
 
@@ -855,6 +857,22 @@ when `release.tags` is true). Candidates: a `module.version` (semver, bumped by 
 `release.compat` notes, or leaving it to the ecosystems' own versioning. Decide during the
 pilots from observed need; until then `update` always reports the old→new commit and the
 manifest diff, and consumers decide.
+
+# decision Schema 1 evolves additively and breaking shapes require migration {#schema_versioning}
+
+Schema `1` may gain only optional fields, optional enum values in vocabularies already declared
+open, and clarifications that preserve every previously valid document's meaning. Removing or
+renaming a field, making an optional field required, closing an open vocabulary, changing a
+default, or changing the meaning/type of a committed value is breaking: it requires schema `2`,
+a `git-a2a migrate` command, and a documented deprecation window during which schema 1 remains
+readable. A consumer must refuse a schema newer than it implements rather than partially apply it.
+
+`git-a2a validate --schema-report` is the portable coverage report for another implementation.
+For every valid manifest or lock it prints the schema number and the sorted set of optional schema
+paths that are actually present. Sequence elements use `[]`; required fields are omitted; an
+explicit empty collection, empty string, or `false` still counts as present. Human output is one
+file followed by feature lines; JSON adds `schema` and `features` to each ordinary validation
+record. The report reads only the requested files and remains deterministic.
 
 # invariant Validation never depends on the network
 

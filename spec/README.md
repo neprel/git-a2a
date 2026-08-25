@@ -23,7 +23,7 @@ Agent and operator integration is collected in [For agents](../docs/agents.md).
 
 ## Manifest
 
-Top-level keys use this canonical order: `schema`, `module`, `agents`, `policy`,
+Top-level keys use this canonical order: `schema`, `module`, `agents`, `policy`, `settings`,
 `dependencies`, then extension keys. `schema` is `1`. `module.id` is the only other
 required field.
 
@@ -45,6 +45,15 @@ required field.
 
 Unknown vocabulary values—roles, intents, contact kinds, and ecosystems—are valid.
 Unknown object keys are invalid unless they start with `x-`.
+
+## Schema evolution
+
+Schema 1 evolves additively: new fields are optional and existing valid documents retain their
+meaning. Removing or renaming a field, making it required, closing an open vocabulary, changing a
+default, or changing a committed value's type/meaning requires schema 2, a `git-a2a migrate`
+command, and a documented deprecation window. A tool refuses a newer schema instead of guessing.
+`git-a2a validate --schema-report` lists the optional schema paths a document actually uses so a
+second implementation can state its coverage precisely.
 
 ## Vendored dependencies
 

@@ -17,14 +17,16 @@ declared object boundary and are preserved; other unknown keys are validation er
 Behavior and consequence:
 
 integer; the format version of this file. Value `1` for this specification. A consumer that
-sees a larger value than it knows must refuse the file (exit 2), not guess.
+sees a larger value than it knows must refuse the file (exit 2), not guess, with
+`schema <value> is newer than this tool supports (1); upgrade git-a2a`. A smaller or otherwise
+invalid value is an ordinary validation failure (exit 1).
 
 ## `module`
 
 - Type: object; required.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:115`](../spec/_.hint#L115).
+- Normative source: [`spec/_.hint:117`](../spec/_.hint#L117).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -36,7 +38,7 @@ object; the module description. See [#module](../spec/_.hint).
 - Type: array of object; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:119`](../spec/_.hint#L119).
+- Normative source: [`spec/_.hint:121`](../spec/_.hint#L121).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -49,7 +51,7 @@ as a plain library" — still importable, nobody to ask.
 - Type: object; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:124`](../spec/_.hint#L124).
+- Normative source: [`spec/_.hint:126`](../spec/_.hint#L126).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -61,7 +63,7 @@ object, see [#policy](../spec/_.hint). Routing defaults and consumer permissions
 - Type: object; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:128`](../spec/_.hint#L128).
+- Normative source: [`spec/_.hint:130`](../spec/_.hint#L130).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -74,7 +76,7 @@ these settings from a consumer.
 - Type: array of object; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:133`](../spec/_.hint#L133).
+- Normative source: [`spec/_.hint:135`](../spec/_.hint#L135).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -86,7 +88,7 @@ list, see [#dependency](../spec/_.hint). Modules this module depends on.
 - Type: string; required.
 - Default: none declared.
 - Allowed values: pattern `^[a-z0-9][a-z0-9._-]{0,63}$`.
-- Normative source: [`spec/_.hint:175`](../spec/_.hint#L175).
+- Normative source: [`spec/_.hint:177`](../spec/_.hint#L177).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -101,7 +103,7 @@ breaking change for every consumer.
 - Type: string; optional.
 - Default: `module.id`.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:182`](../spec/_.hint#L182).
+- Normative source: [`spec/_.hint:184`](../spec/_.hint#L184).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -113,7 +115,7 @@ string. Display name. Defaults to `id`.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:186`](../spec/_.hint#L186).
+- Normative source: [`spec/_.hint:188`](../spec/_.hint#L188).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -127,7 +129,7 @@ expects. Whitespace is normalised when rendered.
 - Type: array of string; optional.
 - Default: none declared.
 - Allowed values: open vocabulary; see the known-values table in this entry.
-- Normative source: [`spec/_.hint:192`](../spec/_.hint#L192).
+- Normative source: [`spec/_.hint:194`](../spec/_.hint#L194).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -150,7 +152,7 @@ Known values:
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: minimum length 1.
-- Normative source: [`spec/_.hint:198`](../spec/_.hint#L198).
+- Normative source: [`spec/_.hint:200`](../spec/_.hint#L200).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -163,7 +165,7 @@ published beyond the manifest.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:203`](../spec/_.hint#L203).
+- Normative source: [`spec/_.hint:205`](../spec/_.hint#L205).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -178,7 +180,7 @@ to whoever maintains the copy. Informative; never used to fetch.
 - Type: object; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:210`](../spec/_.hint#L210).
+- Normative source: [`spec/_.hint:212`](../spec/_.hint#L212).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -193,7 +195,7 @@ source silently.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:217`](../spec/_.hint#L217).
+- Normative source: [`spec/_.hint:219`](../spec/_.hint#L219).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -205,7 +207,7 @@ string; URL of human documentation.
 - Type: object; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:221`](../spec/_.hint#L221).
+- Normative source: [`spec/_.hint:223`](../spec/_.hint#L223).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -220,7 +222,7 @@ module without naming one.
 - Type: array of object; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:228`](../spec/_.hint#L228).
+- Normative source: [`spec/_.hint:230`](../spec/_.hint#L230).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -239,7 +241,7 @@ dist"). Ecosystem-specific keys are allowed under `x-<ecosystem>-*`.
 - Type: string; required.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:244`](../spec/_.hint#L244).
+- Normative source: [`spec/_.hint:246`](../spec/_.hint#L246).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -252,7 +254,7 @@ consumers remain on the current source until an explicit `set --git`.
 - Type: string; optional.
 - Default: `.`.
 - Allowed values: minimum length 1.
-- Normative source: [`spec/_.hint:249`](../spec/_.hint#L249).
+- Normative source: [`spec/_.hint:251`](../spec/_.hint#L251).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -265,7 +267,7 @@ it changes the destination module root offered with the new Git URL.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:254`](../spec/_.hint#L254).
+- Normative source: [`spec/_.hint:256`](../spec/_.hint#L256).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -278,7 +280,7 @@ the guidance, never the source automatically.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:263`](../spec/_.hint#L263).
+- Normative source: [`spec/_.hint:265`](../spec/_.hint#L265).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -291,7 +293,7 @@ Changing it affects future adds; existing consumers retain their declared ref un
 - Type: boolean; optional.
 - Default: `false`.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:268`](../spec/_.hint#L268).
+- Normative source: [`spec/_.hint:270`](../spec/_.hint#L270).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -304,7 +306,7 @@ Changing it changes what consumers may reasonably select with `set --ref`; it do
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:273`](../spec/_.hint#L273).
+- Normative source: [`spec/_.hint:275`](../spec/_.hint#L275).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -317,7 +319,7 @@ only and does not resolve or move a dependency.
 - Type: string; required.
 - Default: none declared.
 - Allowed values: minimum length 1; open vocabulary; see the known-values table in this entry.
-- Normative source: [`spec/_.hint:282`](../spec/_.hint#L282).
+- Normative source: [`spec/_.hint:284`](../spec/_.hint#L284).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -341,7 +343,7 @@ Known values:
 - Type: string; required.
 - Default: none declared.
 - Allowed values: minimum length 1.
-- Normative source: [`spec/_.hint:288`](../spec/_.hint#L288).
+- Normative source: [`spec/_.hint:290`](../spec/_.hint#L290).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -354,7 +356,7 @@ consumer from the old native entry to the new one on the next mutation or `wire`
 - Type: string; optional.
 - Default: the module directory (`.`).
 - Allowed values: minimum length 1.
-- Normative source: [`spec/_.hint:293`](../spec/_.hint#L293).
+- Normative source: [`spec/_.hint:295`](../spec/_.hint#L295).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -367,7 +369,7 @@ Changing it changes the Git subdirectory expression; unsupported adapters report
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:298`](../spec/_.hint#L298).
+- Normative source: [`spec/_.hint:300`](../spec/_.hint#L300).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -380,7 +382,7 @@ guidance but does not itself alter adapter behavior.
 - Type: string; required.
 - Default: none declared.
 - Allowed values: minimum length 1.
-- Normative source: [`spec/_.hint:307`](../spec/_.hint#L307).
+- Normative source: [`spec/_.hint:309`](../spec/_.hint#L309).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -398,7 +400,7 @@ on a bare name being globally unique.
 - Type: string; required.
 - Default: none declared.
 - Allowed values: minimum length 1; open vocabulary; see the known-values table in this entry.
-- Normative source: [`spec/_.hint:317`](../spec/_.hint#L317).
+- Normative source: [`spec/_.hint:319`](../spec/_.hint#L319).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -422,7 +424,7 @@ Known values:
 - Type: array of string; optional.
 - Default: `["**"]`.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:323`](../spec/_.hint#L323).
+- Normative source: [`spec/_.hint:325`](../spec/_.hint#L325).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -436,7 +438,7 @@ then declared order.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: minimum length 1.
-- Normative source: [`spec/_.hint:329`](../spec/_.hint#L329).
+- Normative source: [`spec/_.hint:331`](../spec/_.hint#L331).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -450,7 +452,7 @@ the authority for `description`, `skills`, interfaces and security; git-a2a snap
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:335`](../spec/_.hint#L335).
+- Normative source: [`spec/_.hint:337`](../spec/_.hint#L337).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -463,7 +465,7 @@ ask it about …"). Never a copy of the card's description.
 - Type: array of object; optional.
 - Default: none declared.
 - Allowed values: open vocabulary; see the known-values table in this entry.
-- Normative source: [`spec/_.hint:340`](../spec/_.hint#L340).
+- Normative source: [`spec/_.hint:342`](../spec/_.hint#L342).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -478,7 +480,7 @@ on"), plus kind-specific keys. Order expresses preference within an intent.
 - Type: object; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:347`](../spec/_.hint#L347).
+- Normative source: [`spec/_.hint:349`](../spec/_.hint#L349).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -509,7 +511,7 @@ consumer requires `card-origin`, a warning otherwise.
 - Type: array of string; required.
 - Default: none declared.
 - Allowed values: minimum 1 item(s); open vocabulary; see the known-values table in this entry.
-- Normative source: [`spec/_.hint:375`](../spec/_.hint#L375).
+- Normative source: [`spec/_.hint:377`](../spec/_.hint#L377).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -534,7 +536,7 @@ Known values:
 - Type: string; required.
 - Default: none declared.
 - Allowed values: minimum length 1; open vocabulary; see the known-values table in this entry.
-- Normative source: [`spec/_.hint:381`](../spec/_.hint#L381).
+- Normative source: [`spec/_.hint:383`](../spec/_.hint#L383).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -584,7 +586,7 @@ record and by `contact --list-drivers`.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:387`](../spec/_.hint#L387).
+- Normative source: [`spec/_.hint:389`](../spec/_.hint#L389).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -597,7 +599,7 @@ guidance, not routing priority or delivery mechanics.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:392`](../spec/_.hint#L392).
+- Normative source: [`spec/_.hint:394`](../spec/_.hint#L394).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -611,7 +613,7 @@ place non-message placeholders only in query values according to `contact_placeh
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:398`](../spec/_.hint#L398).
+- Normative source: [`spec/_.hint:400`](../spec/_.hint#L400).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -624,7 +626,7 @@ the A2A target skill without changing the endpoint.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:403`](../spec/_.hint#L403).
+- Normative source: [`spec/_.hint:405`](../spec/_.hint#L405).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -637,7 +639,7 @@ instruction; the reference CLI does not send email.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:408`](../spec/_.hint#L408).
+- Normative source: [`spec/_.hint:410`](../spec/_.hint#L410).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -650,7 +652,7 @@ the printed instruction.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:413`](../spec/_.hint#L413).
+- Normative source: [`spec/_.hint:415`](../spec/_.hint#L415).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -664,7 +666,7 @@ where the issue driver delivers the request.
 - Type: array of string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:419`](../spec/_.hint#L419).
+- Normative source: [`spec/_.hint:421`](../spec/_.hint#L421).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -677,7 +679,7 @@ created; a missing label is a delivery error from the host.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:424`](../spec/_.hint#L424).
+- Normative source: [`spec/_.hint:426`](../spec/_.hint#L426).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -690,7 +692,7 @@ template without changing routing.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:469`](../spec/_.hint#L469).
+- Normative source: [`spec/_.hint:471`](../spec/_.hint#L471).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -703,7 +705,7 @@ instruction.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:429`](../spec/_.hint#L429).
+- Normative source: [`spec/_.hint:431`](../spec/_.hint#L431).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -716,7 +718,7 @@ instruction.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:474`](../spec/_.hint#L474).
+- Normative source: [`spec/_.hint:476`](../spec/_.hint#L476).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -729,7 +731,7 @@ instruction.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:479`](../spec/_.hint#L479).
+- Normative source: [`spec/_.hint:481`](../spec/_.hint#L481).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -742,7 +744,7 @@ destination; chat contacts are instruction-only.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:484`](../spec/_.hint#L484).
+- Normative source: [`spec/_.hint:486`](../spec/_.hint#L486).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -755,7 +757,7 @@ told to address.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:489`](../spec/_.hint#L489).
+- Normative source: [`spec/_.hint:491`](../spec/_.hint#L491).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -768,7 +770,7 @@ printed chat destination.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:434`](../spec/_.hint#L434).
+- Normative source: [`spec/_.hint:436`](../spec/_.hint#L436).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -781,7 +783,7 @@ HTTP request method.
 - Type: object; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:439`](../spec/_.hint#L439).
+- Normative source: [`spec/_.hint:441`](../spec/_.hint#L441).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -794,7 +796,7 @@ and git-a2a never adds credentials from the declaration or consumer environment.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:444`](../spec/_.hint#L444).
+- Normative source: [`spec/_.hint:446`](../spec/_.hint#L446).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -807,7 +809,7 @@ escaping when it contains `json`.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:449`](../spec/_.hint#L449).
+- Normative source: [`spec/_.hint:451`](../spec/_.hint#L451).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -820,7 +822,7 @@ string template, optional for `http`. It may use every value in `contact_placeho
 - Type: array of string; optional.
 - Default: none declared.
 - Allowed values: minimum 1 item(s).
-- Normative source: [`spec/_.hint:454`](../spec/_.hint#L454).
+- Normative source: [`spec/_.hint:456`](../spec/_.hint#L456).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -833,7 +835,7 @@ remaining items are argv entries. It is never interpreted by a shell.
 - Type: array of string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:459`](../spec/_.hint#L459).
+- Normative source: [`spec/_.hint:461`](../spec/_.hint#L461).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -846,7 +848,7 @@ placeholder in `contact_placeholders`; changing it changes argv only.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:464`](../spec/_.hint#L464).
+- Normative source: [`spec/_.hint:466`](../spec/_.hint#L466).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -859,7 +861,7 @@ and is passed as stdin without shell or environment expansion.
 - Type: boolean; optional.
 - Default: `false`.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:498`](../spec/_.hint#L498).
+- Normative source: [`spec/_.hint:500`](../spec/_.hint#L500).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -872,7 +874,7 @@ cards make `status` fail and make `update` warn while retaining the dependency u
 - Type: boolean; optional.
 - Default: unstated.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:503`](../spec/_.hint#L503).
+- Normative source: [`spec/_.hint:505`](../spec/_.hint#L505).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -887,7 +889,7 @@ agent "(external requests not accepted)". Organisation = origin host plus first 
 - Type: array of string; optional.
 - Default: no pinned JWKS sources.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:510`](../spec/_.hint#L510).
+- Normative source: [`spec/_.hint:512`](../spec/_.hint#L512).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -901,7 +903,7 @@ subject to lock key-change review.
 - Type: array of string; optional.
 - Default: no pinned key thumbprints.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:516`](../spec/_.hint#L516).
+- Normative source: [`spec/_.hint:518`](../spec/_.hint#L518).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -914,7 +916,7 @@ of these pins regardless of JWKS URL. Changing the list changes the exact accept
 - Type: array of string; optional.
 - Default: repository/card binding rules.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:521`](../spec/_.hint#L521).
+- Normative source: [`spec/_.hint:523`](../spec/_.hint#L523).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -927,7 +929,7 @@ one of these origins. Changing it changes the allowed network identity of the ag
 - Type: string; optional.
 - Default: `24h`.
 - Allowed values: minimum length 1.
-- Normative source: [`spec/_.hint:526`](../spec/_.hint#L526).
+- Normative source: [`spec/_.hint:528`](../spec/_.hint#L528).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -941,7 +943,7 @@ recoverable status.
 - Type: object; optional.
 - Default: unlisted intents route to `owner`.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:591`](../spec/_.hint#L591).
+- Normative source: [`spec/_.hint:593`](../spec/_.hint#L593).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -975,7 +977,7 @@ Known values:
 - Type: object; optional.
 - Default: none declared.
 - Allowed values: open vocabulary; see the known-values table in this entry.
-- Normative source: [`spec/_.hint:598`](../spec/_.hint#L598).
+- Normative source: [`spec/_.hint:600`](../spec/_.hint#L600).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -990,7 +992,7 @@ consumer's roster block so an agent sees the boundary before it acts. Defaults w
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:605`](../spec/_.hint#L605).
+- Normative source: [`spec/_.hint:607`](../spec/_.hint#L607).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -1002,7 +1004,7 @@ string. Anything else consumers must know, verbatim.
 - Type: array of string; optional.
 - Default: `[read-surface, ask]`.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:613`](../spec/_.hint#L613).
+- Normative source: [`spec/_.hint:615`](../spec/_.hint#L615).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -1025,7 +1027,7 @@ Known values:
 - Type: array of string; optional.
 - Default: `[commit]`.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:619`](../spec/_.hint#L619).
+- Normative source: [`spec/_.hint:621`](../spec/_.hint#L621).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -1048,7 +1050,7 @@ Known values:
 - Type: string; optional.
 - Default: `deps`.
 - Allowed values: minimum length 1.
-- Normative source: [`spec/_.hint:141`](../spec/_.hint#L141).
+- Normative source: [`spec/_.hint:143`](../spec/_.hint#L143).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -1063,7 +1065,7 @@ explicit `vendor.path` values remain unchanged. It obeys all vendored-path safet
 - Type: array of string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:148`](../spec/_.hint#L148).
+- Normative source: [`spec/_.hint:150`](../spec/_.hint#L150).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -1076,7 +1078,7 @@ Changing the list changes sync destinations, not dependency resolution or vendor
 - Type: array of string; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:153`](../spec/_.hint#L153).
+- Normative source: [`spec/_.hint:155`](../spec/_.hint#L155).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -1091,7 +1093,7 @@ the external-contact boundary used by `contact`.
 - Type: object; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:160`](../spec/_.hint#L160).
+- Normative source: [`spec/_.hint:162`](../spec/_.hint#L162).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -1108,7 +1110,7 @@ versioned by the consumer — never by the dependency. Defaults: empty, meaning 
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: pattern `^[a-z0-9][a-z0-9._-]{0,63}$`.
-- Normative source: [`spec/_.hint:629`](../spec/_.hint#L629).
+- Normative source: [`spec/_.hint:631`](../spec/_.hint#L631).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -1121,7 +1123,7 @@ manifest); the lock is keyed on it.
 - Type: string; required.
 - Default: none declared.
 - Allowed values: minimum length 1.
-- Normative source: [`spec/_.hint:634`](../spec/_.hint#L634).
+- Normative source: [`spec/_.hint:636`](../spec/_.hint#L636).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -1134,7 +1136,7 @@ Stored exactly as given; credentials are never stored.
 - Type: string; optional.
 - Default: the owner's `release.channel`, otherwise remote HEAD.
 - Allowed values: minimum length 1.
-- Normative source: [`spec/_.hint:639`](../spec/_.hint#L639).
+- Normative source: [`spec/_.hint:641`](../spec/_.hint#L641).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -1153,7 +1155,7 @@ the new source and pin together.
 - Type: string; optional.
 - Default: `.`.
 - Allowed values: minimum length 1.
-- Normative source: [`spec/_.hint:650`](../spec/_.hint#L650).
+- Normative source: [`spec/_.hint:652`](../spec/_.hint#L652).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -1165,7 +1167,7 @@ string. Subdirectory containing the dependency's `a2amodule.yml` (monorepo). Def
 - Type: string; optional.
 - Default: `locked`.
 - Allowed values: one of `locked`, `floating`.
-- Normative source: [`spec/_.hint:654`](../spec/_.hint#L654).
+- Normative source: [`spec/_.hint:656`](../spec/_.hint#L656).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -1186,7 +1188,7 @@ Known values:
 - Type: array of string; optional.
 - Default: all matching detected ecosystems.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:660`](../spec/_.hint#L660).
+- Normative source: [`spec/_.hint:662`](../spec/_.hint#L662).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -1205,7 +1207,7 @@ dependency is a state the tool can always see and always fix, never one it hides
 - Type: object; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:671`](../spec/_.hint#L671).
+- Normative source: [`spec/_.hint:673`](../spec/_.hint#L673).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -1218,7 +1220,7 @@ the locked source tree in this consumer; a dependency is never vendored implicit
 - Type: object; optional.
 - Default: none declared.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:676`](../spec/_.hint#L676).
+- Normative source: [`spec/_.hint:678`](../spec/_.hint#L678).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -1231,7 +1233,7 @@ locking or contacting this dependency. Defaults preserve the permissive behavior
 - Type: string; optional.
 - Default: `any`.
 - Allowed values: one of `any`, `signed`.
-- Normative source: [`spec/_.hint:689`](../spec/_.hint#L689).
+- Normative source: [`spec/_.hint:691`](../spec/_.hint#L691).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -1245,7 +1247,7 @@ the check on the next mutation and on `status`; unknown values are rejected.
 - Type: string; optional.
 - Default: none declared.
 - Allowed values: minimum length 1.
-- Normative source: [`spec/_.hint:695`](../spec/_.hint#L695).
+- Normative source: [`spec/_.hint:697`](../spec/_.hint#L697).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -1259,7 +1261,7 @@ Changing it changes the trusted SSH/GPG signer set. A failed check leaves the lo
 - Type: string; optional.
 - Default: `any`.
 - Allowed values: one of `any`, `signed`.
-- Normative source: [`spec/_.hint:701`](../spec/_.hint#L701).
+- Normative source: [`spec/_.hint:703`](../spec/_.hint#L703).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -1273,7 +1275,7 @@ are accepted; unknown values are rejected.
 - Type: boolean; optional.
 - Default: `false`.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:707`](../spec/_.hint#L707).
+- Normative source: [`spec/_.hint:709`](../spec/_.hint#L709).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -1286,7 +1288,7 @@ rather than a warning. Changing it changes mismatch severity, not the origin com
 - Type: string; optional.
 - Default: `submodule`.
 - Allowed values: one of `submodule`, `copy`.
-- Normative source: [`spec/_.hint:721`](../spec/_.hint#L721).
+- Normative source: [`spec/_.hint:723`](../spec/_.hint#L723).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -1300,7 +1302,7 @@ one representation with the other transactionally; unknown values are rejected.
 - Type: string; optional.
 - Default: `<settings.vendor-dir>/<dependency-id>`.
 - Allowed values: minimum length 1.
-- Normative source: [`spec/_.hint:727`](../spec/_.hint#L727).
+- Normative source: [`spec/_.hint:729`](../spec/_.hint#L729).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:
@@ -1317,7 +1319,7 @@ reports violations and never silently rewrites the path.
 - Type: boolean; optional.
 - Default: `false`.
 - Allowed values: schema type plus the normative behavior in this entry.
-- Normative source: [`spec/_.hint:736`](../spec/_.hint#L736).
+- Normative source: [`spec/_.hint:738`](../spec/_.hint#L738).
 - Example: see the [public library manifest](https://github.com/neprel/git-a2a-demo-acme-lib/blob/main/a2amodule.yml) and [consumer manifest](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/a2amodule.yml).
 
 Behavior and consequence:

@@ -166,7 +166,7 @@ func (a *App) commandUsage(command string) {
 	type help struct{ usage, example string }
 	helpByCommand := map[string]help{
 		"init":           {"git-a2a init [--id ID] [--description TEXT] [--surface DIR] [--export ECOSYSTEM=NAME] [--example lib|app]", "git-a2a init --id consumer-app --yes"},
-		"validate":       {"git-a2a validate [FILE ...] [--json]", "git-a2a validate a2amodule.yml --json"},
+		"validate":       {"git-a2a validate [FILE ...] [--json] [--schema-report]", "git-a2a validate a2amodule.yml --schema-report"},
 		"add":            {"git-a2a add URL [--id ID] [--path DIR] [--track locked|floating] [--wire LIST|--no-wire] [--vendor submodule|copy] [--vendor-path PATH] [--no-refresh] [--insecure-skip-signers]", "git-a2a add https://github.com/acme/lib.git --vendor submodule"},
 		"set":            {"git-a2a set ID [--git URL] [--ref REF] [--path DIR] [--track locked|floating] [--id NEW-ID] [--vendor submodule|copy|--no-vendor] [--vendor-path PATH] [--force] [--dry-run] [--no-refresh] [--insecure-skip-signers]", "git-a2a set acme-lib --vendor copy"},
 		"pin":            {"git-a2a pin ID [COMMIT] [--no-refresh]", "git-a2a pin acme-lib"},
@@ -446,17 +446,24 @@ func ensureIgnored(root string) error {
 }
 
 type validateResult struct {
-	Path  string `json:"path"`
-	Valid bool   `json:"valid"`
-	Error string `json:"error,omitempty"`
+	Path     string   `json:"path"`
+	Valid    bool     `json:"valid"`
+	Error    string   `json:"error,omitempty"`
+	Schema   int      `json:"schema,omitempty"`
+	Features []string `json:"features,omitempty"`
 }
 
 func (a *App) validate(args []string) int {
 	jsonOutput := false
+	schemaReport := false
 	paths := make([]string, 0, len(args))
 	for _, arg := range args {
 		if arg == "--json" {
 			jsonOutput = true
+			continue
+		}
+		if arg == "--schema-report" {
+			schemaReport = true
 			continue
 		}
 		if strings.HasPrefix(arg, "-") {
@@ -478,24 +485,55 @@ func (a *App) validate(args []string) int {
 		return 2
 	}
 	failed := false
+	unsupported := false
 	var details []string
 	results := make([]validateResult, 0, len(paths))
 	for _, p := range paths {
 		var err error
-		if strings.HasSuffix(p, ".lock") {
+		isLock := strings.HasSuffix(p, ".lock")
+		if isLock {
 			_, err = manifest.LoadLock(p)
 		} else {
 			_, err = manifest.Load(p)
 		}
 		if err != nil {
 			failed = true
+			var schemaErr *manifest.UnsupportedSchemaError
+			if errors.As(err, &schemaErr) {
+				unsupported = true
+			}
 			details = append(details, fmt.Sprintf("%s: %v", p, err))
 			results = append(results, validateResult{Path: p, Valid: false, Error: err.Error()})
-		} else if !jsonOutput {
-			fmt.Fprintf(a.Out, "%s: valid\n", p)
-			results = append(results, validateResult{Path: p, Valid: true})
 		} else {
-			results = append(results, validateResult{Path: p, Valid: true})
+			result := validateResult{Path: p, Valid: true}
+			if schemaReport {
+				body, readErr := os.ReadFile(p)
+				if readErr != nil {
+					err = readErr
+				} else {
+					result.Schema, result.Features, err = manifest.SchemaReport(body, isLock)
+				}
+				if err != nil {
+					failed = true
+					result.Valid = false
+					result.Error = err.Error()
+					details = append(details, fmt.Sprintf("%s: %v", p, err))
+				}
+			}
+			results = append(results, result)
+			if !jsonOutput && result.Valid {
+				fmt.Fprintf(a.Out, "%s: valid\n", p)
+				if schemaReport {
+					fmt.Fprintf(a.Out, "  schema: %d\n", result.Schema)
+					if len(result.Features) == 0 {
+						fmt.Fprintln(a.Out, "  features: none")
+					} else {
+						for _, feature := range result.Features {
+							fmt.Fprintf(a.Out, "  feature: %s\n", feature)
+						}
+					}
+				}
+			}
 		}
 	}
 	if jsonOutput {
@@ -506,6 +544,9 @@ func (a *App) validate(args []string) int {
 		fmt.Fprintf(a.Err, "%d file(s): validation failed\n", len(paths))
 		for _, detail := range details {
 			fmt.Fprintln(a.Err, detail)
+		}
+		if unsupported {
+			return 2
 		}
 		return 1
 	}

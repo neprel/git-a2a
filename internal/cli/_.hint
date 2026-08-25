@@ -129,6 +129,14 @@ agent can pass them to any command without discovering command-specific exceptio
 not prompt. Read commands `who`, `show`, `status`, `doctor`, `validate`, `explain`, and `usage`
 offer JSON; output written to a non-TTY contains no ANSI escapes.
 
+# decision Schema coverage is reported from written YAML, not zero-valued Go fields
+
+`validate --schema-report` augments an ordinary successful validation with schema number and the
+sorted optional schema paths explicitly present in each manifest or lock. It walks `yaml.Node` so
+an authored `false`, empty string, or empty collection remains visible; sequence indices normalize
+to `[]`. A schema newer than `manifest.CurrentSchema` is a typed refusal with exit 2 and the exact
+upgrade diagnostic defined by the spec, while older/invalid values remain exit 1.
+
 # decision MCP is a thin command-scoped projection of the CLI
 
 `git-a2a mcp` is a stateless stdio server built on the official Go SDK v1.7.x. It opens no

@@ -28,14 +28,24 @@ initialized lib example module acme-lib
 
 ## validate
 
-`git-a2a validate [FILE ...] [--json]` validates manifests and locks; without paths it checks the
-files in the current module. `--json` emits one structured result per requested file, including
-validation errors. Invalid files exit `1`; an empty subject set exits `2`.
+`git-a2a validate [FILE ...] [--json] [--schema-report]` validates manifests and locks; without
+paths it checks the files in the current module. `--schema-report` adds the schema number and a
+sorted list of optional schema paths that the file actually uses; sequence elements use `[]`.
+With `--json`, those values are `schema` and `features` on each structured result. Invalid files
+exit `1`; a schema newer than the tool is refused with an upgrade diagnostic and exits `2`; an
+empty subject set also exits `2`.
 
 ```text
 $ git-a2a validate
 a2amodule.yml: valid
 1 file(s): valid
+```
+
+```text
+$ git-a2a validate a2amodule.yml --schema-report
+a2amodule.yml: valid
+  schema: 1
+  feature: module.exports
 ```
 
 ## add

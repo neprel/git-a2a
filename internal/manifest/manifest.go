@@ -22,6 +22,16 @@ var (
 	treePattern   = regexp.MustCompile(`^tree:[0-9a-f]{40}$`)
 )
 
+const CurrentSchema = 1
+
+type UnsupportedSchemaError struct {
+	Schema int
+}
+
+func (e *UnsupportedSchemaError) Error() string {
+	return fmt.Sprintf("schema %d is newer than this tool supports (%d); upgrade git-a2a", e.Schema, CurrentSchema)
+}
+
 func Load(path string) (*Manifest, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -58,8 +68,10 @@ func LoadLock(path string) (*Lock, error) {
 
 func (m *Manifest) Validate() error {
 	var errs []error
-	if m.Schema != 1 {
-		errs = append(errs, fmt.Errorf("schema: must equal 1"))
+	if m.Schema > CurrentSchema {
+		errs = append(errs, &UnsupportedSchemaError{Schema: m.Schema})
+	} else if m.Schema != CurrentSchema {
+		errs = append(errs, fmt.Errorf("schema: must equal %d", CurrentSchema))
 	}
 	if !idPattern.MatchString(m.Module.ID) {
 		errs = append(errs, fmt.Errorf("module.id: must match %s", idPattern))
@@ -342,8 +354,10 @@ func validateTemplate(path, value string, allowMessage bool, errs *[]error) {
 
 func (l *Lock) Validate() error {
 	var errs []error
-	if l.Schema != 1 {
-		errs = append(errs, fmt.Errorf("schema: must equal 1"))
+	if l.Schema > CurrentSchema {
+		errs = append(errs, &UnsupportedSchemaError{Schema: l.Schema})
+	} else if l.Schema != CurrentSchema {
+		errs = append(errs, fmt.Errorf("schema: must equal %d", CurrentSchema))
 	}
 	if l.Dependencies == nil {
 		errs = append(errs, fmt.Errorf("dependencies: required"))
