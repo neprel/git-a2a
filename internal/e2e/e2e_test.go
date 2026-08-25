@@ -1428,6 +1428,88 @@ func TestPlainDependencyDegradesEveryCommandWithoutFailure(t *testing.T) {
 	run(0, "remove", "acme-plain")
 }
 
+func TestPlainDependencyShimWiresRoutesAndYieldsToUpstream(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "source")
+	bare := filepath.Join(tmp, "acme-shimmed.git")
+	consumer := filepath.Join(tmp, "consumer")
+	mustMkdir(t, source)
+	git(t, source, "init", "-b", "main")
+	git(t, source, "config", "user.email", "test@example.com")
+	git(t, source, "config", "user.name", "Test")
+	mustWrite(t, filepath.Join(source, "package.json"), []byte("{\"name\":\"@acme/shimmed\",\"version\":\"1.0.0\"}\n"))
+	git(t, source, "add", "package.json")
+	git(t, source, "commit", "-m", "plain source")
+	git(t, tmp, "clone", "--bare", source, bare)
+	mustMkdir(t, consumer)
+	git(t, consumer, "init", "-b", "main")
+	mustWrite(t, filepath.Join(consumer, "package.json"), []byte("{\"name\":\"consumer-app\",\"version\":\"1.0.0\"}\n"))
+	mustWrite(t, filepath.Join(consumer, "a2amodule.yml"), []byte(`schema: 1
+module: {id: consumer-app}
+dependencies:
+  - id: acme-shimmed
+    git: file://`+bare+`
+    ref: main
+    shim:
+      notes: Adopted before the dependency published a manifest.
+      exports:
+        - ecosystem: npm
+          name: "@acme/shimmed"
+      agents:
+        - name: acme-maintainer
+          role: owner
+          scope: ["**"]
+          contacts:
+            - intents: [question]
+              kind: url
+              url: https://example.test/acme-shimmed
+`))
+	var out, errOut bytes.Buffer
+	app := cli.New(&out, &errOut)
+	app.Root = consumer
+	run := func(want int, args ...string) (string, string) {
+		t.Helper()
+		out.Reset()
+		errOut.Reset()
+		code := app.Run(args)
+		if code != want {
+			t.Fatalf("%v exit %d want %d\nstdout=%s\nstderr=%s", args, code, want, out.String(), errOut.String())
+		}
+		return out.String(), errOut.String()
+	}
+	if _, stderr := run(0, "add", "file://"+bare, "--no-refresh"); !strings.Contains(stderr, "using consumer-authored shim metadata") {
+		t.Fatalf("add stderr = %q", stderr)
+	}
+	packageJSON, _ := os.ReadFile(filepath.Join(consumer, "package.json"))
+	if !strings.Contains(string(packageJSON), `"@acme/shimmed"`) {
+		t.Fatalf("shim was not wired: %s", packageJSON)
+	}
+	if stdout, _ := run(0, "who", "acme-shimmed", "--intent", "question"); !strings.Contains(stdout, "acme-maintainer (owner)") {
+		t.Fatalf("who output = %q", stdout)
+	}
+	message := filepath.Join(tmp, "message.txt")
+	mustWrite(t, message, []byte("Need help\n"))
+	if stdout, _ := run(0, "contact", "acme-shimmed", "--intent", "question", "--message", message); !strings.Contains(stdout, "https://example.test/acme-shimmed") {
+		t.Fatalf("contact output = %q", stdout)
+	}
+	run(0, "sync")
+	roster, _ := os.ReadFile(filepath.Join(consumer, "AGENTS.md"))
+	if !strings.Contains(string(roster), "described by this repository's shim, not by the dependency") {
+		t.Fatalf("roster = %s", roster)
+	}
+
+	mustWrite(t, filepath.Join(source, "a2amodule.yml"), []byte("schema: 1\nmodule:\n  id: acme-shimmed\n  exports:\n    - ecosystem: npm\n      name: '@acme/upstream'\n"))
+	git(t, source, "add", "a2amodule.yml")
+	git(t, source, "commit", "-m", "publish upstream manifest")
+	git(t, source, "push", "file://"+bare, "main")
+	if _, stderr := run(0, "update", "acme-shimmed", "--no-refresh"); !strings.Contains(stderr, "shim ignored: upstream declares its own manifest") {
+		t.Fatalf("update warning = %q", stderr)
+	}
+	if stdout, _ := run(0, "status", "acme-shimmed", "--offline", "-v"); !strings.Contains(stdout, "shim ignored: upstream declares its own manifest") {
+		t.Fatalf("status output = %q", stdout)
+	}
+}
+
 func git(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)

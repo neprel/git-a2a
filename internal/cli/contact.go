@@ -71,12 +71,6 @@ func (a *App) contact(args []string) int {
 		fmt.Fprintln(a.Err, "contact: module id and --message FILE|- are required")
 		return 2
 	}
-	if locked, lockErr := lockfile.Load(a.root()); lockErr == nil {
-		if entry, ok := locked.Dependencies[id]; ok && entry.Manifest == "none" {
-			fmt.Fprintf(a.Err, "no agents declared: %s is not an a2a module\n", id)
-			return 2
-		}
-	}
 	message := ""
 	var err error
 	if !listDrivers {
@@ -90,7 +84,24 @@ func (a *App) contact(args []string) int {
 			return 2
 		}
 	}
-	m, err := manifest.LoadDir(cache.Dir(a.root(), id))
+	var m *manifest.Manifest
+	if locked, lockErr := lockfile.Load(a.root()); lockErr == nil && locked.Dependencies[id].Manifest == "none" {
+		if own, ownErr := manifest.LoadDir(a.root()); ownErr == nil {
+			for _, dep := range own.Dependencies {
+				if dep.ID == id {
+					m = dep.ShimManifest()
+					break
+				}
+			}
+		}
+		if m == nil {
+			fmt.Fprintf(a.Err, "no agents declared: %s is not an a2a module\n", id)
+			return 2
+		}
+	}
+	if m == nil {
+		m, err = manifest.LoadDir(cache.Dir(a.root(), id))
+	}
 	if err != nil {
 		fmt.Fprintf(a.Err, "contact: %v\n", err)
 		return 2

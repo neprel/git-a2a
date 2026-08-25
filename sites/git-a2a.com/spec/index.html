@@ -828,6 +828,20 @@ operations remain available and no command treats the absent manifest as a broke
 | `wire` | Applies vendoring, then reports that there are no exports to wire. | 0 |
 | dependency card/catalog projection | Skips the dependency with a note. | 0 |
 
+A consumer may attach `shim` metadata to a plain dependency. `shim.exports` has the same shape
+and wiring semantics as `module.exports`; optional `shim.agents` uses the normal agent/contact
+shape for `who` and `contact`; optional `shim.notes` records local adoption context. Shim content
+is authored by and trusted as part of the consumer repository. The generated roster labels it
+exactly as “described by this repository&#x27;s shim, not by the dependency”. A shim applies only while
+the locked commit has `manifest: none`. Once an update finds an upstream manifest, every command
+uses upstream metadata and reports `shim ignored: upstream declares its own manifest`; the shim is
+kept in the consumer manifest so a later plain commit remains deterministic.
+
+## field shim
+
+object, optional, see [#shim](#shim). Consumer-authored fallback metadata for a plain Git
+dependency.
+
 ## field id
 
 string. The dependency&#x27;s `module.id` for an a2a module, or the repository basename for a plain
@@ -880,6 +894,28 @@ the locked source tree in this consumer; a dependency is never vendored implicit
 
 object, optional, see [#require](#require). It states consumer-side checks that must pass before
 locking or contacting this dependency. Defaults preserve the permissive behavior.
+
+## field x-*
+
+extension keys, preserved.
+
+# entity consumer shim {#shim}
+
+Trusted fallback metadata written by the consumer for a plain Git dependency. Unknown keys follow
+the normal `x-` extension rule.
+
+## field exports
+
+list of `export`, optional. Wired exactly like the dependency&#x27;s own `module.exports` while the lock
+has `manifest: none`.
+
+## field agents
+
+list of `agent`, optional. Routed by `who` and `contact` while the lock has `manifest: none`.
+
+## field notes
+
+string, optional. Trusted local context rendered in the consumer roster with explicit shim origin.
 
 ## field x-*
 

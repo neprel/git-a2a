@@ -159,8 +159,31 @@ type Dependency struct {
 	Track      string         `yaml:"track,omitempty" json:"track,omitempty"`
 	Wire       *[]string      `yaml:"wire,omitempty" json:"wire,omitempty"`
 	Vendor     *Vendor        `yaml:"vendor,omitempty" json:"vendor,omitempty"`
+	Shim       *Shim          `yaml:"shim,omitempty" json:"shim,omitempty"`
 	Require    *Require       `yaml:"require,omitempty" json:"require,omitempty"`
 	Extensions map[string]any `yaml:",inline" json:"-"`
+}
+
+// Shim is consumer-authored module metadata for a plain Git dependency. It is
+// ignored as soon as the locked upstream commit publishes its own manifest.
+type Shim struct {
+	Exports    []Export       `yaml:"exports,omitempty" json:"exports,omitempty"`
+	Agents     []Agent        `yaml:"agents,omitempty" json:"agents,omitempty"`
+	Notes      string         `yaml:"notes,omitempty" json:"notes,omitempty"`
+	Extensions map[string]any `yaml:",inline" json:"-"`
+}
+
+// ShimManifest projects a dependency shim onto the normal manifest model so
+// routing and adapters have exactly one metadata shape to consume.
+func (d Dependency) ShimManifest() *Manifest {
+	if d.Shim == nil {
+		return nil
+	}
+	return &Manifest{
+		Schema: CurrentSchema,
+		Module: Module{ID: d.ID, Exports: d.Shim.Exports},
+		Agents: d.Shim.Agents,
+	}
 }
 
 type Require struct {

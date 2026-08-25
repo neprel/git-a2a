@@ -1,0 +1,8 @@
+schema: 1
+module: {id: acme-consumer}
+dependencies:
+  - id: acme-lib
+    git: "{{GIT_URL}}"
+    ref: main
+    shim:
+      notes: local fallback

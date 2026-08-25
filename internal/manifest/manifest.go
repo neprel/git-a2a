@@ -284,6 +284,18 @@ func (m *Manifest) Validate() error {
 			}
 			vendorPaths[resolved] = d.ID
 		}
+		if d.Shim != nil {
+			if d.ID == "" {
+				errs = append(errs, fmt.Errorf("%s.id: required when shim is set", p))
+			}
+			validateExtensions(p+".shim", d.Shim.Extensions, &errs)
+			projected := d.ShimManifest()
+			if projected != nil {
+				if err := projected.Validate(); err != nil {
+					errs = append(errs, fmt.Errorf("%s.shim: %w", p, err))
+				}
+			}
+		}
 		if d.Require != nil {
 			if d.Require.Commits != "" && d.Require.Commits != "any" && d.Require.Commits != "signed" {
 				errs = append(errs, fmt.Errorf("%s.require.commits: must be any or signed", p))

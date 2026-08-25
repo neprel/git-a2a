@@ -58,6 +58,8 @@ dependency-controlled field before entering the managed block.
 # decision Plain dependencies render identity without invented ownership
 
 A `manifest: none` lock entry renders as a dependency heading marked “plain git dependency”. It
-may render trusted consumer-owned vendoring state, but never an inferred description, consumer
-policy, surface, agent, or contact table. An absent cache for that entry is expected and does not
-make roster rendering fail.
+may render trusted consumer-owned vendoring state, but never inferred metadata. When the consumer
+explicitly declares a shim, the roster renders its notes and routing table after the exact marker
+“described by this repository's shim, not by the dependency”; this content is trusted local input,
+not dependency-controlled text. An absent cache for that entry is expected and does not make roster
+rendering fail.

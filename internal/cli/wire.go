@@ -71,14 +71,23 @@ func (a *App) wire(args []string) int {
 				return 1
 			}
 		}
+		var module *manifest.Manifest
 		if entry.Manifest == "none" {
-			output = append(output, fmt.Sprintf("%s: plain git dependency; no exports to wire", original.ID))
-			continue
-		}
-		module, loadErr := manifest.LoadDir(cache.Dir(root, original.ID))
-		if loadErr != nil {
-			fmt.Fprintf(a.Err, "wire: dependency %s cache: %v\n", original.ID, loadErr)
-			return 1
+			module = original.ShimManifest()
+			if module == nil {
+				output = append(output, fmt.Sprintf("%s: plain git dependency; no exports to wire", original.ID))
+				continue
+			}
+		} else {
+			var loadErr error
+			module, loadErr = manifest.LoadDir(cache.Dir(root, original.ID))
+			if loadErr != nil {
+				fmt.Fprintf(a.Err, "wire: dependency %s cache: %v\n", original.ID, loadErr)
+				return 1
+			}
+			if original.Shim != nil {
+				fmt.Fprintf(a.Err, "warning: %s: shim ignored: upstream declares its own manifest\n", original.ID)
+			}
 		}
 		dep := original
 		if ecosystem != "" {

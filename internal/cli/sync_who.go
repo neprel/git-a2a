@@ -137,19 +137,31 @@ func (a *App) who(args []string) int {
 			id = args[i]
 		}
 	}
+	dir := a.root()
+	var m *manifest.Manifest
+	var err error
 	if id != "" {
-		if locked, err := lockfile.Load(a.root()); err == nil {
-			if entry, ok := locked.Dependencies[id]; ok && entry.Manifest == "none" {
-				fmt.Fprintf(a.Err, "no agents declared: %s is not an a2a module\n", id)
-				return 2
+		own, ownErr := manifest.LoadDir(a.root())
+		if ownErr == nil {
+			for _, dep := range own.Dependencies {
+				if dep.ID != id {
+					continue
+				}
+				if locked, lockErr := lockfile.Load(a.root()); lockErr == nil && locked.Dependencies[id].Manifest == "none" {
+					m = dep.ShimManifest()
+					if m == nil {
+						fmt.Fprintf(a.Err, "no agents declared: %s is not an a2a module\n", id)
+						return 2
+					}
+				}
+				break
 			}
 		}
-	}
-	dir := a.root()
-	if id != "" {
 		dir = cache.Dir(a.root(), id)
 	}
-	m, err := manifest.LoadDir(dir)
+	if m == nil {
+		m, err = manifest.LoadDir(dir)
+	}
 	if err != nil {
 		if id != "" && errors.Is(err, os.ErrNotExist) {
 			fmt.Fprintf(a.Err, "who: %v; run git-a2a fetch\n", err)

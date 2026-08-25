@@ -247,7 +247,18 @@
         "track": { "enum": ["locked", "floating"] },
         "wire": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "vendor": { "$ref": "#/$defs/vendor" },
+        "shim": { "$ref": "#/$defs/shim" },
         "require": { "$ref": "#/$defs/require" }
+      },
+      "patternProperties": { "^x-": {} },
+      "additionalProperties": false
+    },
+    "shim": {
+      "type": "object",
+      "properties": {
+        "exports": { "type": "array", "items": { "$ref": "#/$defs/export" } },
+        "agents": { "type": "array", "items": { "$ref": "#/$defs/agent" } },
+        "notes": { "type": "string" }
       },
       "patternProperties": { "^x-": {} },
       "additionalProperties": false

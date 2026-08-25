@@ -751,6 +751,9 @@ func (a *App) add(args []string) int {
 	if predeclared >= 0 {
 		dep = own.Dependencies[predeclared]
 	}
+	if plain {
+		depManifest = dep.ShimManifest()
+	}
 	if o.vendorMode != "" {
 		dep.Vendor = &manifest.Vendor{Mode: o.vendorMode, Path: o.vendorPath}
 	}
@@ -779,16 +782,18 @@ func (a *App) add(args []string) int {
 	}
 	stagedRoot := filepath.Join(work, "staged-cache")
 	var warnings []error
-	if !plain {
-		if err := cache.SaveAs(stagedRoot, o.id, res.Manifest, res.Commit, res.Method, res.ManifestName); err != nil {
-			fmt.Fprintf(a.Err, "add: stage cache: %v\n", err)
-			return 1
+	if depManifest != nil {
+		if !plain {
+			if err := cache.SaveAs(stagedRoot, o.id, res.Manifest, res.Commit, res.Method, res.ManifestName); err != nil {
+				fmt.Fprintf(a.Err, "add: stage cache: %v\n", err)
+				return 1
+			}
+			cards, cardWarnings := a.snapshotCardsTo(filepath.Join(cache.Dir(stagedRoot, o.id), "cards"), o.url, o.path, res.Commit, depManifest, f)
+			locked.Cards = cards
+			cardKeys, trustWarnings := inspectCardTrust(depManifest, filepath.Join(cache.Dir(stagedRoot, o.id), "cards"), root, o.url, res.Commit, dep.Require)
+			locked.CardsKeys = cardKeys
+			warnings = append(cardWarnings, trustWarnings...)
 		}
-		cards, cardWarnings := a.snapshotCardsTo(filepath.Join(cache.Dir(stagedRoot, o.id), "cards"), o.url, o.path, res.Commit, depManifest, f)
-		locked.Cards = cards
-		cardKeys, trustWarnings := inspectCardTrust(depManifest, filepath.Join(cache.Dir(stagedRoot, o.id), "cards"), root, o.url, res.Commit, dep.Require)
-		locked.CardsKeys = cardKeys
-		warnings = append(cardWarnings, trustWarnings...)
 		preflight := filepath.Join(work, "preflight")
 		copyAdapterFiles(root, preflight)
 		if _, err := wireAll(a.context(), preflight, dep, depManifest, locked, false); err != nil {
@@ -798,7 +803,7 @@ func (a *App) add(args []string) int {
 	}
 	snapshots := snapshotAdapterFiles(root)
 	var outcomes []wireOutcome
-	if !plain {
+	if depManifest != nil {
 		outcomes, err = wireAll(a.context(), root, dep, depManifest, locked, !o.noRefresh)
 		if err != nil {
 			restoreAdapterFiles(root, snapshots)
@@ -857,6 +862,9 @@ func (a *App) add(args []string) int {
 	fmt.Fprintf(a.Err, "added %s at %s\n", o.id, res.Commit)
 	if plain {
 		fmt.Fprintf(a.Err, "note: %s: no a2amodule manifest at %s; added as a plain git dependency (no exports, agents, or surface declared)\n", o.id, shortCommit(res.Commit))
+		if dep.Shim != nil {
+			fmt.Fprintln(a.Err, "using consumer-authored shim metadata until upstream declares its own manifest")
+		}
 	}
 	if declaredChannel != "" {
 		fmt.Fprintf(a.Err, "using declared release channel %s\n", declaredChannel)
@@ -1153,6 +1161,9 @@ func (a *App) update(args []string) int {
 				return 1
 			}
 			continue
+		}
+		if d.Shim != nil {
+			advisories = append(advisories, fmt.Sprintf("%s: shim ignored: upstream declares its own manifest", d.ID))
 		}
 		verified, verifyErr := a.verifyCommitTrust(root, d, res, resolution.Kind, insecureSkipSigners, work)
 		if verifyErr != nil {

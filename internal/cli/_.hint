@@ -98,6 +98,13 @@ They accept `--yes` as a no-op for automation. `init --example lib|app` writes a
 commented starting manifest and never overwrites an existing one. `policy set --may`,
 `--may-not`, and `--notes` replace only the explicitly supplied consumer-policy fields.
 
+# decision Plain dependency shims reuse normal routing and wiring
+
+When a lock entry has `manifest: none`, the CLI projects its consumer-authored `shim.exports` and
+`shim.agents` into the ordinary manifest model. Adapter selection, drift, `wire`, `who`, and
+`contact` therefore have one implementation for upstream and shim metadata. If the lock contains
+an upstream manifest hash, the projection is never used and status reports the ignored shim.
+
 # decision Explain embeds the generated normative field reference
 
 `git-a2a explain PATH [--json]` reads no repository, environment, clock, or network. Its content

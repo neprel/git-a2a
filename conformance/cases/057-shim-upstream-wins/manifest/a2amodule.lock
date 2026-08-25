@@ -1,0 +1,8 @@
+schema: 1
+dependencies:
+  acme-lib:
+    git: "{{GIT_URL}}"
+    ref: main
+    path: .
+    commit: "{{GIT_COMMIT}}"
+    manifest: sha256:3d1efad9e1c4bbb8bef651a7feda2bb4c8a16b97eca7aa22d84786a38bfe36b8

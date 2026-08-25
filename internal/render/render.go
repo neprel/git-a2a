@@ -41,10 +41,36 @@ func Build(root string, own *manifest.Manifest, l *manifest.Lock, brief bool) (s
 		ids = append(ids, id)
 	}
 	sort.Strings(ids)
+	declared := make(map[string]manifest.Dependency, len(own.Dependencies))
+	for _, dependency := range own.Dependencies {
+		declared[dependency.ID] = dependency
+	}
 	for _, id := range ids {
 		entry := l.Dependencies[id]
 		if entry.Manifest == "none" {
 			fmt.Fprintf(&b, "\n### Dependency: `%s` (plain git dependency)\n\n", id)
+			if shim := declared[id].Shim; shim != nil {
+				b.WriteString("> Metadata below is described by this repository's shim, not by the dependency.\n>\n")
+				if shim.Notes != "" {
+					fmt.Fprintf(&b, "> Notes: %s\n>\n", safe(shim.Notes, noteLimit))
+				}
+				projected := declared[id].ShimManifest()
+				b.WriteString("| Intent | Agent (role) | Declared contact |\n| --- | --- | --- |\n")
+				for _, intent := range intents(projected) {
+					matches, _ := routing.Resolve(projected, intent, "")
+					if len(matches) == 0 {
+						fmt.Fprintf(&b, "| %s | — | none declared |\n", safe(intent, fieldLimit))
+						continue
+					}
+					contacts := matches[0].Contacts
+					if brief && len(contacts) > 1 {
+						contacts = contacts[:1]
+					}
+					for _, contact := range contacts {
+						fmt.Fprintf(&b, "| %s | %s (%s) | %s |\n", safe(intent, fieldLimit), safe(matches[0].Agent.Name, fieldLimit), safe(matches[0].Agent.Role, fieldLimit), safe(routing.ContactText(contact), fieldLimit))
+					}
+				}
+			}
 			if entry.Vendor != nil {
 				fmt.Fprintf(&b, "> Vendored at `%s` (%s).", safe(entry.Vendor.Path, fieldLimit), safe(entry.Vendor.Mode, fieldLimit))
 				if entry.Vendor.Mode == "submodule" {

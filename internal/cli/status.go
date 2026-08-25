@@ -134,12 +134,21 @@ func (a *App) status(args []string) int {
 			}
 		}
 		plain := entry.Manifest == "none"
+		var depManifest *manifest.Manifest
 		var cached []byte
 		if plain {
 			row.Manifest = "plain"
-			row.Wiring = "none"
-			row.Agents = "—"
+			depManifest = dep.ShimManifest()
+			if depManifest == nil {
+				row.Wiring = "none"
+				row.Agents = "—"
+			} else {
+				row.Details = append(row.Details, "metadata described by this repository's shim")
+			}
 		} else {
+			if dep.Shim != nil {
+				row.Details = append(row.Details, "shim ignored: upstream declares its own manifest")
+			}
 			var loadErr error
 			cached, _, loadErr = manifest.ReadDir(cache.Dir(root, dep.ID))
 			if loadErr != nil {
@@ -158,7 +167,6 @@ func (a *App) status(args []string) int {
 				}
 			}
 		}
-		var depManifest *manifest.Manifest
 		if len(cached) > 0 {
 			depManifest, _ = manifest.Parse(cached)
 			if depManifest != nil {
