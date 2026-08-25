@@ -544,10 +544,19 @@ def update_fact_surfaces(rows: list[tuple[str, str, str]], check: bool) -> None:
     export_copy = f"How to import the module in each ecosystem. Native ecosystems today: {native}."
     generated_block(ROOT / "README.md", "readme", markdown_fact_table(rows), check)
     channel_rows = "\n".join([
+        "| Verified | Channel | Command |",
         "| --- | --- | --- |",
         *(f"| {verified} | {channel} | `{command}` |" for verified, channel, command in INSTALL_CHANNELS),
     ])
     generated_block(ROOT / "README.md", "channels", channel_rows, check)
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    channel_table = (
+        "<!-- generated-facts:channels:start -->\n"
+        "| Verified | Channel | Command |\n"
+        "| --- | --- | --- |\n"
+    )
+    if channel_table not in readme:
+        fail("README.md channel marker must precede the complete Markdown table; comments cannot split its header and separator")
     spec = "\n".join([
         "## Reference CLI integrations",
         "",

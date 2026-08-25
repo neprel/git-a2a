@@ -71,6 +71,10 @@ can otherwise expose platform newline artifacts. Check failures print a bounded 
 generated artifact for `git-a2a explain`. Check mode fails if either the public guide or embedded
 copy differs from the same rendered source after platform newline normalization; the generator
 itself and the committed Git blobs remain explicit UTF-8 with LF endings.
+Generated markers own complete Markdown syntactic units. In particular, a generated table block
+contains its header and separator together; an HTML ownership comment between those two lines
+breaks GFM rendering even though the source rows look individually valid, so generation and
+`docs-check` assert the channels marker precedes the whole installation table.
 The same run extracts `contact_kinds` into `docs/contact-kinds.md`, generates the site's concise
 `llms.txt` map and `llms-full.txt` canonical-document concatenation, and checks local Markdown
 targets across README, spec, and docs. It rejects an unescaped pipe inside an inline-code span in

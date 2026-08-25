@@ -100,8 +100,8 @@ Go-native channels are the simplest and come first. Every checkmark means the ch
 exercised against a public stable artifact on its native platform. These commands follow the
 latest stable release; pin an explicit version in CI.
 
-| Verified | Channel | Command |
 <!-- generated-facts:channels:start -->
+| Verified | Channel | Command |
 | --- | --- | --- |
 | ✔ | Go | `go install github.com/neprel/git-a2a/cmd/git-a2a@latest` |
 | ✔ | Go zero-install | `go run github.com/neprel/git-a2a/cmd/git-a2a@latest --version` |
