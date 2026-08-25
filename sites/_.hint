@@ -90,6 +90,14 @@ not a second source: `tools/sync-skill.py` owns both the tree and index.
 The structured data links to the moving Releases page and therefore does not carry a hand-maintained
 `softwareVersion`; live channel checks, not mutable landing-page metadata, prove the current release.
 
+# invariant Enumerable integration copy is generated
+
+Counts and lists of native ecosystems, vendored build systems, agent harnesses, distribution
+channels, contact kinds, and projected standards on the landing page come only from the checked
+registry in `tools/gen-reference.py`. The same run updates the root README, `spec/README.md`, the
+high-fidelity prototype, and the design handoff; `site-check` fails on any drift. Do not hand-edit
+those marked blocks or repeat a numeric integration claim outside them.
+
 # decision Release verification is workflow-identity based {#release_verification}
 
 The landing page gives copyable verification commands for both forms of published output:

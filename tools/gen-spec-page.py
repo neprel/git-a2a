@@ -19,11 +19,16 @@ def marked(body: str, name: str) -> str:
     return match.group(0)
 
 
+def reader_source(path: pathlib.Path) -> str:
+    body = path.read_text()
+    return re.sub(r"^<!-- generated-facts:[a-z-]+:(?:start|end) -->\n?", "", body, flags=re.M)
+
+
 def render() -> str:
     shell = (SITE / "schema" / "index.html").read_text()
     header = marked(shell, "site-header")
     footer = marked(shell, "site-footer")
-    overview = html.escape((ROOT / "spec" / "README.md").read_text())
+    overview = html.escape(reader_source(ROOT / "spec" / "README.md"))
     normative = html.escape((ROOT / "spec" / "_.hint").read_text())
     return f'''<!doctype html>
 <html lang="en">

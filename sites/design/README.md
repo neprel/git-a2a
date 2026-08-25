@@ -138,7 +138,9 @@ Two columns, `repeat(auto-fit, minmax(300px, 1fr))`, gap 28px, `align-items:star
   background with radius 3px. Content is the manifest listed under **Assets & content** below.
 - **Right:** three callouts, gap 14px. Each is a **2px `--acc` left border** with 16px left padding:
   a mono 12.5px `--acc` title, then 14.5px / 1.55 `--fg2` body.
-  - `exports` — "How to import the module in each ecosystem. Thirteen today: npm, PyPI, Go, Cargo, SwiftPM, Dart, Bundler, Composer, Mix, Cabal/Stack, Zig, Clojure, Nix."
+<!-- generated-facts:design-export:start -->
+  - `exports` — "How to import the module in each ecosystem. 13 native ecosystems today: npm, uv/PyPI, Go, Cargo, SwiftPM, Pub, Bundler, Composer, Mix, Cabal/Stack, Zig, Clojure, Nix."
+<!-- generated-facts:design-export:end -->
   - `agents + contacts` — "Which agents own which part of the module, and how each one wants to be contacted per kind of request — a question, a change request, a bug."
   - `policy` — "What consumers may and may not do, and which agent handles which intent. `a2amodule.lock` records what was resolved."
 
@@ -146,12 +148,15 @@ Two columns, `repeat(auto-fit, minmax(300px, 1fr))`, gap 28px, `align-items:star
 inside itself; the page must never scroll sideways.
 
 #### Section 5 — "Works with what you have"
-Two labelled chip rows, gap 24px. Row label: mono 11px, `--fg3`, `letter-spacing:.06em`,
-`text-transform:uppercase`, 12px below.
-- **ECOSYSTEMS** — chips mono 12.5px, padding 5px 11px, radius 999px, 1px **`--line`**, color `--fg2`:
-  npm · PyPI · Go · Cargo · SwiftPM · Dart · Bundler · Composer · Mix · Cabal/Stack · Zig · Clojure · Nix
-- **STANDARDS** — same chips but 1px **`--line2`** and color **`--fg`**:
-  A2A protocol · AGENTS.md · Agent Skills · ARD catalogs
+<!-- generated-facts:design-works:start -->
+Six generated chip rows, gap 24px. Row labels use the existing mono micro style; chips use the existing pill tokens.
+- **NATIVE ECOSYSTEMS** — npm · uv/PyPI · Go · Cargo · SwiftPM · Pub · Bundler · Composer · Mix · Cabal/Stack · Zig · Clojure · Nix
+- **BUILD SYSTEMS** — CMake · Gradle · Maven · MSBuild · Meson
+- **AGENT HARNESSES** — Claude Code · Codex · Cursor · GitHub Copilot · Gemini CLI · OpenCode · Hermes Agent · OpenClaw
+- **DISTRIBUTION CHANNELS** — Go · Go zero-install · macOS/Linux installer · Windows installer · Homebrew · Scoop · npm · PyPI with uv · PyPI with pipx · Container · Nix flake
+- **CONTACT KINDS** — a2a · github-issue · gitlab-issue · gitea-issue · bitbucket-issue · azure-boards · http · exec · email · jira · mattermost · slack · discord · telegram · teams · url
+- **STANDARDS** — A2A · AGENTS.md · Agent Skills · ARD catalogs · MCP · MCP Registry
+<!-- generated-facts:design-works:end -->
 
 Text only. No third-party logos anywhere on the page.
 

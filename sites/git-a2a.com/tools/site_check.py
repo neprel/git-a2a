@@ -138,6 +138,7 @@ def resolve(page: pathlib.Path, link: str) -> pathlib.Path | None:
 
 
 def main() -> None:
+    subprocess.run(["python3", str(ROOT / "tools/gen-reference.py"), "--check"], cwd=ROOT, check=True)
     if (ROOT / "install.sh").read_bytes() != (SITE / "install.sh").read_bytes():
         fail("install.sh copies differ")
     pairs = [

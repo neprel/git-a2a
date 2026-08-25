@@ -6,4 +6,6 @@
 | Native ecosystems | npm, uv/PyPI, Go, Cargo, SwiftPM, Pub, Bundler, Composer, Mix, Cabal/Stack, Zig, Clojure, Nix | native Git forms, or local path forms when vendored |
 | Build systems | CMake, Gradle, Maven, MSBuild, Meson | one generated include/import for vendored source |
 | Agent harnesses | Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI, OpenCode, Hermes Agent, OpenClaw | skill and repository-scoped MCP setup |
-| Standards | A2A, AGENTS.md, Agent Skills, ARD catalogs, MCP | native projections; MCP Registry listing |
+| Distribution channels | Go, Go zero-install, macOS/Linux installer, Windows installer, Homebrew, Scoop, npm, PyPI with uv, PyPI with pipx, Container, Nix flake | one release binary, verified through channel-native entry points |
+| Contact kinds | a2a, github-issue, gitlab-issue, gitea-issue, bitbucket-issue, azure-boards, http, exec, email, jira, mattermost, slack, discord, telegram, teams, url | built-in delivery, consent-gated invocation, plugin, or exact instruction |
+| Standards | A2A, AGENTS.md, Agent Skills, ARD catalogs, MCP, MCP Registry | native projections; MCP Registry listing |

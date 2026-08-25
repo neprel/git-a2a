@@ -67,13 +67,16 @@ and the live [`consumer-app`](https://github.com/neprel/git-a2a-demo-acme-app) s
 
 ## Works with
 
+<!-- generated-facts:readme:start -->
 | Layer | Integrations and wiring |
 | --- | --- |
 | Native ecosystems | npm, uv/PyPI, Go, Cargo, SwiftPM, Pub, Bundler, Composer, Mix, Cabal/Stack, Zig, Clojure, Nix — native Git forms, or local path forms when vendored. |
 | Build systems | CMake, Gradle, Maven, MSBuild, Meson — one generated include/import for vendored source. |
-| Agent harnesses | Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI, OpenCode, Hermes Agent, OpenClaw. |
-| Standards | A2A, AGENTS.md, Agent Skills, ARD catalogs, MCP (listed in the MCP Registry). |
-| Issue delivery | GitHub, GitLab, Gitea, Forgejo, Codeberg, and any tracker through instructions or plugins. |
+| Agent harnesses | Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI, OpenCode, Hermes Agent, OpenClaw — skill and repository-scoped MCP setup. |
+| Distribution channels | Go, Go zero-install, macOS/Linux installer, Windows installer, Homebrew, Scoop, npm, PyPI with uv, PyPI with pipx, Container, Nix flake — one release binary, verified through channel-native entry points. |
+| Contact kinds | a2a, github-issue, gitlab-issue, gitea-issue, bitbucket-issue, azure-boards, http, exec, email, jira, mattermost, slack, discord, telegram, teams, url — built-in delivery, consent-gated invocation, plugin, or exact instruction. |
+| Standards | A2A, AGENTS.md, Agent Skills, ARD catalogs, MCP, MCP Registry — native projections; MCP Registry listing. |
+<!-- generated-facts:readme:end -->
 
 The reference CLI implements a2amodule schema 1 and passes conformance version 1 on Linux and Windows.
 
@@ -84,6 +87,7 @@ exercised against a public stable artifact on its native platform. These command
 latest stable release; pin an explicit version in CI.
 
 | Verified | Channel | Command |
+<!-- generated-facts:channels:start -->
 | --- | --- | --- |
 | ✔ | Go | `go install github.com/neprel/git-a2a/cmd/git-a2a@latest` |
 | ✔ | Go zero-install | `go run github.com/neprel/git-a2a/cmd/git-a2a@latest --version` |
@@ -96,6 +100,7 @@ latest stable release; pin an explicit version in CI.
 | ✔ | PyPI with pipx | `pipx run git-a2a --version` |
 | ✔ | Container | `docker run --pull=always --rm ghcr.io/neprel/git-a2a:latest --version` |
 | ✔ | Nix flake | `nix run github:neprel/git-a2a -- version` |
+<!-- generated-facts:channels:end -->
 
 The checksum-verifying standalone installers support `GIT_A2A_VERSION`, `--version`, `--dir`,
 and `--dry-run`. The macOS binaries are not yet Apple-notarized; use the Homebrew formula for a
