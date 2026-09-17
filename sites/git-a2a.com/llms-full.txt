@@ -8,6 +8,18 @@ An upstream used as a dependency must declare one `agent.card`. The Agent Card r
 of interfaces, skills, and authentication. git-a2a never sends a message, runs or hosts an agent,
 or manages tasks. An external A2A client performs communication.
 
+`add` installs or resolves code using applicable adapters. `pull` updates every dependency;
+`pull NAME` updates one. Both use native manager operations, including restoration of missing
+installed state. Pull resolves the declared ref again rather than replaying the old lock.
+`remove` reconciles native declarations, locks, and installed state while preserving other
+dependencies. Git submodule is an ordinary adapter and an explicit initial-selection fallback
+for unsupported native sources; missing tools do not trigger a manager switch.
+
+An HTTPS Agent Card remains a URL. A repository-relative card is copied byte-for-byte from the
+applied commit to `.git-a2a/agents/NAME/` and exposed by `list` as a usable local reference.
+Read the optional published surface, consult the responsible agent using an external A2A client,
+then consume its published changes with `pull NAME`.
+
 Canonical sources:
 - https://git-a2a.com/
 - https://github.com/neprel/git-a2a/blob/main/spec/README.md

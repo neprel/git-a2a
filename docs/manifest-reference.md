@@ -15,7 +15,6 @@ component:
   exports:
     - adapter: npm
       name: "@acme/lib-utils"
-      path: packages/js
     - adapter: pypi
       name: acme-lib-utils
       path: packages/python
@@ -57,7 +56,9 @@ silently preserved.
 
 Each export has required `adapter` and `name`, plus optional relative `path` and `checksum`.
 `adapter` identifies a registered platform adapter. `name` is the ecosystem package/module name.
-`path` selects an export inside a monorepo. A checksum, when used by that adapter, describes the
+`path` selects an export inside a monorepo, subject to adapter capability. For example, npm
+cannot install a Git subdirectory directly; initial selection falls back to submodule with an
+explicit warning about any missing build integration. A checksum, when used by that adapter, describes the
 declared export rather than a separately resolved revision.
 
 `surface` is tracked content from the same commit applied by the adapters. It is materialized at

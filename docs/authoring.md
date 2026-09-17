@@ -36,7 +36,6 @@ component:
   exports:
     - adapter: npm
       name: "@acme/lib-utils"
-      path: packages/js
     - adapter: cargo
       name: lib-utils
       path: packages/rust
@@ -44,7 +43,10 @@ component:
 
 All exports must describe the same repository commit. For a monorepo, use relative `path` fields;
 do not create separate ownership manifests in subdirectories. Build-system exports use the shared
-submodule checkout selected by the consumer.
+submodule checkout selected by the consumer. Native support for export subdirectories depends
+on the manager: npm Git dependencies cannot select `packages/js` directly. Such an export
+falls back to a submodule on initial add, with a warning if automatic build integration is
+unavailable. An existing saved binding is never silently replaced during pull.
 
 ## Publish a readable surface
 

@@ -7,7 +7,7 @@ bindings of a dependency use one resolved commit.
 | Mode | Platform or build system | Typical variants / owned files |
 | --- | --- | --- |
 | Native | npm-family | npm, Yarn, pnpm, Bun; `package.json` and manager lockfile |
-| Native | Python | uv, Poetry, pip-compatible project declarations and lockfiles |
+| Native | Python | uv, Poetry, PDM, PEP 621/pip; project declarations, manager lockfiles where applicable, and target environments |
 | Native | Go | Go modules (`go.mod`, `go.sum`) |
 | Native | Cargo | Cargo manifest and lockfile |
 | Native | Swift | Swift Package Manager |
@@ -24,7 +24,7 @@ bindings of a dependency use one resolved commit.
 | Submodule + build | MSBuild | Managed project/import integration referencing the shared checkout |
 | Submodule + build | Maven | Managed Maven integration referencing the shared checkout |
 | Submodule + build | Meson | Managed Meson integration referencing the shared checkout |
-| Submodule only | Git | Explicit fallback when no native or build export applies |
+| Submodule only | Git | Fallback when no integration applies or the native source is unsupported |
 
 The build adapters do not clone or copy a second source tree. They compose with the dependency's
 single submodule materialization. MSBuild support describes the existing source/project

@@ -14,8 +14,9 @@ code, one A2A Agent Card reference for its owner, and optionally a readable surf
 documentation, examples, or source. A consumer connects the code through its own platform's
 adapter and records the exact commit, adapter, and package-manager variant.
 
-git-a2a does not send messages, manage tasks, run agents, or host Agent Cards. Use the card URL
-shown by `git a2a list` with an external A2A client.
+git-a2a does not send messages, manage tasks, run agents, or host Agent Cards. Use the usable Agent Card reference
+shown by `git a2a list` with an external A2A client: an HTTPS URL or a local copy of a
+repository-relative card from the applied commit.
 
 ## Quick start
 
@@ -78,15 +79,15 @@ See the [manifest reference](docs/manifest-reference.md), [authoring guide](docs
 
 ## Adapter matrix
 
-Every existing platform integration is retained. Native adapters edit the platform's own
-dependency files; build-system adapters compose with one submodule checkout rather than copying
+Every existing platform integration is retained. Native adapters apply dependencies through the platform's own
+manager, updating declarations, native locks, and installed or resolved state; build-system adapters compose with one submodule checkout rather than copying
 source into a second tree.
 
 | Mode | Adapters |
 | --- | --- |
-| Native Git dependency | npm (npm, Yarn, pnpm, Bun), Python (uv, Poetry, pip), Go, Cargo, SwiftPM, Pub, Bundler, Composer, Mix, Cabal/Stack, Zig, Clojure, Nix |
+| Native Git dependency | npm (npm, Yarn, pnpm, Bun), Python (uv, Poetry, PDM, PEP 621/pip), Go, Cargo, SwiftPM, Pub, Bundler, Composer, Mix, Cabal/Stack, Zig, Clojure, Nix |
 | Submodule + build integration | CMake, Gradle, MSBuild, Maven, Meson |
-| Submodule only | Explicit fallback for components that have no applicable native or build-system export |
+| Submodule only | Fallback when no integration applies or the native manager cannot represent the source |
 
 Git submodule is an ordinary adapter with the same add/pull/remove/inspect lifecycle. Native
 lockfiles remain owned by their package managers. See [Works with](docs/works-with.md) for the

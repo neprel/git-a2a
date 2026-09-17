@@ -63,8 +63,10 @@ git a2a remove lib-utils
 Removal deletes only entries and materialization owned by that dependency. Dirty submodules or
 conflicting local changes cause a failure rather than data loss.
 
-## Deterministic CI
+## CI and revision selection
 
 Install a pinned git-a2a version, check out submodules as required by your CI, then run
 `git a2a pull`. Pull uses the saved adapter variants and requested refs. Review and commit the
 resulting lock and native lockfile changes; do not use it as an unreviewed floating install step.
+`pull` resolves the declared ref again; it does not replay the previous lock as a frozen install.
+Use an exact commit as the dependency ref when CI must retain that component revision.
