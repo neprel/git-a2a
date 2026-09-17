@@ -1,4 +1,0 @@
-feature: agents
-feature: module\.release
-feature: module\.release\.tags
-!feature: module\.id

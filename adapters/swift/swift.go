@@ -30,11 +30,7 @@ func (Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp 
 	if err != nil {
 		return adapter.Change{}, err
 	}
-	key, value := "revision", locked.Commit
-	if dep.Track == "floating" {
-		key, value = "branch", dep.Ref
-	}
-	entry := fmt.Sprintf(".package(url: %s, %s: %s)", strconv.Quote(dep.Git), key, strconv.Quote(value))
+	entry := fmt.Sprintf(".package(url: %s, revision: %s)", strconv.Quote(dep.Git), strconv.Quote(locked.Commit))
 	next, changed, err := upsert(string(body), exp.Name, dep.Git, entry)
 	if err != nil {
 		return adapter.Change{}, adapter.NotWirable(err.Error())
@@ -77,10 +73,6 @@ func (Adapter) Unwire(_ context.Context, root string, dep adapter.Dependency, ex
 	return adapter.Change{File: "Package.swift", Entry: exp.Name, Changed: changed}, err
 }
 
-func (Adapter) Refresh(ctx context.Context, _ string, _ adapter.Dependency, _ adapter.Export, _ adapter.Locked) error {
-	return adapter.RequireTool(ctx, "swift", "swiftpm")
-}
-
 func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
 	body, err := os.ReadFile(filepath.Join(root, "Package.swift"))
 	if err != nil {
@@ -92,8 +84,13 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 	if len(urlMatch) == 2 {
 		gotURL = urlMatch[1]
 	}
+	revisionMatch := regexp.MustCompile(`revision\s*:\s*"([^"]+)"`).FindStringSubmatch(entry)
+	gotRevision := ""
+	if len(revisionMatch) == 2 {
+		gotRevision = revisionMatch[1]
+	}
 	badURL := gotURL == "" || gitx.NormalizeURL(gotURL) != gitx.NormalizeURL(locked.Git)
-	badPin := dep.Track != "floating" && !strings.Contains(entry, locked.Commit)
+	badPin := gotRevision != locked.Commit
 	if entry == "" || badURL || badPin {
 		return []adapter.Finding{{File: "Package.swift", Entry: exp.Name, Want: locked.Commit, Got: strings.TrimSpace(entry)}}, nil
 	}
@@ -154,6 +151,9 @@ func upsert(document, name, gitURL, entry string) (string, bool, error) {
 		}
 	}
 	block := "\n" + indent + "// git-a2a:begin " + name + "\n" + indent + entry + ",\n" + indent + "// git-a2a:end " + name
+	if insertAt >= len(updated) || (updated[insertAt] != '\n' && updated[insertAt] != '\r') {
+		block += " inline\n"
+	}
 	return updated[:insertAt] + block + updated[insertAt:], true, nil
 }
 
@@ -276,7 +276,7 @@ func topLevelArgument(document, name string) int {
 }
 
 func managedEntry(name string) *regexp.Regexp {
-	return regexp.MustCompile(`(?ms)^[ \t]*// git-a2a:begin ` + regexp.QuoteMeta(name) + `\n.*?^[ \t]*// git-a2a:end ` + regexp.QuoteMeta(name) + `(?:\n|$)`)
+	return regexp.MustCompile(`(?ms)\n[ \t]*// git-a2a:begin ` + regexp.QuoteMeta(name) + `\n.*?^[ \t]*// git-a2a:end ` + regexp.QuoteMeta(name) + `(?: inline\n)?`)
 }
 
 func separatorMarker(name string) *regexp.Regexp {

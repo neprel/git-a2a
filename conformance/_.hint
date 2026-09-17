@@ -1,39 +1,50 @@
-# app a2amodule implementation conformance corpus
+<folder_context path="conformance">
 
-This subtree is a language-neutral executable contract for schema 1. It tests public CLI behavior
-through a supplied binary and never imports the reference implementation. A second implementation
-clones the repository, sets `CONFORMANCE_BIN`, and receives the same cases and verdicts.
+<application_context name="git-a2a schema 2 implementation conformance corpus">
+This subtree is a language-neutral executable contract for schema 2. It tests only the five public
+domain commands through a supplied binary and never imports the reference implementation. A second
+implementation clones the repository, sets CONFORMANCE_BIN, and receives the same cases and verdicts.
+</application_context>
 
-# decision Cases are filesystem contracts, not Go unit tests
+<settled_decision name="Version 2 cases are sequential filesystem contracts">
+Every numbered directory under cases/ contains manifest/ as the initial working directory, command
+as a JSON array of argv arrays, and expected/exit-code. Invocations run in order in the same fresh
+temporary repository and stop at the first non-zero exit. Optional expected/stdout and stderr contain
+one Go-compatible regular expression per non-comment line; ! negates a pattern. Files under
+expected/files/ match byte-for-byte, expected/absent paths must not exist, and
+expected/file-patterns.json checks required syntax. env.json adds environment values.
+</settled_decision>
 
-Every numbered directory under `cases/` contains `manifest/` as the initial durable repository,
-`command` as a JSON argv array, and `expected/exit-code`. Optional `expected/stdout` and
-`expected/stderr` contain one Go-compatible regular expression per non-comment line; `!` negates
-a pattern. Files under `expected/files/` must match the resulting repository byte-for-byte and
-paths in `expected/absent` must not exist. `expected/file-patterns.json` checks required syntax
-without making unrelated formatter whitespace normative. A case may declare `env.json`, `platform`,
-`fixture.sh`, `http-fixture.json`, or `git-fixture.json`. Git fixtures expose only their local URL,
-commit and tree through named replacement tokens. The runner normalizes only its temporary root and fixture
-HTTP origin; it does not collapse whitespace or rewrite semantic output.
-Optional `cache/` is copied to the deliberately untracked `.git-a2a/cache/` at run time, so the
-corpus tests cache-dependent commands without teaching consumers to commit local state.
+<system_invariant name="The runner treats the implementation as an external program">
+CONFORMANCE_BIN names one executable. The runner invokes it without a shell, observes only public
+stdout, stderr, exit status, and filesystem effects, and never calls an internal package. Cases use
+only acme-* identities and have no credentials or public network dependency.
+</system_invariant>
 
-# invariant The runner treats the implementation as an external program
+<settled_decision name="Git lifecycle fixtures are local and revision-consistent">
+git-fixture.json creates one tracked source commit and a local bare remote, optionally initializing
+the consumer as a Git repository. {{GIT_URL}} and {{GIT_COMMIT}} are the only source tokens. The
+five-command lifecycle case proves init, add, list, pull, and remove in one repository, with the same
+commit used for the submodule, lock metadata, agent discovery, and surface materialization.
+</settled_decision>
 
-`CONFORMANCE_BIN` names one executable. The runner copies each initial repository to a fresh
-temporary directory, invokes the binary there without a shell, observes exit/stdout/stderr, and
-checks only declared results. It never calls an internal Go package or assumes git-a2a's source
-layout. Cases use only `acme-*` public identities and contain no credentials or network dependency;
-the built-in TLS fixture supplies a local CA through `SSL_CERT_FILE` when delivery is exercised.
+<settled_decision name="Conformance versions independently from CLI releases">
+conformance/VERSION is the integer protocol and contract revision. Version 2 intentionally breaks
+the schema 1 runner protocol: command is now a sequence, and removed HTTP/contact, disposable-cache,
+shell-fixture, and platform-skip facilities are not accepted.
+</settled_decision>
 
-# decision Conformance versions independently from CLI releases
+<scope_boundary name="Schema 2 public behavior">
+Cover init, add, pull, remove, local list text/JSON, schema 1 and dual-manifest rejection, and
+representative removed-command rejection. Adapter-specific corpora and unit tests own the full
+platform matrix; conformance uses the real submodule fallback to exercise lifecycle without external
+package managers.
+</scope_boundary>
 
-`conformance/VERSION` is an integer contract revision. Additive cases that expose behavior already
-required by schema 1 increment it. Release notes state the conformance version. A breaking change
-to the case protocol requires a documented runner compatibility change, not a silent rewrite.
+<compilation_and_testing_pipeline name="Conformance gates">
+CONFORMANCE_BIN=&lt;absolute binary&gt; go run ./conformance/runner must pass on Linux and Windows.
+go test ./conformance/runner covers protocol parsing and normalization. The corpus must exercise all
+five domain commands and must not require network access beyond its local bare Git fixture.
+</compilation_and_testing_pipeline>
 
-# build Conformance gates
-
-`CONFORMANCE_BIN=<absolute binary> go run ./conformance/runner` must pass on Linux and Windows.
-`go test ./conformance/runner` covers runner parsing and normalization. CI builds the binary once
-and runs the external corpus on both operating systems.
+</folder_context>

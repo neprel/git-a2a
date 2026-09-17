@@ -7,8 +7,8 @@ shape instead of rewriting the document. An inline `[project].dependencies` arra
 to the equivalent multiline array only when an entry must be added; unrelated arrays and TOML
 text remain byte-for-byte unchanged. Fixtures cover inline and multiline PEP 621 arrays, existing
 and new uv source tables, idempotent wiring, and unwiring. Drift inspection is scoped to the
-requested export's dependency/source entry and compares both the normalised git URL and the
-locked commit; it must not accidentally match another git dependency elsewhere in the file.
+requested export's dependency/source entry and compares both the canonical locked Git URL and the
+full locked commit; it must not accidentally match another git dependency elsewhere in the file.
 When the matching PEP 621 requirement already exists, wiring replaces that item in place if its
 git source or locked revision changed; mere presence of the project name does not make it current.
 UV source keys may be bare or single-/double-quoted TOML keys. Matching consumes horizontal
@@ -19,11 +19,36 @@ Poetry projects with `[tool.poetry.dependencies]` use Poetry's native inline Git
 projects whose `dependencies` field is absent gain a delimited field that unwire removes as a
 unit; this supports valid projects with dynamic or intentionally empty runtime dependencies
 without reconstructing `pyproject.toml`.
-With a locked vendor, uv keeps the project dependency name and writes
-`[tool.uv.sources].<name> = { path = "<vendor/export-path>" }`. Other Python variants return a
-typed not-wirable reason because PEP 621 has no portable local-source table.
+Every variant writes `LockedDependency.Git` and the full `LockedDependency.Commit`: uv uses
+`rev`, Poetry uses its native inline Git table, and PDM/plain PEP 621 use a direct Git
+requirement.
 
-# decision Refresh prerequisite
+# decision Pull synchronizes a usable Python environment
 
-`Refresh` checks the detected `uv`, `poetry`, or `pdm` command through the shared prerequisite
-contract before running it. Plain PEP 621 projects require no refresh command.
+Pull checks the saved manager through the shared prerequisite contract and synchronizes a usable
+project environment. uv runs `uv sync --no-install-project`. Poetry first runs `poetry lock`
+without updating unchanged locked packages and then `poetry sync --no-root`; PDM first runs
+the targeted `pdm update --no-self --update-reuse NAME`, because a plain reuse lock keeps an old
+same-version VCS revision. PDM removal uses its targeted `pdm remove --no-self NAME` operation,
+which reconciles the declaration, lock, and selected environment together; plain sync does not
+remove a distribution merely because it disappeared from the lock. If the interpreter selected
+by the project-local `.pdm-python` is a missing conventional venv target, Pull recreates exactly
+that venv; it never deletes, cleans, or retargets an existing external/shared environment. Plain PEP 621 owns a project-local
+`.venv` and pip installs the exact direct Git requirement with normal dependency resolution;
+the direct requirement is force-reinstalled so a new commit with the same package version is
+applied, then a normal pip install of all declared project requirements repairs a newly recreated
+environment without broadly upgrading already-satisfying unrelated packages. `--no-deps` is
+forbidden. Remove edits only the owned requirement/source and reconciles the same
+native lock/environment, or uninstalls the direct plain-pip distribution without broadly cleaning
+shared caches or orphaned transitive packages.
+Unsupported subdirectories are rejected by read-only Capability before editor side effects;
+missing tools are errors and never trigger adapter fallback.
+
+# invariant Inspect uses native Python evidence
+
+Inspect is offline and read-only. It discovers uv's configured project environment, Poetry's
+project interpreter, and PDM's selected interpreter (including external project environments)
+instead of assuming `.venv`. For uv, Poetry, and PDM it requires the matching native lock package
+entry at the locked Git source and full commit. Every variant verifies the installed distribution's
+PEP 610 `direct_url.json`; a matching directory name is never sufficient evidence. Missing or
+stale manager-owned lock/materialization is repairable by Pull, while declaration drift is not.

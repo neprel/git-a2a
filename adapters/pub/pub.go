@@ -30,18 +30,9 @@ func (Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp 
 	if err != nil {
 		return adapter.Change{}, err
 	}
-	lines := []string{fmt.Sprintf("  %s:", exp.Name)}
-	if locked.Vendor != nil {
-		lines = append(lines, "    path: "+strconv.Quote(adapter.VendorSourcePath(exp, locked)))
-	} else {
-		ref := locked.Commit
-		if dep.Track == "floating" {
-			ref = dep.Ref
-		}
-		lines = append(lines, "    git:", "      url: "+strconv.Quote(dep.Git), "      ref: "+strconv.Quote(ref))
-		if exp.Path != "" && exp.Path != "." {
-			lines = append(lines, "      path: "+strconv.Quote(strings.Trim(exp.Path, "/")))
-		}
+	lines := []string{fmt.Sprintf("  %s:", exp.Name), "    git:", "      url: " + strconv.Quote(dep.Git), "      ref: " + strconv.Quote(locked.Commit)}
+	if exp.Path != "" && exp.Path != "." {
+		lines = append(lines, "      path: "+strconv.Quote(strings.Trim(exp.Path, "/")))
 	}
 	entry := strings.Join(lines, "\n") + "\n"
 	next, changed, err := upsert(string(body), exp.Name, entry)
@@ -74,10 +65,6 @@ func (Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, exp 
 	return adapter.Change{File: "pubspec.yaml", Entry: exp.Name, Changed: true}, err
 }
 
-func (Adapter) Refresh(ctx context.Context, _ string, _ adapter.Dependency, _ adapter.Export, _ adapter.Locked) error {
-	return adapter.RequireTool(ctx, "pub", "pub")
-}
-
 func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
 	body, err := os.ReadFile(filepath.Join(root, "pubspec.yaml"))
 	if err != nil {
@@ -88,20 +75,18 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 	if ok {
 		entry = string(body[start:end])
 	}
-	if locked.Vendor != nil {
-		want := "path: " + strconv.Quote(adapter.VendorSourcePath(exp, locked))
-		if entry == "" || !strings.Contains(entry, want) {
-			return []adapter.Finding{{File: "pubspec.yaml", Entry: exp.Name, Want: want, Got: strings.TrimSpace(entry)}}, nil
-		}
-		return nil, nil
-	}
 	urlMatch := regexp.MustCompile(`(?m)^\s+url:\s*["']?([^"'\s]+)`).FindStringSubmatch(entry)
 	gotURL := ""
 	if len(urlMatch) == 2 {
 		gotURL = urlMatch[1]
 	}
+	refMatch := regexp.MustCompile(`(?m)^\s+ref:\s*["']?([^"'\s]+)`).FindStringSubmatch(entry)
+	gotRef := ""
+	if len(refMatch) == 2 {
+		gotRef = refMatch[1]
+	}
 	badURL := gotURL == "" || gitx.NormalizeURL(gotURL) != gitx.NormalizeURL(locked.Git)
-	badPin := dep.Track != "floating" && !strings.Contains(entry, locked.Commit)
+	badPin := gotRef != locked.Commit
 	if entry == "" || badURL || badPin {
 		return []adapter.Finding{{File: "pubspec.yaml", Entry: exp.Name, Want: locked.Commit, Got: strings.TrimSpace(entry)}}, nil
 	}

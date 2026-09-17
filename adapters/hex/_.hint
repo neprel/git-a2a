@@ -1,20 +1,27 @@
 # decision Mix git dependencies use ref or branch and sparse
 
-The Hex adapter owns one tuple in the consumer's `deps` list in `mix.exs`. Locked wiring uses
-the full lock commit as `ref`; floating wiring uses the declared ref as `branch`. Export
-subdirectories use Mix's native `sparse` option. `mix.lock` remains downstream and wiring does
-not run dependency resolution.
+The Hex adapter owns one tuple in the consumer's `deps` list in `mix.exs`. Wiring always uses
+`LockedDependency.Commit` as `ref`. Export
+subdirectories use Mix's native `sparse` option. `Pull` runs `mix deps.get`, including when the
+declaration is unchanged. `Remove` deletes only the owned root tuple, cleans and unlocks unused
+dependencies through Mix, then runs `mix deps.get`; unrelated and transitively required
+dependencies remain.
 The tuple is delimited with Elixir comments; if insertion adds a comma to the preceding tuple,
 the separator is marked and removed with the dependency so a pre-existing trailing-comma choice
 is never guessed.
-With a locked vendor the same tuple uses `path: "<vendor/export-path>"` and omits Git options.
 
 # test Hex adapter
 
 - Fixture/golden wiring is idempotent and preserves unrelated Elixir code and comments.
 - Drift checks the normalized Git URL and locked revision.
 - Unwire removes only the named dependency tuple.
+- The central native-lifecycle runner executes the public CLI in a pinned Elixir container.
+  It proves add/use, fresh-clone and same-commit repair, same-version
+  revision advance through targeted pull, idempotence, remove, and preservation of an
+  unrelated Mix dependency.
 
-# decision Refresh prerequisite
+# decision Mix lifecycle prerequisite
 
-`Refresh` checks `mix` through the shared prerequisite contract before doing any work.
+`Pull` and `Remove` check `mix` through the shared prerequisite contract before invoking it.
+`Inspect` is offline and checks the exact Git revision in `mix.lock` and the detached checkout
+revision under `deps/`; missing or stale manager state is repairable by Pull.

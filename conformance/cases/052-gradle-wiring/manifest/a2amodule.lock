@@ -1,9 +1,0 @@
-schema: 1
-dependencies:
-  acme-lib:
-    git: "{{GIT_URL}}"
-    ref: main
-    path: .
-    commit: "{{GIT_COMMIT}}"
-    manifest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-    vendor: {mode: copy, path: deps/acme-lib, tree: "tree:{{GIT_TREE}}"}

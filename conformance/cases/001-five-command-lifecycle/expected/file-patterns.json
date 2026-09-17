@@ -1,0 +1,12 @@
+{
+  "a2amodule.yml": [
+    "(?m)^schema: 2$",
+    "(?m)^    id: acme-consumer$",
+    "(?m)^    description: Consumer component$"
+  ],
+  "a2amodule.lock": [
+    "(?m)^schema: 2$",
+    "(?m)^dependencies: \\{\\}$"
+  ],
+  ".gitignore": ["(?m)^\\.git-a2a/$"]
+}

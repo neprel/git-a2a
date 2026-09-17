@@ -1,140 +1,67 @@
-# decision Release-channel manifests come from immutable assets {#channel_checksums}
+<folder_context path="tools">
 
+<settled_decision name="Release-channel manifests come from immutable assets" id="channel_checksums">
 `release-channels.py` renders the Homebrew formula and Scoop manifest from the `checksums.txt`
-already attached to the named GitHub Release. A recovery rebuild is never a checksum source:
-GoReleaser archives rebuilt from the same tag can have different bytes, while their published
-URLs still resolve to the original immutable assets. Missing expected archive names or malformed
-SHA-256 values are fatal; never guess, reuse a rebuild hash, or overwrite a release asset.
+already attached to the named GitHub Release. A recovery rebuild is never a checksum source.
+Missing expected archive names or malformed SHA-256 values are fatal; never guess or overwrite a
+release asset.
+</settled_decision>
 
-# decision Homebrew uses a formula until macOS artifacts are notarized {#homebrew_quarantine}
+<settled_decision name="Homebrew uses a formula until macOS artifacts are notarized" id="homebrew_quarantine">
+The tap publishes `Formula/git-a2a.rb`. The formula installs the checksum-verified release binary
+and conditionally removes `com.apple.quarantine` from that exact installed file before testing it.
+The absence of the attribute must remain a successful, idempotent case.
+</settled_decision>
 
-An unsigned, non-notarized macOS binary downloaded as a cask is assigned
-`com.apple.quarantine`; macOS Gatekeeper rejects its first launch (observed as exit 137 after a
-successful checksum-verified install). The tap therefore publishes `Formula/git-a2a.rb`. The
-formula installs the already checksum-verified release binary and then removes quarantine from
-that one installed file before its `test` invokes `git-a2a --version`. Do not publish a cask or
-remove this targeted step until the release pipeline signs and notarizes both macOS binaries.
-Quarantine removal is conditional: probe that exact attribute first and delete it only when
-present. `xattr -d` returns nonzero when the attribute is absent, so an unconditional call makes
-a repeat install fail even though there is nothing to clean. The absence case must remain a
-successful, idempotent installation.
+<system_invariant name="Channel output is deterministic and self-testing">
+Given the same tag and `checksums.txt`, the renderer writes identical bytes. Formula and Scoop URLs
+name tag-specific archives and every hash is looked up by that exact name. Prerelease package URLs
+retain the full tag while the binary reports the canonical embedded version. Formula and Scoop
+tests execute `git-a2a --version`; Scoop preserves separate amd64 and arm64 hashes.
+</system_invariant>
 
-# invariant Channel output is deterministic and self-testing
+<settled_decision name="Package-manager repositories are shared collections">
+`neprel/homebrew-tap` and `neprel/scoop-bucket` are shared repositories. Release automation owns
+only `Formula/git-a2a.rb` and `git-a2a.json`; preserve every unrelated file and package.
+</settled_decision>
 
-Given the same tag and `checksums.txt`, the renderer writes identical bytes. Formula URLs and
-Scoop URLs name the tag-specific archives; every emitted hash is looked up by that exact archive
-name. The formula's package version and URLs retain the full release tag, including an RC suffix,
-while its runtime assertion uses the canonical version embedded from `internal/version/VERSION`;
-an RC package such as `1.2.0-rc.2` therefore must print `git-a2a 1.2.0`. The formula test must execute the installed binary and the Scoop manifest must preserve
-separate amd64 and arm64 hashes.
+<settled_decision name="Skill distribution is a checked copy" id="skill_distribution">
+`sync-skill.py` treats `skills/git-a2a/SKILL.md` and its three canonical document references as
+inputs. It makes a byte-identical static-site skill tree and `/.well-known/skills/index.json`.
+There is no CLI setup copy, harness-specific projection, or release-version coupling. Check mode
+fails on copy drift, and generated JSON uses deterministic UTF-8 bytes with LF endings.
+</settled_decision>
 
-# decision Package-manager repositories are shared collections
-
-`neprel/homebrew-tap` and `neprel/scoop-bucket` are author-level repositories that may publish
-many unrelated tools. git-a2a release automation owns only `Formula/git-a2a.rb` in the tap and
-`git-a2a.json` in the bucket. It must preserve their general README, metadata, every other
-formula or manifest, and the stable user-facing repository names; never reposition either
-repository as dedicated to git-a2a.
-
-# decision Manifest reference is compiled from HINT and schema {#manifest_reference}
-
-`gen-reference.py` invokes `hint spec`, reads the `spec` data-structure/field blocks, and joins
-them with `spec/schema/a2amodule.schema.json` in schema order. Its fixed route table maps schema
-objects to their normative HINT entity ids; it contains no independent field descriptions.
-Generation fails when either source has a field the other lacks. The committed
-`docs/manifest-reference.md` is deterministic, and `make docs-check` plus CI fail when it is
-stale. Python standard library only; do not add a documentation generator dependency.
-The compiled stream is XML-like but normative prose may contain literal angle-bracket placeholders
-inside backticks, so parse only the compiler-owned `data_structure` and `field` tag boundaries;
-feeding the entire stream to a general XML parser would reject valid HINT prose.
-On Windows, npm exposes the compiler through a `hint.cmd` shim; Python `CreateProcess` cannot
-execute that shim by the bare name. Invoke it through `cmd.exe /d /s /c hint spec` on Windows
-only. POSIX invokes `hint spec` directly and never adds a shell.
-Open and closed manifest vocabularies are compiler-owned `data_definition` tables in
-`spec/_.hint`. The generator injects those tables into every applicable field entry and fails on
-unresolved “See term”, “See root decision”, or “documented below” wording. Reference terms and
-root decisions are expanded to their normative bodies rather than leaving navigation instructions
-in the generated document.
-`sync-skill.py` treats `skills/git-a2a/SKILL.md` plus the three canonical docs as inputs. It makes
-byte-identical full reference and static-site trees plus the Stripe-style
-`/.well-known/skills/index.json`; the separately embedded setup copy stays thin at exactly
-`SKILL.md` plus `references/README.md`, and only its metadata version is synchronized. Check mode fails on version or copy drift. Skill frontmatter
-`metadata.version` must equal `internal/version/VERSION`. Generated text is written as explicit
-UTF-8 bytes with LF endings and every source document is read with an explicit UTF-8 encoding,
-so byte checks have the same result on Windows and POSIX instead of depending on the host locale.
-Source locations emitted by HINT are normalized to forward-slash repository paths before they
-become Markdown links; Windows path separators must not make generated references drift.
-The HINT compiler's captured stdout is decoded from UTF-8 bytes and CRCRLF, CRLF, and CR are
-normalized explicitly before parsing, because routing a Windows `.cmd` shim through `cmd.exe`
-can otherwise expose platform newline artifacts. Check failures print a bounded unified diff.
-`gen-reference.py` also writes a byte-identical copy under `internal/reference/`; Go embeds that
-generated artifact for `git-a2a explain`. Check mode fails if either the public guide or embedded
-copy differs from the same rendered source after platform newline normalization; the generator
-itself and the committed Git blobs remain explicit UTF-8 with LF endings.
-Generated markers own complete Markdown syntactic units. In particular, a generated table block
-contains its header and separator together; an HTML ownership comment between those two lines
-breaks GFM rendering even though the source rows look individually valid, so generation and
-`docs-check` assert the channels marker precedes the whole installation table.
-The same run extracts `contact_kinds` into `docs/contact-kinds.md`, generates the site's concise
-`llms.txt` map and `llms-full.txt` canonical-document concatenation, and checks local Markdown
-targets across README, spec, and docs. It rejects an unescaped pipe inside an inline-code span in
-a Markdown table, because GFM treats that pipe as a cell delimiter even though it is between
-backticks. These files are outputs, never separately authored sources.
-It also invokes the repository-local `tools/mcp-facts` formatter. That formatter renders
-`docs/mcp-tools.md` from the same enumerable metadata used by MCP registration, including every
-tool description, access gate, and annotation, and `llms-full.txt` embeds the rendered table.
-Never maintain an independent hand-written MCP tool audit.
-
-# decision Enumerable public facts have one checked registry
-
-`gen-reference.py` owns the closed implementation lists published in the root README, the
-specification overview, the landing page and its design prototype: native ecosystem adapters,
-vendored build-system adapters, supported agent harnesses, verified distribution channels,
-known contact kinds, and projected standards. Adapter entries carry their package directory so
-generation fails when code and the registry disagree; contact kinds are compiled from
-`spec/_.hint`; harness labels are checked against setup's implementation. Generated markers are
-mandatory and check mode never rewrites them. Both `docs-check` and `site-check` invoke check mode,
-so prose cannot silently retain a stale list or omit a registered integration. Public enumeration
-copy names the registry entries without a numeric total; cardinalities are reserved for internal
-audits because a public count becomes stale independently of the generated list.
-
-# decision Public specification reader is generated from normative sources
-
-`gen-spec-page.py` generates `/spec/index.html` from the exact committed `spec/README.md` overview
-and `spec/_.hint` normative source. It reuses the site's canonical header and footer, HTML-escapes
-both source documents without paraphrasing them, and has a drift-check mode used by `docs-check`
-and `site-check`. The generated reader is the sole generated HTML page; it is never edited by hand.
-Generator ownership comments around fact blocks are omitted from the reader because Markdown would
-not render them as visible prose; every substantive byte inside those blocks remains unchanged.
-
-# decision Transcript captures the status table byte-for-byte
-
-The transcript generator stores command stdout without trimming, collapsing, or reformatting and
-embeds the same bytes in JSON and the no-JavaScript HTML fallback. Status header changes, including
-the conditional presence of the `VENDOR` column, must be regenerated from the fixture rather than patched by hand. The fixture
-comparison normalises only the resolved commit hash; tabwriter spacing and every other byte remain
-an acceptance check.
-
-# decision Public demo trust assets are reproducible and public-key only
-
-`tools/demo-trust` signs the two static public-demo Agent Cards with one Ed25519 key and emits
-the matching JWKS. Its `--private` path is always a
-temporary path outside the repository; neither the private key nor a secret representation may
-enter git or the site package. A separate demo-only OpenSSH key signs the demo repository's
-commits; only its `allowed_signers` public entry is committed and served next to the cards. The
-published cards, JWKS and allowed-signers file are test fixtures, not identities suitable for
-production use.
-
-# test Release channels
-
-- A fixture `checksums.txt` drives both manifests and all four hashes appear in their correct
-  architecture entries.
+<verification_and_unit_test_criteria name="Release and documentation channels">
+- Fixture checksums drive both release-channel manifests and every architecture hash.
 - A missing expected archive fails instead of emitting a partial manifest.
-- A recovery dispatch skips GoReleaser's Homebrew/Scoop publishers, downloads the immutable
-  release checksums, removes any obsolete cask, and commits only changed formula/bucket files.
-- A real Homebrew install has no quarantine attribute and prints `channel=brew` on first launch.
-- Reinstalling when the binary has no quarantine attribute succeeds and still passes `brew test`.
-- The Windows amd64 Scoop archive hash matches the manifest and its executable prints
-  `channel=scoop` under Wine on an amd64 host or a Windows runner. Do not treat Wine under amd64
-  QEMU on Apple Silicon as a valid gate: `scottyhardy/docker-wine` aborts in
-  `anon_mmap_fixed` before the executable starts because of the emulated host page layout.
+- Recovery skips GoReleaser's Homebrew/Scoop publishers and derives channels from immutable assets.
+- Homebrew and Scoop execute the installed binary with `--version`.
+- `make docs-check` validates schema 2 conformance and the single canonical skill copy; it does not
+  generate contact, trust, MCP, setup, transcript, or schema 1 artifacts.
+</verification_and_unit_test_criteria>
+
+<reusable_automation_script name="Pinned native lifecycle matrix">
+`tools/native-lifecycle/run.py` is the single tracked entry point for native adapter execution.
+It snapshots the current tracked and non-ignored untracked working tree, including unstaged bytes,
+builds Linux binaries in the pinned builder image, and mounts both snapshot and binaries read-only
+into pinned per-toolchain containers. Containers receive no host credentials, SSH agent, or Docker
+socket; fixtures and Git remotes are local to their temporary container environment. Results are
+written by the invoking host user beneath the selected output directory as one log per executed row
+plus machine-readable and Markdown summaries. A selected row is a failure when its mandatory tool
+is missing, its test is skipped, or the test command exits nonzero.
+</reusable_automation_script>
+
+<verification_and_unit_test_criteria name="Native lifecycle evidence">
+- The matrix enumerates every registered family and concrete detection variant, including npm,
+  Python, Hackage, Gradle, and MSBuild variants plus the Git submodule adapter.
+- A row records the pinned image, observed tool version, OS/architecture, exact command, status,
+  and log path. Cross-build and command-mock results are never labeled native PASS.
+- Consolidation applies reports in input order and selects the latest executed row. FAIL and
+  BLOCKED replace earlier results, NOT RUN does not, and histories from consolidated inputs are
+  flattened and retained without treating the selected row as a new attempt.
+- The Python CI gate invokes the same public-CLI lifecycle entry point as a local runner and does
+  not silently skip a missing manager.
+</verification_and_unit_test_criteria>
+
+</folder_context>

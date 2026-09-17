@@ -66,10 +66,6 @@ func (Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, exp 
 	return adapter.Change{File: "deps.edn", Entry: exp.Name, Changed: true}, err
 }
 
-func (Adapter) Refresh(ctx context.Context, _ string, _ adapter.Dependency, _ adapter.Export, _ adapter.Locked) error {
-	return adapter.RequireTool(ctx, "clojure", "tools-deps")
-}
-
 func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
 	body, err := os.ReadFile(filepath.Join(root, "deps.edn"))
 	if err != nil {
@@ -84,7 +80,12 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 	if len(match) == 2 {
 		gotURL = match[1]
 	}
-	if block == "" || gitx.NormalizeURL(gotURL) != gitx.NormalizeURL(locked.Git) || !strings.Contains(block, locked.Commit) {
+	shaMatch := regexp.MustCompile(`:git/sha\s+"([^"]+)"`).FindStringSubmatch(block)
+	gotCommit := ""
+	if len(shaMatch) == 2 {
+		gotCommit = shaMatch[1]
+	}
+	if block == "" || gitx.NormalizeURL(gotURL) != gitx.NormalizeURL(locked.Git) || gotCommit != locked.Commit {
 		return []adapter.Finding{{File: "deps.edn", Entry: exp.Name, Want: locked.Commit, Got: strings.TrimSpace(block)}}, nil
 	}
 	return nil, nil

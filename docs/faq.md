@@ -1,113 +1,49 @@
 # Frequently asked questions
 
-## Why a repository manifest instead of a central registry?
+## Is git-a2a an A2A client?
 
-The module contract changes with its code and owner. Keeping `a2amodule.yml` at the module root
-makes one commit, review, signature policy, and Git history authoritative. Discovery sites may
-index public modules, but git-a2a does not require or operate a registry service.
+No. It records the responsible agent's Agent Card reference and exposes it through `list`. An
+external A2A client handles discovery details, authentication, messages, and tasks.
 
-## Why fetch only the manifest and published surface?
+## Does it install any Git repository?
 
-A consumer needs the import contract, ownership routes, and content the owner deliberately
-published. It does not need the dependency's implementation, private instructions, `.hint`, or
-agent memory. For everything outside `module.surface`, the consumer asks the declared owner.
+No. `add` requires an upstream schema 2 manifest with `agent.card`. A component declares how it
+can be connected. When no native or build-system integration applies, git-a2a can use its
+ordinary submodule adapter.
 
-## Why must every ecosystem use one commit?
+## What is a surface?
 
-If npm follows one branch state while Python or Go follows another, a polyglot consumer no longer
-has one dependency version. `a2amodule.lock` resolves the module once and every adapter derives its
-native form from that commit. Floating mode may retain a native branch form, but the observed
-commit remains recorded.
+An optional, deliberately published set of tracked files from the applied component commit. It
+may be documentation, API definitions, examples, or source. It is not an installation method or
+permission to inspect other repository content.
 
-## Why is `.git-a2a/` disposable?
+## Is `pull` the same as `git pull`?
 
-It contains fetched manifests, card snapshots, surfaces, trust keys, and Git working state. The
-durable coordinates and hashes are in `a2amodule.lock`, so `git-a2a fetch` can reconstruct cache
-content after a fresh clone. Committing the cache would duplicate derived state and machine details.
+No. It resolves a dependency ref and asks that dependency's saved adapters to apply the commit.
+It may run a native package manager or update a submodule, depending on the persisted binding.
 
-## When should I use a submodule instead of copy vendoring?
+## Can the package manager change automatically?
 
-Use a submodule when the source repository identity, compact history, and explicit gitlink are
-useful; use copy when an ordinary clone must contain all files. Both remain fixed to the lock and
-refuse dirty replacement without `--force`; see [Vendored dependencies](vendoring.md).
+No. Add persists both adapter and variant. Pull fails if the saved variant is unavailable or no
+longer valid rather than silently choosing another installed tool.
 
-## Why does `fetch` exist when `update` already downloads data?
+## Are transitive dependencies imported as git-a2a components?
 
-`fetch` is the lock-replay operation for a fresh clone: it restores disposable cache and vendored
-trees without resolving a moving ref or changing durable files. `update` intentionally asks the
-remote what a ref means now and may move the lock.
+No. The manifest contains direct dependencies only. Native package managers may still manage
+their ordinary transitive packages, but git-a2a does not recursively import their agents or
+surfaces.
 
-## Can I depend on a repository that has no a2amodule manifest?
+## Can one repository declare multiple owner agents?
 
-Yes. It is locked as a plain Git dependency, so update, pinning, vendoring, and removal remain
-available without pretending that it published exports or owners. If the consumer knows the
-native coordinates or tracker, add consumer-owned `dependencies[].shim.exports` and `shim.agents`;
-the real upstream manifest automatically takes precedence when one appears.
+No. There is at most one responsible external agent. Internal delegation belongs to that agent
+and is not part of the component contract.
 
-## How does this relate to A2A?
+## What happens after a fresh clone?
 
-A2A defines native Agent Cards and agent-to-agent messaging. `a2amodule.yml` binds a repository
-module to those cards without copying their self-description. `card export` adds the public
-git-a2a module extension, and `contact` can deliver A2A `SendMessage` JSON-RPC requests.
+Run `git a2a pull`. It reconstructs missing owned materialization and surfaces while preserving
+the saved adapters and variants.
 
-## How does this relate to MCP?
+## Is schema 1 supported?
 
-`git-a2a mcp` is a thin stdio projection of the same CLI operations for tool-first harnesses.
-It is not a daemon or alternative state model. One server can accept a repository `root` per
-tool call, or a harness can start one independent server per repository. The shell/skill path
-remains available and usually costs less context.
-
-## How does this relate to Agent Skills and AGENTS.md?
-
-An Agent Skill teaches a harness how to perform tasks. `git-a2a setup` installs a thin pointer
-skill, while the full portable skill ships in this repository, npm, and the website. `AGENTS.md`
-is the consumer-facing roster surface: `sync` owns only its delimited block. Neither replaces the
-durable, harness-neutral manifest and lock.
-
-## What does `setup` write?
-
-It writes repository-scoped skill pointers, one bounded AGENTS.md pointer, and supported harness
-MCP configuration while preserving unrelated keys. It never changes home-directory configuration,
-installs a harness, or grants MCP write/any-root access; preview it with `setup --dry-run`.
-
-## Can it work without network access?
-
-Yes, after the exact locked cache and required native dependencies are present. Run
-`git-a2a fetch` while Git access is available, then `git-a2a status --offline`, `who`, `show`, and
-`sync` use local files. CI should restore cache from the lock before going offline. Contact
-delivery, moving-ref checks, and missing cache reconstruction naturally need their declared remote.
-
-Email delivery never takes credentials from a dependency manifest. The consumer provides
-`sendmail` or `GITA2A_SMTP_URL` plus `GITA2A_SMTP_PASSWORD`; without either, `contact` prints an
-instruction and makes no network request.
-
-## Does git-a2a install package managers or run agents?
-
-No. `doctor` reports required tools and installation hints, but never installs them. git-a2a
-also does not run agent services, choose a chat platform, host cards, or retain message history.
-
-## Why pin a JWKS if the card signature already verifies?
-
-A `jku` inside the signed card proves only that the signer controls the key at that URL. An
-attacker serving both a forged card and its JWKS can satisfy that circular claim. Pinning the
-expected JWKS URL or RFC 7638 thumbprint supplies the consumer-controlled trust anchor; see the
-[trust guide](trust.md).
-
-## Why not operate an identity registry?
-
-Repository owners already publish Git history, cards, origins, and keys through infrastructure
-they control. git-a2a verifies consumer-selected anchors and records exact lock evidence; it does
-not appoint a global authority or turn a discovery service into an identity provider.
-
-## What happens to an unknown role, intent, contact kind, or ecosystem?
-
-Those vocabularies are open. Unknown values are preserved and rendered; matching role/intent
-tokens still route. An unknown contact kind uses a consumer-installed `git-a2a-contact-<kind>`
-plugin when present and otherwise prints its declaration as an instruction. An unknown ecosystem
-has no adapter, so the CLI reports the limitation instead of rejecting the manifest vocabulary.
-
-## My dependency is on GitLab, Forgejo, or Codeberg. Does the workflow change?
-
-No. Git fetch, lock, vendoring, status, cards, and trust are forge-agnostic. Only issue delivery
-differs: GitLab uses `glab` or its v4 REST API; Gitea, Forgejo, and Codeberg use `tea` or the Gitea
-v1 API. Without a consumer CLI or token, `contact` prints a prefilled deep link instead of failing.
+No. Schema 1 is rejected before mutation. There is no compatibility reader, alias, or automatic
+migration command. See [Migrating from schema 1](migration-v2.md).

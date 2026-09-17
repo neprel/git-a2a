@@ -2,8 +2,7 @@
 
 The Clojure adapter owns one delimited qualified lib entry in the top-level `:deps` map in
 `deps.edn`. It writes `:git/url` and the full lock commit as `:git/sha`; `:deps/root` carries an
-export subdirectory. tools.deps has no branch-following coordinate, so even a floating module
-dependency is rewired to the commit most recently resolved by git-a2a.
+export subdirectory. tools.deps is always pinned to `LockedDependency.Commit`.
 When the root map has no `:deps`, the adapter creates a delimited top-level `:deps` entry and
 removes that entire entry on unwire. Inline closing braces use a distinct delimiter so insertion
 and removal do not manufacture a newline.
@@ -14,6 +13,14 @@ and removal do not manufacture a newline.
 - Unqualified library names are typed not-wirable.
 - Drift checks the normalized Git URL and full SHA; unwire removes only the delimited entry.
 
-# decision Refresh prerequisite
+# decision tools.deps materialization
 
-`Refresh` checks the `clj` tools.deps command through the shared prerequisite contract.
+`Capability` rejects an unqualified lib symbol before mutation. `Pull` and `Remove` require the
+`clj` tools.deps command before editing and run `clj -P` afterwards, so the current dependency set
+is prepared without evaluating consumer code. `Inspect` remains offline and verifies the exact
+commit checkout in tools.deps `.gitlibs`; it checks the JVM account home and `HOME` because those
+may differ, without invoking `clj` for discovery.
+
+The pinned adapter-local Docker test drives init/add/list/pull/remove through the public CLI and
+proves actual namespace loading, read-only missing-checkout reporting, same-commit repair,
+fresh-clone materialization, branch advancement, idempotence, and preservation of an unrelated lib.

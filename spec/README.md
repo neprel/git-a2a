@@ -1,164 +1,68 @@
-# a2amodule specification, schema 1
+# a2amodule specification, schema 2
 
-An `a2amodule.yml` file describes a git repository—or one module directory in a
-monorepo—as reusable code with explicit agent ownership. The adjacent
-`a2amodule.lock` records the exact revision seen by a consumer. Local fetched data lives
-under `.git-a2a/` and is never committed.
+`a2amodule.yml` (or `a2amodule.yaml`, but never both) declares one Git component,
+its optional responsible external agent, its platform exports, an optional published
+surface, and its direct dependencies. `a2amodule.lock` records the result of successfully
+applying those dependencies. Disposable local state belongs under `.git-a2a/`.
 
-The normative source is [`_.hint`](./_.hint); see
-[Specification as source (HINT)](../README.md#specification-as-source-hint) for how HINT exposes
-the knowledge governing a path. The JSON Schemas in [`schema/`](./schema/)
-are the machine-readable form and are published at
-[`/schema/a2amodule.v1.json`](https://git-a2a.com/schema/a2amodule.v1.json) and
-[`/schema/a2amodule-lock.v1.json`](https://git-a2a.com/schema/a2amodule-lock.v1.json).
-Complete manifests live in [`examples/`](./examples/).
-
-Use the generated [manifest field reference](../docs/manifest-reference.md) for every field's
-type, default, allowed values, behavior, and consequence. The [authoring guide](../docs/authoring.md)
-walks from an empty repository to a published module using the public demo. Consumers follow the
-[consumer guide](../docs/consuming.md); contact transport fields and behavior are generated in
-[contact kinds](../docs/contact-kinds.md), and design boundaries are answered in the
-[FAQ](../docs/faq.md). Exact executable behavior is in the [CLI reference](../docs/cli.md).
-Agent and operator integration is collected in [For agents](../docs/agents.md).
+The normative source is [`_.hint`](./_.hint). The strict JSON Schemas are
+[`a2amodule.schema.json`](./schema/a2amodule.schema.json) and
+[`a2amodule.lock.schema.json`](./schema/a2amodule.lock.schema.json), published as
+`https://git-a2a.com/schema/a2amodule.v2.json` and
+`https://git-a2a.com/schema/a2amodule-lock.v2.json`. Unknown fields are invalid.
 
 ## Manifest
 
-Top-level keys use this canonical order: `schema`, `module`, `agents`, `policy`, `settings`,
-`dependencies`, then extension keys. `schema` is `1`. `module.id` is the only other
-required field.
+The only top-level fields are `schema`, `component`, `agent`, and `dependencies`.
+`schema` is always `2`; `component.id` is the only other field required in a minimal
+declaration. `init` may leave `agent` absent, but a repository used as a dependency must
+declare `agent.card`.
 
-- `module` names and describes the module, its published `surface`, release channel,
-  canonical `repository`, optional `moved-to` handoff, languages, documentation, and ecosystem
-  exports. `repository` identifies the owner-declared source but is not fetched implicitly;
-  `moved-to` is reported and followed only after explicit `update --follow-moves` or `set`.
-  Ecosystem values use package-url type names but remain an open vocabulary.
-- `agents` binds existing agents to roles and path scopes. A binding points to an A2A
-  card; it does not duplicate the card's self-description. Ordered contacts say how the
-  agent accepts each request intent.
-- `policy.intents` maps an intent to a role. Consumer permissions are declared under
-  `policy.consumers.may` and `may-not`; optional `policy.contact-budget` publishes sorted,
-  open-vocabulary usage expectations without enforcing them.
-- `dependencies` identifies other modules by git URL, ref, optional monorepo `path`, tracking
-  mode, and optional ecosystems to wire. An absent `wire` means every detected applicable
-  ecosystem; `wire: []` means none; a non-empty list makes exactly those adapters mandatory.
-  Ecosystems that cannot express a source report `not wired` under implicit policy and fail the
-  transaction when explicitly required.
+`component.exports` describes platform-facing packages or build targets. Every export has
+an `adapter` and `name`, plus optional repository-relative `path`. The optional `checksum`
+is adapter-specific source metadata required by Zig; it is not a second revision selector.
+`component.surface` is either a safe relative directory or exact `.`. It publishes tracked
+content from the applied commit for reading; it is not an installation mechanism. No surface
+means no published source access.
 
-Unknown vocabulary values—roles, intents, contact kinds, and ecosystems—are valid.
-Unknown object keys are invalid unless they start with `x-`.
+`agent.card` is either an HTTPS URL or a safe path relative to the component root. The card,
+not this manifest, owns protocol interfaces, skills, and authentication. `agent.name` is only
+a display name.
 
-<!-- generated-facts:spec:start -->
-## Reference CLI integrations
+Each dependency `name` is a consumer-local alias. Identity is not inferred from an agent name
+or repository basename. `git`, optional `ref` and `path`, and `bindings` declare how the direct
+component is applied. A binding stores both its `adapter` family and concrete `variant`, plus
+optional upstream `export` and local `path`; pull reuses these selections instead of detecting
+them again. Dependencies are direct only.
 
-These enumerable implementation facts are generated from the CLI integration registry; open schema vocabularies remain valid beyond this list.
+## Lock
 
-| Layer | Integrations and wiring |
-| --- | --- |
-| Native ecosystems | npm, uv/PyPI, Go, Cargo, SwiftPM, Pub, Bundler, Composer, Mix, Cabal/Stack, Zig, Clojure, Nix — native Git forms, or local path forms when vendored. |
-| Build systems | CMake, Gradle, Maven, MSBuild, Meson — one generated include/import for vendored source. |
-| Agent harnesses | Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI, OpenCode, Hermes Agent, OpenClaw — skill and repository-scoped MCP setup. |
-| Distribution channels | Go, Go zero-install, macOS/Linux installer, Windows installer, Homebrew, Scoop, npm, PyPI with uv, PyPI with pipx, Container, Nix flake — one release binary, verified through channel-native entry points. |
-| Contact kinds | a2a, github-issue, gitlab-issue, gitea-issue, bitbucket-issue, azure-boards, http, exec, email, jira, mattermost, slack, discord, telegram, teams, url — built-in delivery, consent-gated invocation, plugin, or exact instruction. |
-| Standards | A2A, AGENTS.md, Agent Skills, ARD catalogs, MCP, MCP Registry — native projections; MCP Registry listing. |
-<!-- generated-facts:spec:end -->
+The lock is CLI-owned deterministic YAML with `schema: 2` and a `dependencies` map keyed by
+local alias. Every entry records upstream `component`, `git`, requested `ref`, optional `path`,
+one resolved `commit`, the upstream `manifest` digest, the successfully applied `bindings`, and
+the locked `agent`. Agent metadata separates `declaredCard` from the usable `card` reference and
+records its `commit` provenance. Optional `surface` is the materialized Git tree identity. All
+bindings, the manifest, agent metadata, and surface in one entry come from the same commit.
 
-## Schema evolution
+The declaration chooses source and adapters; the lock reports the last successful local
+application. It is written only after the per-dependency transaction succeeds. It contains no
+timestamps, machine-absolute paths, parsed Agent Card fields, or transitive package graph. A
+repository-relative card is retained byte-for-byte under `.git-a2a/agents/ALIAS` as recoverable
+local metadata; HTTPS references remain external and are not fetched.
 
-Schema 1 evolves additively: new fields are optional and existing valid documents retain their
-meaning. Removing or renaming a field, making it required, closing an open vocabulary, changing a
-default, or changing a committed value's type/meaning requires schema 2, a `git-a2a migrate`
-command, and a documented deprecation window. A tool refuses a newer schema instead of guessing.
-`git-a2a validate --schema-report` lists the optional schema paths a document actually uses so a
-second implementation can state its coverage precisely.
+## Examples
 
-## Vendored dependencies
+- [`native`](./examples/native.a2amodule.yml) — native Go integration.
+- [`polyglot`](./examples/polyglot.a2amodule.yml) — npm/pnpm, Python/uv, and Go bindings.
+- [`submodule-only`](./examples/submodule-only.a2amodule.yml) — explicit fallback checkout.
+- [`submodule-build`](./examples/submodule-build.a2amodule.yml) — one checkout composed with CMake.
+- [`surface-directory`](./examples/surface-directory.a2amodule.yml) and
+  [`surface-root`](./examples/surface-root.a2amodule.yml) — directory and `.` surfaces.
+- [`same-basename-aliases`](./examples/same-basename-aliases.a2amodule.yml) — two `common.git`
+  repositories kept distinct by aliases.
+- [`native.a2amodule.lock`](./examples/native.a2amodule.lock) — successful resolution.
 
-Vendoring is an explicit consumer choice under `dependencies[].vendor`; it never changes the
-owner module. `mode: submodule` (the CLI default when `--vendor` is requested) records a Git
-submodule at the locked commit, while `mode: copy` records and verifies a deterministic tree
-copy. `path` defaults to `settings.vendor-dir` plus the dependency id (`deps/<id>` by default),
-and `recursive` controls nested submodules. The lock records the realised mode, path, commit,
-and tree identity; dirty or drifted materialisation is unhealthy and is never overwritten or
-removed without explicit `--force`.
-
-Integration-only build systems consume the local tree through generated CMake, Gradle, MSBuild,
-Maven, or Meson wiring. Native ecosystems use their local path form—npm `file:`, Cargo `path`,
-Go `replace`, uv/Pub/Mix `path`, and Composer `type: path`—instead of a Git selector. Meson
-requires an explicit `vendor.path: subprojects/<id>` because Meson rejects traversal in wrap
-directories. `fetch` restores the exact vendored state from the lock after clone; `status`
-shows `VENDOR` only when at least one dependency declares it.
-
-## Consumer lifecycle
-
-`add` resolves a dependency and writes one lock commit for every ecosystem. `fetch` reconstructs
-the ignored `.git-a2a/cache` from that lock after a fresh clone. `sync` projects only published
-module, surface, policy, ownership, and contact data into a bounded AGENTS.md block. `status`
-checks the locked cache, native wiring, upstream movement, cards/trust, and roster; `update`,
-`set`, `pin`, `unpin`, and `wire` change the dependency deliberately and transactionally.
-`who` resolves an owner route and `contact` chooses a consumer PATH plugin, built-in A2A/forge
-driver, consent-gated declared invocation, or exact instruction—in that order. GitLab and
-Gitea/Forgejo/Codeberg repositories use the same core lifecycle as GitHub or a bare Git server;
-only issue delivery differs. The [contact-kind reference](../docs/contact-kinds.md) and
-[plugin protocol](../docs/contact-plugins.md) define that boundary. The
-[consumer guide](../docs/consuming.md) gives the complete sequence
-and the non-mutating CI pattern.
-
-## Routing
-
-Routing is deterministic: request intent → role from `policy.intents` (default
-`owner`) → the most specifically scoped matching agent → matching contacts in declared
-order. An exact intent is preferred to the `"*"` fallback. The CLI reports the declared
-contacts; it does not choose a fleet or communication platform.
-
-For example, with `policy.intents.change: spec`, a request for `change` under `api/**` first
-selects agents whose role is `spec`, then prefers an `api/**` scope over `**`, and finally emits
-that agent's `change` contacts in manifest order. If no exact contact accepts `change`, a
-contact whose intents contain `"*"` is the fallback.
-
-## Lock and local state
-
-The lock is CLI-owned deterministic YAML. Each dependency entry records `git`, `ref`, `path`,
-one resolved 40-hex `commit`, `manifest: sha256:<hex>`, optional `cards` hashes, and—when
-materialised—`surface: tree:<40-hex>`. Every ecosystem adapter pins the same commit. There are
-no timestamps or machine paths.
-
-`.git-a2a/cache/<id>/` contains the fetched manifest, card snapshots, optional published
-surface, fetch metadata, and an implementation working area. It is disposable and must
-be ignored by git.
-
-## A2A projection
-
-Agent cards remain native A2A v1.0. `git-a2a card export` starts from a snapshotted card
-or synthesises a minimal card from an A2A contact, then adds the stable extension
-`https://git-a2a.com/ext/module/v1`. Its params bind the card to the module, repository,
-role, scope, and ref. Skills and other native card fields are left untouched.
-
-`agents[].trust.signatures: true` requires at least one valid JWS signature over the RFC 8785
-canonical card, bound to pinned `jwks`/`keys` or a reported same-origin fallback. Origins,
-key-cache age, key rotation, consumer-required signed cards/commits, and external-contact policy
-are defined in the generated reference and explained in the [trust guide](../docs/trust.md).
-An unsigned, invalid, revoked, or unexpectedly re-keyed card makes `status` unhealthy;
-`git-a2a card verify FILE|URL [--jwks URL] [--key THUMBPRINT]` exercises the same verifier.
-
-`git-a2a catalog export [--out ai-catalog.json]` emits an ARD 1.0 catalog. Public card URLs stay
-references; repository-relative or synthesised cards are embedded as
-`application/a2a-agent-card+json`. The catalog indexes cards and never becomes another agent
-description.
-
-## Canonical YAML
-
-CLI-owned YAML uses two-space indentation, the key order described above, block scalars
-for multiline descriptions and notes, and block collections. A short contact may use a
-flow map. Maps whose ordering is semantic (notably lock dependencies and card hashes)
-are sorted lexicographically. Files end with one newline and contain no timestamps or
-absolute machine paths.
-
-Normal commands preserve a hand-written manifest's comments and key order outside the
-precisely addressed entry they change. `git-a2a fmt` is the explicit request to rewrite
-the whole manifest canonically.
-
-See the [library](./examples/acme-lib-utils.a2amodule.yml),
-[consumer](./examples/acme-app-cli.a2amodule.yml), and
-[monorepo](./examples/acme-monorepo-consumer.a2amodule.yml) examples. Vendored build-system
-examples cover [CMake](./examples/acme-cmake-consumer.a2amodule.yml) and
-[Gradle](./examples/acme-gradle-consumer.a2amodule.yml).
+The only schema 1 example is the deliberately invalid
+[`schema-1-migration`](./examples/invalid/schema-1-migration.a2amodule.yml). Schema 1 is rejected
+before mutation and is never reinterpreted. There is no compatibility reader or migrate command;
+follow [`docs/migration-v2.md`](../docs/migration-v2.md) to author a schema 2 declaration.

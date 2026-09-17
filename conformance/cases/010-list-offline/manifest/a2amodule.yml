@@ -1,0 +1,12 @@
+schema: 2
+component:
+  id: acme-consumer
+dependencies:
+  - name: acme-lib
+    git: https://git.example.invalid/acme/lib.git
+    ref: main
+    bindings:
+      - adapter: submodule
+        variant: git
+        export: acme-lib
+        path: deps/acme-lib

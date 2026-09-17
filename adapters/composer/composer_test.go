@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/neprel/git-a2a/internal/adapter"
-	"github.com/neprel/git-a2a/internal/manifest"
 )
 
 func TestWireGoldenIdempotentUnwire(t *testing.T) {
@@ -19,8 +18,8 @@ func TestWireGoldenIdempotentUnwire(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "composer.json"), original, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	dep := adapter.Dependency{Git: "https://github.com/acme/lib-utils.git", Ref: "main", Track: "locked"}
-	exp := adapter.Export{Ecosystem: "composer", Name: "acme/lib-utils"}
+	dep := adapter.Dependency{Name: "acme-lib-utils", Git: "https://github.com/acme/lib-utils.git", Ref: "main"}
+	exp := adapter.Export{Adapter: "composer", Name: "acme/lib-utils"}
 	locked := adapter.Locked{Git: dep.Git, Commit: strings.Repeat("a", 40)}
 	a := Adapter{}
 	change, err := a.Wire(context.Background(), root, dep, exp, locked)
@@ -40,26 +39,65 @@ func TestWireGoldenIdempotentUnwire(t *testing.T) {
 	assertJSONEqual(t, mustRead(t, filepath.Join(root, "composer.json")), original)
 }
 
-func TestVendoredPathLifecycle(t *testing.T) {
+func TestSubdirectoryIsNotWirable(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "composer.json"), []byte("{\"name\":\"acme/consumer\"}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	dep := adapter.Dependency{ID: "acme-lib", Vendor: &manifest.Vendor{Mode: "copy"}}
-	exp := adapter.Export{Ecosystem: "composer", Name: "acme/lib", Path: "php"}
-	locked := adapter.Locked{Vendor: &manifest.LockedVendor{Mode: "copy", Path: "deps/acme-lib"}}
-	a := Adapter{}
-	if change, err := a.Wire(context.Background(), root, dep, exp, locked); err != nil || !change.Changed {
-		t.Fatalf("Wire=%#v %v", change, err)
+	dep := adapter.Dependency{Name: "acme-lib", Git: "https://github.com/acme/lib.git"}
+	exp := adapter.Export{Adapter: "composer", Name: "acme/lib", Path: "php"}
+	before := mustRead(t, filepath.Join(root, "composer.json"))
+	err := (Adapter{}).Capability(root, dep, exp)
+	if !adapter.IsNotWirable(err) {
+		t.Fatalf("err=%v, want typed not-wirable", err)
 	}
-	if got := string(mustRead(t, filepath.Join(root, "composer.json"))); !strings.Contains(got, `"type":"path"`) || !strings.Contains(got, `"url":"deps/acme-lib/php"`) {
-		t.Fatalf("path wiring:\n%s", got)
+	if got := mustRead(t, filepath.Join(root, "composer.json")); string(got) != string(before) {
+		t.Fatal("Capability mutated composer.json")
 	}
-	if findings, err := a.Drift(context.Background(), root, dep, exp, locked); err != nil || len(findings) != 0 {
-		t.Fatalf("Drift=%v %v", findings, err)
+}
+
+func TestPullChecksToolBeforeMutation(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "composer.json")
+	original := []byte("{\"name\":\"acme/consumer\"}\n")
+	if err := os.WriteFile(path, original, 0o644); err != nil {
+		t.Fatal(err)
 	}
-	if change, err := a.Unwire(context.Background(), root, dep, exp); err != nil || !change.Changed {
-		t.Fatalf("Unwire=%#v %v", change, err)
+	t.Setenv("PATH", t.TempDir())
+	dep := adapter.Dependency{Git: "https://example.com/acme/lib.git", Ref: "main"}
+	exp := adapter.Export{Name: "acme/lib"}
+	_, err := (Adapter{}).Pull(context.Background(), root, dep, exp, adapter.Locked{Git: dep.Git, Commit: strings.Repeat("a", 40)})
+	if !adapter.IsMissingTool(err) {
+		t.Fatalf("err=%v, want missing-tool", err)
+	}
+	if got := mustRead(t, path); string(got) != string(original) {
+		t.Fatal("Pull mutated composer.json before tool preflight")
+	}
+}
+
+func TestRemoveUsesComposerSupportedDependencyFlag(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "composer.json")
+	body := []byte("{\"name\":\"acme/consumer\",\"repositories\":{\"acme/lib\":{\"type\":\"vcs\",\"url\":\"https://example.com/acme/lib.git\"}},\"require\":{\"acme/lib\":\"dev-main#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}}\n")
+	if err := os.WriteFile(path, body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bin := t.TempDir()
+	log := filepath.Join(root, "composer.log")
+	script := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> " + log + "\n"
+	if err := os.WriteFile(filepath.Join(bin, "composer"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin)
+	dep := adapter.Dependency{Git: "https://example.com/acme/lib.git", Ref: "main"}
+	exp := adapter.Export{Name: "acme/lib"}
+	locked := adapter.Locked{Git: dep.Git, Commit: strings.Repeat("a", 40)}
+	if _, err := (Adapter{}).Remove(context.Background(), root, dep, exp, locked); err != nil {
+		t.Fatal(err)
+	}
+	got := string(mustRead(t, log))
+	if !strings.Contains(got, "remove acme/lib --update-with-dependencies ") {
+		t.Fatalf("composer command = %q", got)
 	}
 }
 

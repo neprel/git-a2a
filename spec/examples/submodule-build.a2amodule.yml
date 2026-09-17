@@ -1,0 +1,17 @@
+# A build adapter composes with the same submodule checkout.
+# yaml-language-server: $schema=https://git-a2a.com/schema/a2amodule.v2.json
+schema: 2
+component:
+  id: desktop-client
+dependencies:
+  - name: rendering
+    git: https://github.com/acme/rendering.git
+    ref: main
+    bindings:
+      - adapter: submodule
+        variant: git
+        path: deps/rendering
+      - adapter: cmake
+        variant: add-subdirectory
+        export: rendering
+        path: deps/rendering

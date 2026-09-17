@@ -1,0 +1,18 @@
+# Native package-manager integration.
+# yaml-language-server: $schema=https://git-a2a.com/schema/a2amodule.v2.json
+schema: 2
+component:
+  id: acme-app
+  description: Acme application consuming a Go component directly from Git.
+  repository: https://github.com/acme/app.git
+agent:
+  name: acme-app-owner
+  card: https://agents.acme.example/app/.well-known/agent-card.json
+dependencies:
+  - name: logging
+    git: https://github.com/acme/logging.git
+    ref: main
+    bindings:
+      - adapter: golang
+        variant: go
+        export: acme.dev/logging

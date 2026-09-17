@@ -1,1 +1,0 @@
-project('acme-consumer', 'cpp')

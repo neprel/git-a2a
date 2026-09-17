@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/neprel/git-a2a/internal/adapter"
-	"github.com/neprel/git-a2a/internal/manifest"
 )
 
 func TestWireGoldenIdempotentUnwire(t *testing.T) {
@@ -18,8 +17,8 @@ func TestWireGoldenIdempotentUnwire(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "Cargo.toml"), original, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	dep := adapter.Dependency{Git: "https://github.com/acme/lib-utils.git", Ref: "main", Track: "locked"}
-	exp := adapter.Export{Ecosystem: "cargo", Name: "acme-lib-utils", Path: "rust/lib"}
+	dep := adapter.Dependency{Name: "acme-lib", Git: "https://github.com/acme/lib-utils.git", Ref: "main"}
+	exp := adapter.Export{Adapter: "cargo", Name: "acme-lib-utils", Path: "rust/lib"}
 	locked := adapter.Locked{Git: dep.Git, Commit: strings.Repeat("a", 40)}
 	a := Adapter{}
 	change, err := a.Wire(context.Background(), root, dep, exp, locked)
@@ -35,34 +34,22 @@ func TestWireGoldenIdempotentUnwire(t *testing.T) {
 	if findings, err := a.Drift(context.Background(), root, dep, exp, locked); err != nil || len(findings) != 0 {
 		t.Fatalf("drift=%v err=%v", findings, err)
 	}
+	manifestPath := filepath.Join(root, "Cargo.toml")
+	branchPin := strings.Replace(string(mustRead(t, manifestPath)), `rev = "`+locked.Commit+`"`, `branch = "main"`, 1)
+	if err := os.WriteFile(manifestPath, []byte(branchPin), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if findings, err := a.Drift(context.Background(), root, dep, exp, locked); err != nil || len(findings) != 1 {
+		t.Fatalf("branch pin drift=%v err=%v", findings, err)
+	}
+	if _, err := a.Wire(context.Background(), root, dep, exp, locked); err != nil {
+		t.Fatal(err)
+	}
 	if change, err = a.Unwire(context.Background(), root, dep, exp); err != nil || !change.Changed {
 		t.Fatalf("unwire=%#v err=%v", change, err)
 	}
 	if got := mustRead(t, filepath.Join(root, "Cargo.toml")); string(got) != string(original) {
 		t.Fatalf("unwire differs\ngot:\n%s\nwant:\n%s", got, original)
-	}
-}
-
-func TestVendoredPathLifecycle(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "Cargo.toml"), []byte("[package]\nname = \"consumer\"\nversion = \"1.0.0\"\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	dep := adapter.Dependency{ID: "acme-lib", Vendor: &manifest.Vendor{Mode: "copy"}}
-	exp := adapter.Export{Ecosystem: "cargo", Name: "acme-lib", Path: "rust"}
-	locked := adapter.Locked{Vendor: &manifest.LockedVendor{Mode: "copy", Path: "deps/acme-lib"}}
-	a := Adapter{}
-	if change, err := a.Wire(context.Background(), root, dep, exp, locked); err != nil || !change.Changed {
-		t.Fatalf("Wire=%#v %v", change, err)
-	}
-	if got := string(mustRead(t, filepath.Join(root, "Cargo.toml"))); !strings.Contains(got, `path = "deps/acme-lib/rust"`) {
-		t.Fatalf("path wiring:\n%s", got)
-	}
-	if findings, err := a.Drift(context.Background(), root, dep, exp, locked); err != nil || len(findings) != 0 {
-		t.Fatalf("Drift=%v %v", findings, err)
-	}
-	if change, err := a.Unwire(context.Background(), root, dep, exp); err != nil || !change.Changed {
-		t.Fatalf("Unwire=%#v %v", change, err)
 	}
 }
 

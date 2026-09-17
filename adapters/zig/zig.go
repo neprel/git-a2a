@@ -29,20 +29,16 @@ func (Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp 
 	if exp.Path != "" && exp.Path != "." {
 		return adapter.Change{}, adapter.NotWirable("Zig package URLs cannot select a repository subdirectory")
 	}
-	hash, _ := exp.Extensions["x-zig-hash"].(string)
+	hash := exp.Checksum
 	if strings.TrimSpace(hash) == "" {
-		return adapter.Change{}, adapter.NotWirable("Zig requires exports[].x-zig-hash for package integrity")
+		return adapter.Change{}, adapter.NotWirable("Zig requires exports[].checksum for package integrity")
 	}
 	path := filepath.Join(root, "build.zig.zon")
 	body, err := os.ReadFile(path)
 	if err != nil {
 		return adapter.Change{}, err
 	}
-	ref := locked.Commit
-	if dep.Track == "floating" {
-		ref = dep.Ref
-	}
-	block := fmt.Sprintf("    // git-a2a:begin %s\n    %s = .{\n      .url = %s,\n      .hash = %s,\n    },\n    // git-a2a:end %s\n", exp.Name, fieldName(exp.Name), strconv.Quote(gitURL(dep.Git, ref)), strconv.Quote(hash), exp.Name)
+	block := fmt.Sprintf("    // git-a2a:begin %s\n    %s = .{\n      .url = %s,\n      .hash = %s,\n    },\n    // git-a2a:end %s\n", exp.Name, fieldName(exp.Name), strconv.Quote(gitURL(dep.Git, locked.Commit)), strconv.Quote(hash), exp.Name)
 	next, changed, err := upsert(string(body), exp.Name, block)
 	if err == nil && changed {
 		err = os.WriteFile(path, []byte(next), 0o644)
@@ -70,10 +66,6 @@ func (Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, exp 
 	return adapter.Change{File: "build.zig.zon", Entry: exp.Name, Changed: true}, err
 }
 
-func (Adapter) Refresh(ctx context.Context, _ string, _ adapter.Dependency, _ adapter.Export, _ adapter.Locked) error {
-	return adapter.RequireTool(ctx, "zig", "zon")
-}
-
 func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
 	body, err := os.ReadFile(filepath.Join(root, "build.zig.zon"))
 	if err != nil {
@@ -86,11 +78,12 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 		gotURL = match[1]
 	}
 	base := strings.TrimPrefix(gotURL, "git+")
+	gotCommit := ""
 	if at := strings.LastIndex(base, "#"); at >= 0 {
+		gotCommit = base[at+1:]
 		base = base[:at]
 	}
-	badPin := dep.Track != "floating" && !strings.Contains(gotURL, locked.Commit)
-	if block == "" || gitx.NormalizeURL(base) != gitx.NormalizeURL(locked.Git) || badPin {
+	if block == "" || gitx.NormalizeURL(base) != gitx.NormalizeURL(locked.Git) || gotCommit != locked.Commit {
 		return []adapter.Finding{{File: "build.zig.zon", Entry: exp.Name, Want: locked.Commit, Got: strings.TrimSpace(block)}}, nil
 	}
 	return nil, nil

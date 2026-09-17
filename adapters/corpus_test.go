@@ -27,28 +27,28 @@ import (
 
 func TestPublicManifestCorpusEditorsRoundTrip(t *testing.T) {
 	commit := strings.Repeat("a", 40)
-	dep := adapter.Dependency{Git: "https://github.com/acme/git-a2a-corpus.git", Ref: "main", Track: "locked"}
+	dep := adapter.Dependency{Name: "corpus", Git: "https://github.com/acme/git-a2a-corpus.git", Ref: "main"}
 	locked := adapter.Locked{Git: dep.Git, Ref: "refs/heads/main", Commit: commit}
 	goAdapter := golang.Adapter{ResolveVersion: func(context.Context, string, string, string) (string, error) {
 		return "v0.0.0-20260822000000-aaaaaaaaaaaa", nil
 	}}
 	cases := map[string]struct {
-		implementation adapter.Adapter
+		implementation manifestEditor
 		export         adapter.Export
 	}{
-		"npm":      {npm.Adapter{}, adapter.Export{Ecosystem: "npm", Name: "@git-a2a/corpus-dependency"}},
-		"pypi":     {pypi.Adapter{}, adapter.Export{Ecosystem: "pypi", Name: "git-a2a-corpus-dependency"}},
-		"golang":   {goAdapter, adapter.Export{Ecosystem: "golang", Name: "github.com/acme/git-a2a-corpus"}},
-		"cargo":    {cargo.Adapter{}, adapter.Export{Ecosystem: "cargo", Name: "git-a2a-corpus-dependency"}},
-		"swift":    {swift.Adapter{}, adapter.Export{Ecosystem: "swift", Name: "GitA2ACorpusDependency"}},
-		"pub":      {pubadapter.Adapter{}, adapter.Export{Ecosystem: "pub", Name: "git_a2a_corpus_dependency"}},
-		"gem":      {gem.Adapter{}, adapter.Export{Ecosystem: "gem", Name: "git-a2a-corpus-dependency"}},
-		"composer": {composer.Adapter{}, adapter.Export{Ecosystem: "composer", Name: "git-a2a/corpus-dependency"}},
-		"hex":      {hex.Adapter{}, adapter.Export{Ecosystem: "hex", Name: "git_a2a_corpus_dependency"}},
-		"hackage":  {hackage.Adapter{}, adapter.Export{Ecosystem: "hackage", Name: "git-a2a-corpus-dependency"}},
-		"zig":      {zig.Adapter{}, adapter.Export{Ecosystem: "zig", Name: "git_a2a_corpus_dependency", Extensions: map[string]any{"x-zig-hash": "1220" + strings.Repeat("b", 64)}}},
-		"clojure":  {clojure.Adapter{}, adapter.Export{Ecosystem: "clojure", Name: "git-a2a/corpus-dependency"}},
-		"nix":      {nix.Adapter{}, adapter.Export{Ecosystem: "nix", Name: "git-a2a-corpus-dependency"}},
+		"npm":      {npm.Adapter{}, adapter.Export{Adapter: "npm", Name: "@git-a2a/corpus-dependency"}},
+		"pypi":     {pypi.Adapter{}, adapter.Export{Adapter: "pypi", Name: "git-a2a-corpus-dependency"}},
+		"golang":   {goAdapter, adapter.Export{Adapter: "golang", Name: "github.com/acme/git-a2a-corpus"}},
+		"cargo":    {cargo.Adapter{}, adapter.Export{Adapter: "cargo", Name: "git-a2a-corpus-dependency"}},
+		"swift":    {swift.Adapter{}, adapter.Export{Adapter: "swift", Name: "GitA2ACorpusDependency"}},
+		"pub":      {pubadapter.Adapter{}, adapter.Export{Adapter: "pub", Name: "git_a2a_corpus_dependency"}},
+		"gem":      {gem.Adapter{}, adapter.Export{Adapter: "gem", Name: "git-a2a-corpus-dependency"}},
+		"composer": {composer.Adapter{}, adapter.Export{Adapter: "composer", Name: "git-a2a/corpus-dependency"}},
+		"hex":      {hex.Adapter{}, adapter.Export{Adapter: "hex", Name: "git_a2a_corpus_dependency"}},
+		"hackage":  {hackage.Adapter{}, adapter.Export{Adapter: "hackage", Name: "git-a2a-corpus-dependency"}},
+		"zig":      {zig.Adapter{}, adapter.Export{Adapter: "zig", Name: "git_a2a_corpus_dependency", Checksum: "1220" + strings.Repeat("b", 64)}},
+		"clojure":  {clojure.Adapter{}, adapter.Export{Adapter: "clojure", Name: "git-a2a/corpus-dependency"}},
+		"nix":      {nix.Adapter{}, adapter.Export{Adapter: "nix", Name: "git-a2a-corpus-dependency"}},
 	}
 	for ecosystem, test := range cases {
 		ecosystem, test := ecosystem, test
@@ -90,6 +90,14 @@ func TestPublicManifestCorpusEditorsRoundTrip(t *testing.T) {
 			}
 		})
 	}
+}
+
+// manifestEditor is the narrow editor surface exercised by the corpus.
+// Product lifecycle goes exclusively through adapter.Adapter.
+type manifestEditor interface {
+	Wire(context.Context, string, adapter.Dependency, adapter.Export, adapter.Locked) (adapter.Change, error)
+	Unwire(context.Context, string, adapter.Dependency, adapter.Export) (adapter.Change, error)
+	Drift(context.Context, string, adapter.Dependency, adapter.Export, adapter.Locked) ([]adapter.Finding, error)
 }
 
 func byteDifference(got, want []byte) string {

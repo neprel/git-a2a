@@ -1,16 +1,23 @@
 # decision Nix flake inputs carry ref, rev, and dir in a native Git URL
 
-The Nix adapter owns one delimited `inputs.<name>.url` assignment in `flake.nix`. Locked wiring
-uses a `git+` URL with both the declared `ref` and the full lock `rev`; floating wiring omits
-`rev`. An export subdirectory becomes the native `dir` query parameter. Query encoding is
-deterministic, and `flake.lock` remains downstream rather than being rewritten during wiring.
+The Nix adapter owns one delimited `inputs.<name>.url` assignment in `flake.nix`. Wiring uses a
+`git+` URL with both the declared `ref` and `LockedDependency.Commit` as `rev`. An export
+subdirectory becomes the native `dir` query parameter. Query encoding is deterministic. `Pull`
+updates exactly the selected input in `flake.lock`; the declaration edit by itself does not claim
+success.
 
 # test Nix adapter
 
 - Fixture/golden wiring is idempotent and preserves unrelated Nix expressions and comments.
 - Drift checks the normalized Git URL and locked `rev`.
 - Unwire removes only the delimited input assignment.
+- The central native-lifecycle runner uses pinned Nix 2.28.3 and the public CLI to prove real
+  evaluation, read-only list, fresh-clone and missing-lock repair, targeted advance, rollback,
+  and removal while preserving an unrelated flake input.
 
-# decision Refresh prerequisite
+# decision flake materialization
 
-`Refresh` checks `nix` through the shared prerequisite contract before doing any work.
+`Pull` requires `nix` before mutation and runs `nix flake lock --update-input <name>` on every
+call, including an unchanged commit, so a missing lock node is repaired and fetched. `Remove`
+deletes the owned input then runs `nix flake lock` to prune it. `Inspect` verifies the exact locked
+revision without invoking Nix.

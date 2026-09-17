@@ -1,234 +1,35 @@
-# decision Manifest-changing commands are transactions
-
-`add`, `update`, `set`, `remove`, and `wire` stage every manifest, lock, cache, surface, vendored
-tree, and ecosystem
-edit before publishing any of them. A failure before commit leaves every tracked file byte-for-byte
-unchanged; a commit failure rolls back already-published files. `wire` is idempotent and may repair
-an intentionally partial dependency without changing its identity.
-
-# decision Exit codes classify outcomes
-
-Exit 0 means the requested state was reached (warnings may still be present). Exit 1 means a valid
-request found drift, failed trust, a missing Refresh prerequisite, or another operational failure.
-Exit 2 means invocation or resolution failed: invalid flags, absent input, unknown identity, or a
-location from which no input could be read. Preserve these classes across subcommands.
-
-# decision Output separates records from diagnostics
-
-Machine-consumable records and command results go to stdout, one record per line unless the command
-explicitly emits JSON or a document. Progress, warnings, summaries, and errors go to stderr. Durable
-state belongs in the manifest, lock, or `.git-a2a/`; command delivery history is never invented.
-
-# invariant Dry runs and checks do not mutate
-
-`--dry-run`, `--check`, offline inspection, help, and validation paths do not change tracked files,
-the lock, or `.git-a2a/`.
-
-# invariant Version checks never recommend a downgrade
-
-`version --check` compares canonical versions by numeric SemVer core components. When a release
-candidate or source build embeds a version newer than GitHub's latest stable release, the check
-exits successfully, reports that stable version for context, and never prints an update command
-or an “available” verdict that would ask the operator to downgrade.
-
-# decision Dependency status and roster refresh are distinct
-
-The status table contains dependencies only; the consumer module is reported once in a footer,
-with detailed diagnostics reserved for `-v`. An absent managed `AGENTS.md` block is `SYNC none`
-and healthy, while an existing block that differs from the renderer is `stale`. After `sync` has
-created a block, every dependency mutation re-renders that existing block as its final step and
-never creates one implicitly. `--no-refresh` on add, update, set, pin, unpin, and wire skips the
-package-manager Refresh phase without skipping deterministic manifest, lock, wiring, or roster
-updates. Human status output expands its table with spaces through Go's tabwriter so every column
-starts at the same position even when a source, ref, or wiring summary is longer than the header.
-Human output includes the ASCII-only `VENDOR` column only when at least one manifest or lock
-dependency is vendored; ordinary native-Git consumers keep the compact pre-vendoring table.
-When present its values are `none`, `submodule @<sha7>`, `copy`, `missing`, or `drift`; ASCII
-keeps tabwriter byte width equal to terminal cell width. JSON always includes `vendor` so its
-machine shape never depends on repository state.
-
-# decision Prerequisite reporting is shared with adapters
-
-`doctor` always checks Git >= 2.25, warns below 2.27, and unions tools from detected ecosystem
-markers with ecosystems explicitly named by wired dependencies. Human and JSON output include
-version, PATH state, and the platform install hint; any required missing or incompatible tool is
-exit 1. `status -v` exposes the same state. `add`, `wire`, `update`, and `set` preserve a completed
-manifest edit and warn when only downstream Refresh is unavailable; a direct adapter `Refresh`
-returns the shared actionable error.
-When multiple build systems share one export ecosystem, prerequisite lookup continues past
-non-matching detectors and reports the tool for the detected implementation (for example Gradle
-for a `maven` export in a repository with `settings.gradle.kts`).
-
-# decision Fetch restores cache from immutable lock state
-
-`git-a2a fetch [ID ...]` is the durable-state repair command for reconstructible local state.
-It fetches each manifest at the exact lock commit, validates the manifest SHA-256, stages the
-cache, and atomically replaces only that dependency's cache. `--surface` also verifies the locked
-tree id. For a declared vendor it restores the submodule or copy at the exact lock identity without
-changing the lock or adapter files. It never resolves the manifest ref, rewrites manifest/lock,
-snapshots cards, or invokes adapters; missing lock coordinates or hash mismatches exit 1.
-
-# decision Vendoring participates in every dependency lifecycle
-
-`add --vendor submodule|copy [--vendor-path P]` makes the consumer choice explicit. `set` changes
-mode/path or `--no-vendor`; `update` moves the materialisation with the lock; `fetch` and `wire`
-restore missing materialisation; `remove` removes all Git residue. `set`, `update`, and `remove`
-refuse dirty/drifted vendor state unless `--force` makes data loss explicit. Transport rollback
-restores the old materialisation when later metadata, cache, or adapter publication fails.
-`set` materialises the candidate vendor before adapter Refresh so file/path resolvers can read
-it; the transport rollback remains live until every later publication step succeeds.
-
-# decision Usage is a deterministic agent briefing
-
-`git-a2a usage` prints at most 60 lines with exactly eight routine commands, one example each,
-exit classes, structured-output guidance, and the canonical reference. `--prompt` appends the
-complete fresh-agent workflow and `--json` returns the same ordered lines. Both forms are embedded
-constants: they do not inspect the repository, network, terminal, clock, or environment.
-
-# decision Authoring helpers construct valid manifests without prompts
-
-`agent add/remove/list`, `export add`, and `policy set` are non-interactive, noun-first helpers
-for manifest authors. Mutations load and validate the existing manifest, edit only the owned
-`yaml.Node` sequence or mapping entries (preserving comments, key order, extensions, and
-flow/block style of untouched nodes), validate again, emit YAML atomically, and refresh an existing
-AGENTS.md managed block. A roster-refresh failure restores the original manifest and roster.
-Repeated `--scope` and `--contact` flags preserve declaration order; contact fields use
-comma-separated `key=value` pairs and `|` only inside list values such as intents and labels.
-They accept `--yes` as a no-op for automation. `init --example lib|app` writes a complete valid,
-commented starting manifest and never overwrites an existing one. `policy set --may`,
-`--may-not`, and `--notes` replace only the explicitly supplied consumer-policy fields.
-
-# decision Plain dependency shims reuse normal routing and wiring
-
-When a lock entry has `manifest: none`, the CLI projects its consumer-authored `shim.exports` and
-`shim.agents` into the ordinary manifest model. Adapter selection, drift, `wire`, `who`, and
-`contact` therefore have one implementation for upstream and shim metadata. If the lock contains
-an upstream manifest hash, the projection is never used and status reports the ignored shim.
-Adding shim exports after a plain dependency was locked is sufficient: a later bare `wire [ID]`
-must apply those exports before it may report `wiring is current`.
-
-# decision Init never replaces an existing manifest implicitly
-
-Writing forms of `init`, including `--answers`, refuse either accepted existing manifest spelling
-with exit 1 and `manifest already exists; edit it or remove it first`. The read-only `--interview`
-form remains available because it does not write.
-
-# decision Explain embeds the generated normative field reference
-
-`git-a2a explain PATH [--json]` reads no repository, environment, clock, or network. Its content
-is the byte-identical generated `docs/manifest-reference.md` embedded at build time; the docs
-generator updates and drift-checks both copies, so the command cannot become a second normative
-source. Authors may omit `[]` from array paths (`agents.contacts.kind` resolves to
-`agents[].contacts[].kind`). Unknown paths exit 2.
-
-# decision Setup installs repository-scoped agent guidance only
-
-`git-a2a setup` detects Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI, OpenCode, Hermes
-Agent, and OpenClaw from repository markers. User-home markers are reported with an explicit
-`--harness <name>` instruction and never cause repository writes. `--harness a,b` selects named
-harnesses and `--all` selects every integration. It always installs a thin cross-agent skill
-(`SKILL.md` plus `references/README.md`) at `.agents/skills/git-a2a/`, mirrors it to `.claude/skills/`
-when Claude Code is present, ensures a separately delimited AGENTS.md pointer, and adds the
-project-scoped `git-a2a mcp` entry supported by each detected harness. Unrelated configuration
-and guidance survive. `--dry-run` and `--check` are non-mutating; check exits 1 on drift. Setup
-never downloads or installs the executable, a harness, a toolchain, or any dependency.
-Hermes Agent and OpenClaw expose only user-scoped MCP registries; setup must not mutate those
-home-directory files. When detected it prints their exact `hermes mcp add` / `openclaw mcp set`
-command instead, leaving the operator to authorize that wider scope.
-
-# decision CLI help and automation are uniform
-
-Every top-level and nested command help puts a runnable `Examples:` section immediately after usage and ends
-with the shared `Exit codes:` legend. `--timeout` and no-op `--yes` are accepted globally, so an
-agent can pass them to any command without discovering command-specific exceptions. Commands do
-not prompt. Read commands `who`, `show`, `status`, `doctor`, `validate`, `explain`, and `usage`
-offer JSON; output written to a non-TTY contains no ANSI escapes.
-
-# invariant Human stdin guidance is unambiguous
-
-Compact usage signatures may use `FILE|-`, but diagnostics and explanatory flag prose name the two
-forms explicitly: `<file>` for a path and `"-" for stdin`. In particular, non-interactive `init`
-prints `pass --answers <file>, or --answers - to read answers from stdin`, and a missing contact
-message prints `--message <file> (or "-" for stdin)`.
-
-# decision Schema coverage is reported from written YAML, not zero-valued Go fields
-
-`validate --schema-report` augments an ordinary successful validation with schema number and the
-sorted optional schema paths explicitly present in each manifest or lock. It walks `yaml.Node` so
-an authored `false`, empty string, or empty collection remains visible; sequence indices normalize
-to `[]`. A schema newer than `manifest.CurrentSchema` is a typed refusal with exit 2 and the exact
-upgrade diagnostic defined by the spec, while older/invalid values remain exit 1.
-
-# decision MCP is a thin command-scoped projection of the CLI
-
-`git-a2a mcp` is a stateless stdio server built on the official Go SDK v1.7.x. It opens no
-listener and exits with its harness connection. Exactly eight default tools (`who`, `show`,
-`status`, `validate`, `doctor`, `fetch`, `explain`, `usage`) delegate to the existing JSON CLI
-paths; six write-capable tools are absent unless the operator starts it with
-`--allow-write`. `remove` remains CLI-only. The fixed resources expose the current manifest,
-lock, freshly rendered roster, and embedded generated field reference. Tool schemas are typed,
-tool order is golden-tested, and every tool plus the spawned stdio transport has a protocol
-round-trip test. `setup` writes the default read-only command for every harness, including
-Claude Code's project `.mcp.json`; it never silently grants write access.
-Every repository-dependent tool accepts `root`, resolved relative to the server startup root when
-not absolute. An omitted root preserves the startup repository. The startup directory, repeated
-`--roots` flags, and legacy MCP client `file://` roots form the default allow-list; the server
-refreshes declared roots on `roots/list_changed`, while `--any-root` is the explicit opt-out.
-Every path-typed tool argument is checked after existing-prefix symlink resolution before the
-delegated command begins. Multiple stdio instances share no listener or mutable server state and
-may run concurrently. Fixed resources remain bound to the startup root so their stable URIs do not
-change meaning mid-session. MCP 2026-07-28 removed server-initiated `roots/list`; clients on that
-protocol use the startup directory and `--roots`, while the compatibility handler remains for
-clients negotiating a roots-capable legacy protocol.
-Client roots use standards-compliant file URIs. A Windows drive root is encoded as
-`file:///C:/path`, not `file://C:/path` (which parses `C:` as a host and becomes a malformed UNC
-path); tests construct URIs through `net/url` so Windows and POSIX exercise the same contract.
-`fetch` is annotated non-read-only, non-destructive, idempotent, and open-world because it
-recreates disposable cache through Git access. `contact` is non-idempotent because every call
-delivers. `setup` never emits `--any-root`; user-scoped Hermes and OpenClaw instructions require
-an explicit `--roots <repo>`.
-Write-enabled MCP `add` and `set` expose the same `vendor`, `vendorPath`, `noVendor`, and `force`
-choices as the CLI and delegate them as ordinary command flags; MCP does not invent a separate
-materialisation model.
-Names, descriptions, access gates, and annotations are one enumerable fact table used directly
-by MCP registration. Documentation renders its audit table from those same facts; tests compare
-the live `tools/list` response to them, so adding or changing a tool cannot silently leave prose stale.
-
-# decision Consumer trust gates run before durable publication
-
-When `dependencies[].require.commits` is `signed`, add, update, set, and fetch verify the exact
-resolved object through Git using the repository-relative `require.signers` allowed-signers file.
-Verification happens in a scratch repository before lock or live-cache replacement; status
-rechecks online and trusts only `verified: signed` offline. The explicit
-`--insecure-skip-signers` escape hatch records `verified: skipped` on lock-writing commands.
-`accepts-external: false` is enforced before delivery by comparing the consumer and owner
-organisations; MCP has no override, while the CLI-only `--external-ok` makes human approval
-visible in the delivery output.
-
-# decision Consumer CA configuration follows SSL_CERT_FILE on every platform
-
-All CLI HTTP delivery uses a client whose trust pool appends the PEM bundle named by the
-conventional consumer-owned `SSL_CERT_FILE` environment variable. The CLI performs this
-explicitly because Go's system-root implementation does not honor that variable consistently on
-macOS and Windows. An absent or unreadable override leaves the platform trust store unchanged;
-the tool never downloads or installs a CA.
-
-# decision Plain git dependencies are a first-class degraded state
-
-A lock entry whose `manifest` is `none` records a successfully resolved repository that did not
-publish either accepted manifest filename. Cache absence is expected for that entry, not a prompt
-to run `fetch`. Git-only mutations and vendoring keep working; surface, agent, card, and export
-operations return the deliberate messages and exit codes in the specification's plain-dependency
-table. When an updated commit begins publishing a manifest, normal module behavior takes over.
-Repository-basename ID derivation normalizes both slash styles before inspecting a URL, so a
-Windows `file://C:\\...\\acme-lib.git` fixture derives `acme-lib`, never a drive-qualified ID.
-
-# decision Init questions and answers share one renderer
-
-The init interview is a single ordered Go data structure. Human, text, JSON, non-TTY defaults,
-and `--answers` consume it; only the final field-path answer map reaches manifest construction.
-TTY prompting is injectable for tests, `?` prints only the current why-line, and confirmation
-happens after the exact manifest preview. Unknown answer keys are sorted before the exit-2 error.
-Human prompts show a scalar default in parentheses, omit empty defaults, and summarize detected
-exports by ecosystem instead of dumping their JSON coordinates. Pressing Enter still accepts the
-full computed value; a non-empty answer continues to use the same JSON/YAML-compatible parser.
+<folder_context path="internal/cli">
+<user_interface_surface name="CLI">
+Expose exactly init, add, pull, remove, list plus --help and --version. The dispatcher, help,
+completion/docs, tests, and errors contain no old aliases. Exit 0 is success, 1 operational or
+partial failure, and 2 invalid invocation/input.
+</user_interface_surface>
+<function_contract name="init">
+Create a minimal schema 2 a2amodule.yml without overwriting either accepted manifest spelling;
+add .git-a2a/ to .gitignore. No interview or harness setup. An omitted agent is explicitly
+reported as incomplete for publication.
+</function_contract>
+<function_contract name="add">
+add SOURCE accepts optional --name, --ref, and --path. Fetch and validate the upstream schema 2
+manifest and required agent, reject self-reference, resolve one commit, choose all applicable
+exports/adapters (or submodule fallback), persist variants, apply transactionally, materialize
+relative Agent Card and surface, then write the already validated declaration and lock. A
+successful add leaves every selected platform dependency usable without a manual install.
+</function_contract>
+<function_contract name="pull">
+pull [NAME] preflights all selected entries, then processes aliases in stable order. Each entry
+resolves ref once and calls the saved adapter bindings; missing materialization is restored.
+Successful earlier entries may remain if a later entry fails, and the summary must say so.
+</function_contract>
+<function_contract name="remove">
+Remove one dependency through each saved adapter so native declarations, native locks and
+project-local materialization converge, then remove its submodule, card snapshot, surface,
+cache, declaration, and lock without touching user data or other dependencies.
+</function_contract>
+<function_contract name="list">
+list [NAME] [--json] is offline and read-only. Stable output contains alias, component, source,
+requested ref, installed commit, saved adapter/variants, declared and usable agent-card
+references with provenance, surface path, and local problems. It performs no Git network,
+package-manager operation, or liveness check.
+</function_contract>
+</folder_context>

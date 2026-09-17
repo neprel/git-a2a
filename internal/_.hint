@@ -1,68 +1,51 @@
-# decision Manifest dependency edits preserve human YAML
+<folder_context path="internal">
 
-Changes to `dependencies` in an existing `a2amodule.yml` go through `yaml.Node`, not a
-struct-wide marshal. Existing dependency nodes are updated in place and unrelated comments,
-scalar styles, flow collections, ordering, and extension nodes survive. A full marshal is for
-new manifests and locks; `fmt` canonicalizes through the YAML node tree.
+<reusable_module_context name="schema 2 lifecycle">
+The lifecycle package owns init, add, pull, remove, and list. Manifest and lock readers accept
+only schema 2. Cache and fetch are private implementation details, never additional commands.
+</reusable_module_context>
 
-Adapter transactions snapshot both a generated integration file and its precisely marked root
-include/apply line. Gradle therefore adds both settings DSL variants and both
-`deps/git-a2a.settings.gradle(.kts)` outputs to the same rollback set as CMake.
-MSBuild root project names are discovered dynamically for staging and rollback because their
-names are project-defined; `deps/git-a2a.targets` remains a fixed generated output.
-Maven snapshots both the root `pom.xml` managed blocks and its tool-owned generated reactor POM.
-Meson snapshots both root `meson.build` and its tool-owned `deps/git-a2a/meson.build` include.
-
-# invariant Dependency mutations are recoverable
-
-`add`, each dependency processed by `update`, and `set` stage fetched manifests, cards, and
-surfaces outside the live cache. They snapshot every package-manager file they can modify,
-write manifest and lock atomically, and only then replace the live cache by rename. Any wiring,
-metadata, or cache replacement failure restores package-manager files and the previous
-manifest/lock/cache; a command must not report success over a partial mutation.
-When a dependency requires signed commits, verification is part of that staging gate and runs
-before any durable or adapter write. The `allowed_signers` path is repository-relative after
-both lexical and symlink resolution; an escape outside the consumer repository is rejected.
-An explicit signer bypass is recorded as `verified: skipped`, never presented as verification.
-A rejected signed-commit check is one line: `commit <sha7> signature rejected: <human reason>;
-allowed signers: <path>`, with Git's signer, key identifier, and fingerprint inside the reason.
-An unsigned object instead says `commit <sha7> is not signed; allowed signers: <path>`. Runner
-commands and exit-status internals never cross this interface.
-
-# decision Standalone Windows upgrades replace around the running executable
-
-Windows cannot overwrite a running executable. The binary-channel `upgrade` first renames the
-current executable to the adjacent `.old` path, installs the verified replacement, restores the
-old executable if installation fails, and removes a leftover `.old` best-effort on the next
-invocation. Package-manager channels never use self-upgrade.
-
-<system_invariant name="Lock hashes describe Git blobs, not worktree translations" id="blob_bytes">
-
-Fetched manifest and card bytes used for hashes are read from Git objects (`git archive` or `git
-show <commit>:<path>`), never from a checked-out worktree. In particular, Windows
-`core.autocrlf` must not turn repository LF bytes into CRLF before lock verification. A regression
-test enables `core.autocrlf=true` while restoring a locked local-bare dependency.
-
+<system_invariant name="recoverable dependency transactions">
+Add and each pull process one dependency transaction containing all saved concrete bindings and
+the optional surface. Preflight every binding before mutation. Snapshot owned native files and
+Git metadata, restore them on adapter, metadata, or cache failure, and write the lock only after
+all bindings succeed. Pull-all uses a common read-only preflight and stable alias order; earlier
+successful dependency transactions may remain committed if a later dependency fails.
+Adapter inspection classifies manager-owned lock or materialization drift as repairable so Pull
+can converge a fresh, missing, or stale environment. Non-repairable declaration drift remains a
+preflight error and is never overwritten.
 </system_invariant>
 
-# test Internal mutation invariants
+<system_invariant name="prospective state before adapters">
+Before invoking a mutating adapter operation, validate the complete prospective declaration and
+lock, their cross-references, the existing lock, concrete capabilities, required tools, and local
+conflicts. Preparation uses a copy of the loaded manifest; a failed dependency must not leak
+bindings into a later pull-all write.
+</system_invariant>
 
-- YAML dependency edits retain comments, folded scalars, flow collections, and `x-` fields.
-- A failed `add`, `update`, or `set` leaves manifest, lock, cache, and adapter files unchanged.
-- Windows replacement restores the old executable after a failed install.
+<system_invariant name="saved adapter identity">
+Bindings are identified by adapter, concrete variant, and export. More than one implementation
+may consume the same export ecosystem, such as Maven and Gradle consuming a maven export. Resolve
+the implementation from the saved concrete variant; never let registry order or changed marker
+files silently choose a different implementation.
+Initial selection passes the requested dependency Git source and module path into Capability;
+source-shape validation must not run against an incomplete placeholder dependency.
+</system_invariant>
 
-# test Polyglot lifecycle stays atomic across every registered adapter
+<system_invariant name="exact Git object bytes">
+Fetch manifests, Agent Cards, and surfaces from the one resolved Git commit. Hash manifest bytes
+from the Git object, not a translated worktree. Surface extraction excludes Git metadata,
+untracked content, traversal, and symlinks and materializes below .git-a2a/surfaces/ALIAS.
+Repository-relative Agent Cards are read relative to the upstream manifest root at that commit,
+stored byte-identically as recoverable local metadata, and represented in lock/list by both the
+declared reference and a usable consumer-local resolved path with Git provenance. HTTPS cards
+remain external references and are not fetched.
+</system_invariant>
 
-The local-bare-repository end-to-end scenario runs `add → sync → status → update → set → pin →
-unpin → remove` with every supported native Git ecosystem detected at once. It verifies one
-lock commit in every project file, clean offline status, preservation of human manifest text,
-and complete unwiring at the end. Adding an adapter includes it in this scenario in the same
-commit.
+<verification_and_unit_test_criteria>
+Cover fresh clone without lock/cache, branch advance, unchanged pull, pull-one isolation,
+polyglot rollback, saved variant mismatch, dirty submodule refusal, root and nested surfaces,
+offline list, and full adapter Remove. Schema 1 and every removed command fail before mutation.
+</verification_and_unit_test_criteria>
 
-# invariant Missing upstream manifests remain an intentional lock state
-
-`manifest: none` means the locked Git commit was resolved successfully but declares no
-`a2amodule.yml` or `a2amodule.yaml`. Internal readers distinguish it from a lost or tampered
-cache: they do not fabricate a cache file, and every command follows the specification's plain
-dependency degradation table while Git resolution, vendoring, and transaction rollback remain
-fully operative.
+</folder_context>

@@ -2,21 +2,36 @@ package pypi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"unicode"
 
 	"github.com/neprel/git-a2a/internal/adapter"
-	"github.com/neprel/git-a2a/internal/gitx"
 )
 
 type Adapter struct{}
 
 func (Adapter) Ecosystem() string { return "pypi" }
+
+func (a Adapter) Capability(root string, _ adapter.Dependency, exp adapter.Export) error {
+	ok, variant, err := a.Detect(root)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return adapter.NotWirable("Python consumer manifest is absent")
+	}
+	if exp.Path != "" && exp.Path != "." && variant != "uv" {
+		return adapter.NotWirable(fmt.Sprintf("%s cannot express subdirectory %s", variant, exp.Path))
+	}
+	return nil
+}
 func (Adapter) Detect(root string) (bool, adapter.Variant, error) {
 	b, err := os.ReadFile(filepath.Join(root, "pyproject.toml"))
 	if os.IsNotExist(err) {
@@ -32,13 +47,13 @@ func (Adapter) Detect(root string) (bool, adapter.Variant, error) {
 	if _, err := os.Stat(filepath.Join(root, "poetry.lock")); err == nil || regexp.MustCompile(`(?m)^\[tool\.poetry\.dependencies\][ \t]*$`).MatchString(s) {
 		return true, "poetry", nil
 	}
-	if _, err := os.Stat(filepath.Join(root, "pdm.lock")); err == nil {
+	if _, err := os.Stat(filepath.Join(root, "pdm.lock")); err == nil || strings.Contains(s, "[tool.pdm") {
 		return true, "pdm", nil
 	}
 	return true, "pep621", nil
 }
 
-func (a Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) (adapter.Change, error) {
+func (a Adapter) Wire(_ context.Context, root string, _ adapter.Dependency, exp adapter.Export, locked adapter.Locked) (adapter.Change, error) {
 	ok, v, err := a.Detect(root)
 	if err != nil || !ok {
 		return adapter.Change{}, err
@@ -49,14 +64,11 @@ func (a Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, ex
 		return adapter.Change{}, err
 	}
 	s := string(b)
-	if locked.Vendor != nil && v != "uv" {
-		return adapter.Change{}, adapter.NotWirable(fmt.Sprintf("%s does not support git-a2a vendored path wiring; use uv", v))
-	}
 	if exp.Path != "" && exp.Path != "." && v != "uv" {
 		return adapter.Change{}, adapter.NotWirable(fmt.Sprintf("%s cannot express subdirectory %s", v, exp.Path))
 	}
 	if v == "poetry" {
-		value := fmt.Sprintf("{ git = %q, rev = %q }", dep.Git, pin(dep, locked))
+		value := fmt.Sprintf("{ git = %q, rev = %q }", locked.Git, locked.Commit)
 		next, changed, err := upsertTableEntry(s, "tool.poetry.dependencies", exp.Name, value)
 		if err == nil && changed {
 			err = os.WriteFile(p, []byte(next), 0o644)
@@ -65,14 +77,14 @@ func (a Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, ex
 	}
 	requirement := exp.Name
 	if v != "uv" {
-		requirement = fmt.Sprintf("%s @ git+%s@%s", exp.Name, dep.Git, pin(dep, locked))
+		requirement = fmt.Sprintf("%s @ git+%s@%s", exp.Name, locked.Git, locked.Commit)
 	}
 	next, changed, err := ensureProjectDependency(s, requirement, exp.Name)
 	if err != nil {
 		return adapter.Change{}, err
 	}
 	if v == "uv" {
-		source := uvSource(dep, exp, locked)
+		source := uvSource(exp, locked)
 		var c bool
 		next, c = upsertUVSource(next, exp.Name, source)
 		changed = changed || c
@@ -100,7 +112,7 @@ func (a Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, ex
 	return adapter.Change{File: "pyproject.toml", Entry: exp.Name, Changed: changed}, err
 }
 
-func (a Adapter) Refresh(ctx context.Context, root string, _ adapter.Dependency, exp adapter.Export, _ adapter.Locked) error {
+func (a Adapter) syncNative(ctx context.Context, root string, exp adapter.Export) error {
 	_, v, err := a.Detect(root)
 	if err != nil {
 		return err
@@ -110,74 +122,403 @@ func (a Adapter) Refresh(ctx context.Context, root string, _ adapter.Dependency,
 	}
 	switch v {
 	case "uv":
-		return adapter.Command(ctx, root, "uv", "lock", "--upgrade-package", exp.Name)
+		return adapter.Command(ctx, root, "uv", "sync", "--no-install-project")
 	case "poetry":
-		return adapter.Command(ctx, root, "poetry", "update", exp.Name)
+		// install/sync deliberately refuses a stale poetry.lock. Reconcile the
+		// changed direct requirement first; Poetry 2.x lock reuses unchanged
+		// locked packages by default instead of upgrading the whole project.
+		if err := adapter.Command(ctx, root, "poetry", "lock", "--no-interaction"); err != nil {
+			return err
+		}
+		return adapter.Command(ctx, root, "poetry", "sync", "--no-root", "--no-interaction")
 	case "pdm":
-		return adapter.Command(ctx, root, "pdm", "update", exp.Name)
+		if err := ensurePDMEnvironment(ctx, root); err != nil {
+			return err
+		}
+		// pdm sync only warns when the content hash is stale and proceeds with
+		// the old lock. A targeted update is also required for a same-version
+		// VCS commit change: `pdm lock --update-reuse` intentionally reuses the
+		// old VCS package.
+		return adapter.Command(ctx, root, "pdm", "update", "--no-self", "--update-reuse", exp.Name)
+	case "pep621":
+		venvPython := venvPythonPath(root)
+		if _, statErr := os.Stat(venvPython); os.IsNotExist(statErr) {
+			if err := adapter.Command(ctx, root, "python3", "-m", "venv", ".venv"); err != nil {
+				return err
+			}
+		}
+		// A VCS dependency may keep the same package version while its locked
+		// commit changes. pip otherwise considers the installed distribution
+		// satisfied, so force only this direct requirement through resolution.
+		project := mustRead(root)
+		if err := adapter.Command(ctx, root, venvPython, "-m", "pip", "install", "--force-reinstall", "--disable-pip-version-check", projectRequirement(project, exp.Name)); err != nil {
+			return err
+		}
+		// A recreated environment must also regain the consumer's unrelated
+		// direct requirements. A normal second install keeps already-satisfying
+		// versions instead of broadly upgrading or force-reinstalling them.
+		requirements := projectRequirements(project)
+		args := []string{"-m", "pip", "install", "--disable-pip-version-check"}
+		args = append(args, requirements...)
+		return adapter.Command(ctx, root, venvPython, args...)
 	default:
 		return nil
 	}
 }
 
-func (a Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
+func ensurePDMEnvironment(ctx context.Context, root string) error {
+	selected, err := os.ReadFile(filepath.Join(root, ".pdm-python"))
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	python := strings.TrimSpace(string(selected))
+	if python == "" {
+		return nil
+	}
+	if !filepath.IsAbs(python) {
+		python = filepath.Join(root, python)
+	}
+	if fileExists(python) {
+		return nil
+	}
+	// .pdm-python is project-local ownership evidence for the selected
+	// interpreter. Recreate only a missing conventional venv target; never
+	// delete, clean, or retarget an existing external/shared environment.
+	wantExecutable := "python"
+	if runtime.GOOS == "windows" {
+		wantExecutable = "python.exe"
+	}
+	if !strings.EqualFold(filepath.Base(python), wantExecutable) {
+		return fmt.Errorf("pdm selected interpreter %q is missing and is not a conventional venv target", python)
+	}
+	binDir := filepath.Dir(python)
+	if runtime.GOOS == "windows" {
+		if !strings.EqualFold(filepath.Base(binDir), "Scripts") {
+			return fmt.Errorf("pdm selected interpreter %q is missing and is not a conventional venv target", python)
+		}
+	} else if filepath.Base(binDir) != "bin" {
+		return fmt.Errorf("pdm selected interpreter %q is missing and is not a conventional venv target", python)
+	}
+	environment := filepath.Dir(binDir)
+	if environment == "." || environment == string(filepath.Separator) {
+		return fmt.Errorf("refusing to recreate unsafe PDM environment %q", environment)
+	}
+	interpreter := "python3"
+	if runtime.GOOS == "windows" {
+		interpreter = "python"
+	}
+	return adapter.Command(ctx, root, interpreter, "-m", "venv", environment)
+}
+
+func (a Adapter) Pull(ctx context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) (adapter.Change, error) {
+	change, err := a.Wire(ctx, root, dep, exp, locked)
+	if err != nil {
+		return change, err
+	}
+	return change, a.syncNative(ctx, root, exp)
+}
+
+func (a Adapter) Remove(ctx context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) (adapter.Change, error) {
+	_, variant, detectErr := a.Detect(root)
+	if detectErr != nil {
+		return adapter.Change{}, detectErr
+	}
+	if variant == "pdm" {
+		if err := adapter.RequireTool(ctx, a.Ecosystem(), variant); err != nil {
+			return adapter.Change{}, err
+		}
+		// PDM's plain sync does not remove packages dropped from the lock.
+		// Its native remove command owns declaration, lock, and environment as
+		// one targeted operation and preserves other selected roots.
+		err := adapter.Command(ctx, root, "pdm", "remove", "--no-self", exp.Name)
+		return adapter.Change{File: "pyproject.toml", Entry: exp.Name, Changed: err == nil}, err
+	}
+	change, err := a.Unwire(ctx, root, dep, exp)
+	if err != nil {
+		return change, err
+	}
+	if variant == "pep621" {
+		venvPython := venvPythonPath(root)
+		if _, statErr := os.Stat(venvPython); os.IsNotExist(statErr) {
+			return change, nil
+		}
+		return change, adapter.Command(ctx, root, venvPython, "-m", "pip", "uninstall", "-y", exp.Name)
+	}
+	return change, a.syncNative(ctx, root, exp)
+}
+
+func (a Adapter) Inspect(ctx context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
+	findings, err := a.Drift(ctx, root, dep, exp, locked)
+	if err != nil || len(findings) != 0 {
+		return findings, err
+	}
+	_, variant, err := a.Detect(root)
+	if err != nil {
+		return nil, err
+	}
+	if err := adapter.RequireTool(ctx, a.Ecosystem(), variant); err != nil {
+		return nil, err
+	}
+	if variant != "pep621" {
+		if finding := inspectPythonLock(root, variant, exp.Name, locked); finding != nil {
+			return []adapter.Finding{*finding}, nil
+		}
+	}
+	python, location, discoveryErr := projectPython(ctx, root, variant)
+	if discoveryErr != nil {
+		return []adapter.Finding{{File: location, Entry: exp.Name, Want: "project environment", Got: discoveryErr.Error(), Repairable: true}}, nil
+	}
+	if finding := inspectInstalledRevision(ctx, root, python, location, exp.Name, locked); finding != nil {
+		return []adapter.Finding{*finding}, nil
+	}
+	return nil, nil
+}
+
+func mustRead(root string) string {
+	b, _ := os.ReadFile(filepath.Join(root, "pyproject.toml"))
+	return string(b)
+}
+
+func venvPythonPath(root string) string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(root, ".venv", "Scripts", "python.exe")
+	}
+	return filepath.Join(root, ".venv", "bin", "python")
+}
+
+func projectPython(ctx context.Context, root string, variant adapter.Variant) (python, location string, err error) {
+	location = string(variant) + " project environment"
+	switch variant {
+	case "uv":
+		environment := os.Getenv("UV_PROJECT_ENVIRONMENT")
+		if environment == "" {
+			environment = filepath.Join(root, ".venv")
+		} else if !filepath.IsAbs(environment) {
+			environment = filepath.Join(root, environment)
+		}
+		python = environmentPythonPath(environment)
+	case "poetry":
+		output, commandErr := adapter.CommandOutput(ctx, root, "poetry", "env", "info", "--executable")
+		if commandErr != nil {
+			return "", location, fmt.Errorf("missing: %w", commandErr)
+		}
+		python = interpreterFromOutput(root, output)
+	case "pdm":
+		selected, readErr := os.ReadFile(filepath.Join(root, ".pdm-python"))
+		if readErr == nil {
+			python = strings.TrimSpace(string(selected))
+			if !filepath.IsAbs(python) {
+				python = filepath.Join(root, python)
+			}
+		} else if !os.IsNotExist(readErr) {
+			return "", location, readErr
+		} else if local := environmentPythonPath(filepath.Join(root, ".venv")); fileExists(local) {
+			python = local
+		} else {
+			// `pdm info --python` only reports the interpreter selected for the
+			// project. It does not resolve or synchronize dependencies.
+			output, commandErr := adapter.CommandOutput(ctx, root, "pdm", "info", "--python")
+			if commandErr != nil {
+				return "", location, fmt.Errorf("missing: %w", commandErr)
+			}
+			python = interpreterFromOutput(root, output)
+		}
+	default:
+		python = venvPythonPath(root)
+	}
+	if python == "" || !fileExists(python) {
+		return "", location, fmt.Errorf("missing interpreter %q", python)
+	}
+	return python, location, nil
+}
+
+func interpreterFromOutput(root string, output []byte) string {
+	for _, line := range strings.Split(string(output), "\n") {
+		candidate := strings.TrimSpace(line)
+		if candidate == "" {
+			continue
+		}
+		resolved := candidate
+		if !filepath.IsAbs(resolved) {
+			resolved = filepath.Join(root, resolved)
+		}
+		if fileExists(resolved) {
+			return resolved
+		}
+	}
+	return strings.TrimSpace(string(output))
+}
+
+func environmentPythonPath(environment string) string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(environment, "Scripts", "python.exe")
+	}
+	return filepath.Join(environment, "bin", "python")
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
+func inspectPythonLock(root string, variant adapter.Variant, name string, locked adapter.Locked) *adapter.Finding {
+	lockName := map[adapter.Variant]string{"uv": "uv.lock", "poetry": "poetry.lock", "pdm": "pdm.lock"}[variant]
+	body, err := os.ReadFile(filepath.Join(root, lockName))
+	if err != nil {
+		return &adapter.Finding{File: lockName, Entry: name, Want: "locked Git source " + locked.Git + " at " + locked.Commit, Got: "missing or unreadable", Repairable: true}
+	}
+	block := packageLockBlock(string(body), name)
+	if block == "" {
+		return &adapter.Finding{File: lockName, Entry: name, Want: "locked Git source " + locked.Git + " at " + locked.Commit, Got: "package entry missing", Repairable: true}
+	}
+	if !strings.Contains(block, locked.Commit) {
+		return &adapter.Finding{File: lockName, Entry: name, Want: locked.Commit, Got: "different locked revision", Repairable: true}
+	}
+	if !blockContainsGitURL(block, locked.Git) {
+		return &adapter.Finding{File: lockName, Entry: name, Want: locked.Git, Got: "different locked source", Repairable: true}
+	}
+	return nil
+}
+
+func packageLockBlock(body, name string) string {
+	for _, block := range strings.Split(body, "[[package]]") {
+		match := regexp.MustCompile(`(?m)^name[ \t]*=[ \t]*["']([^"']+)["'][ \t]*$`).FindStringSubmatch(block)
+		if len(match) == 2 && normalizeProjectName(match[1]) == normalizeProjectName(name) {
+			return block
+		}
+	}
+	return ""
+}
+
+func blockContainsGitURL(block, want string) bool {
+	want = canonicalGitURL(want)
+	for _, match := range regexp.MustCompile(`(?:https?|ssh|git|file)://[^"' \t\r\n}]+`).FindAllString(block, -1) {
+		candidate := strings.SplitN(match, "?", 2)[0]
+		candidate = strings.SplitN(candidate, "#", 2)[0]
+		if canonicalGitURL(candidate) == want {
+			return true
+		}
+	}
+	return false
+}
+
+func canonicalGitURL(value string) string {
+	value = strings.TrimPrefix(strings.TrimSpace(value), "git+")
+	value = strings.Replace(value, "file://None/", "file:///", 1)
+	value = strings.TrimSuffix(value, "/")
+	value = strings.TrimSuffix(value, ".git")
+	return value
+}
+
+type directURL struct {
+	URL     string `json:"url"`
+	VCSInfo struct {
+		CommitID string `json:"commit_id"`
+	} `json:"vcs_info"`
+}
+
+func inspectInstalledRevision(ctx context.Context, root, python, location, name string, locked adapter.Locked) *adapter.Finding {
+	const script = `import importlib.metadata as m, sys
+d = m.distribution(sys.argv[1])
+value = d.read_text("direct_url.json")
+if not value:
+    raise SystemExit("direct_url.json is missing")
+print(value)`
+	output, err := adapter.CommandOutput(ctx, root, python, "-I", "-c", script, name)
+	if err != nil {
+		return &adapter.Finding{File: location, Entry: name, Want: "installed from " + locked.Git + " at " + locked.Commit, Got: "missing or unreadable: " + err.Error(), Repairable: true}
+	}
+	var metadata directURL
+	if err := json.Unmarshal(output, &metadata); err != nil {
+		return &adapter.Finding{File: location, Entry: name, Want: "valid direct_url.json", Got: "invalid metadata: " + err.Error(), Repairable: true}
+	}
+	if canonicalGitURL(metadata.URL) != canonicalGitURL(locked.Git) {
+		return &adapter.Finding{File: location, Entry: name, Want: locked.Git, Got: metadata.URL, Repairable: true}
+	}
+	if metadata.VCSInfo.CommitID != locked.Commit {
+		return &adapter.Finding{File: location, Entry: name, Want: locked.Commit, Got: metadata.VCSInfo.CommitID, Repairable: true}
+	}
+	return nil
+}
+
+func (a Adapter) Drift(_ context.Context, root string, _ adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
 	b, err := os.ReadFile(filepath.Join(root, "pyproject.toml"))
 	if err != nil {
 		return nil, err
 	}
 	s := string(b)
-	if locked.Vendor != nil {
-		want := fmt.Sprintf("path = %q", adapter.VendorSourcePath(exp, locked))
-		if !strings.Contains(s, fmt.Sprintf("%q = { %s }", exp.Name, want)) && !strings.Contains(s, exp.Name+" = { "+want+" }") {
-			return []adapter.Finding{{File: "pyproject.toml", Entry: exp.Name, Want: want, Got: "missing or changed"}}, nil
-		}
-		return nil, nil
+	_, variant, err := a.Detect(root)
+	if err != nil {
+		return nil, err
 	}
-	target := ""
-	namePattern := regexp.MustCompile(`(?:` + tomlKeyPattern(exp.Name) + `[ \t]*=|["']` + regexp.QuoteMeta(exp.Name) + `\s+@)`)
-	for _, line := range strings.Split(s, "\n") {
-		if namePattern.MatchString(line) {
-			target = line
-			break
+	var got, want string
+	switch variant {
+	case "uv":
+		sourceEntry := tableEntry(s, "tool.uv.sources", exp.Name)
+		want = strconv.Quote(exp.Name) + " = " + uvSource(exp, locked)
+		requirement := projectRequirement(s, exp.Name)
+		got = sourceEntry
+		if requirement == "" && sourceEntry == "" {
+			got = ""
+		} else if requirement != exp.Name {
+			got = strings.TrimSpace(requirement + " / " + sourceEntry)
 		}
+	case "poetry":
+		got = tableEntry(s, "tool.poetry.dependencies", exp.Name)
+		want = tomlKey(exp.Name) + fmt.Sprintf(" = { git = %q, rev = %q }", locked.Git, locked.Commit)
+	default:
+		got = projectRequirement(s, exp.Name)
+		want = fmt.Sprintf("%s @ git+%s@%s", exp.Name, locked.Git, locked.Commit)
 	}
-	urlMatch := regexp.MustCompile(`git\s*=\s*["']([^"']+)|git\+([^"'\n]+)@[^"'\n]+`).FindStringSubmatch(target)
-	gotURL := ""
-	if len(urlMatch) > 1 {
-		for _, v := range urlMatch[1:] {
-			if v != "" {
-				gotURL = v
-				break
-			}
-		}
-	}
-	badURL := gotURL == "" || gitx.NormalizeURL(gotURL) != gitx.NormalizeURL(locked.Git)
-	badPin := dep.Track != "floating" && !strings.Contains(target, locked.Commit)
-	if target == "" || badURL || badPin {
-		return []adapter.Finding{{File: "pyproject.toml", Entry: exp.Name, Want: locked.Commit, Got: strings.TrimSpace(target)}}, nil
+	if got != want {
+		return []adapter.Finding{{File: "pyproject.toml", Entry: exp.Name, Want: want, Got: got}}, nil
 	}
 	return nil, nil
 }
 
-func pin(dep adapter.Dependency, l adapter.Locked) string {
-	if dep.Track == "floating" {
-		return dep.Ref
-	}
-	return l.Commit
-}
-func uvSource(dep adapter.Dependency, exp adapter.Export, l adapter.Locked) string {
-	if l.Vendor != nil {
-		return fmt.Sprintf("{ path = %q }", adapter.VendorSourcePath(exp, l))
-	}
-	field := "rev"
-	if dep.Track == "floating" {
-		field = "branch"
-	}
-	parts := []string{fmt.Sprintf("git = %q", dep.Git), fmt.Sprintf("%s = %q", field, pin(dep, l))}
+func uvSource(exp adapter.Export, l adapter.Locked) string {
+	parts := []string{fmt.Sprintf("git = %q", l.Git), fmt.Sprintf("rev = %q", l.Commit)}
 	if exp.Path != "" && exp.Path != "." {
 		parts = append(parts, fmt.Sprintf("subdirectory = %q", exp.Path))
 	}
 	return "{ " + strings.Join(parts, ", ") + " }"
+}
+
+func tableEntry(s, table, name string) string {
+	start, end, ok := section(s, table)
+	if !ok {
+		return ""
+	}
+	re := regexp.MustCompile(`(?m)^[ \t]*` + tomlKeyPattern(name) + `[ \t]*=.*$`)
+	return strings.TrimSpace(re.FindString(s[start:end]))
+}
+
+func projectRequirement(s, name string) string {
+	for _, requirement := range projectRequirements(s) {
+		if normalizeProjectName(requirementName(requirement)) == normalizeProjectName(name) {
+			return requirement
+		}
+	}
+	return ""
+}
+
+func projectRequirements(s string) []string {
+	start, end, ok := section(s, "project")
+	if !ok {
+		return nil
+	}
+	_, open, close, ok := dependencyArrayRange(s[start:end])
+	if !ok {
+		return nil
+	}
+	var requirements []string
+	for _, item := range quotedItems(s[start+open+1 : start+close]) {
+		requirements = append(requirements, item.value)
+	}
+	return requirements
 }
 
 func section(s, name string) (int, int, bool) {

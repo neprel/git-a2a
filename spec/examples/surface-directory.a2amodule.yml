@@ -1,0 +1,15 @@
+# Only the tracked public/ directory is published as the component surface.
+# yaml-language-server: $schema=https://git-a2a.com/schema/a2amodule.v2.json
+schema: 2
+component:
+  id: payments-api
+  description: Payment request types and examples.
+  repository: https://github.com/acme/payments-api.git
+  surface: public
+  exports:
+    - adapter: npm
+      name: "@acme/payments-api"
+      path: packages/types
+agent:
+  name: payments-owner
+  card: https://agents.acme.example/payments/.well-known/agent-card.json

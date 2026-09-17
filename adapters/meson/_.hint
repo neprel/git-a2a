@@ -1,25 +1,28 @@
-# module Meson vendored integration adapter
+# module Meson checkout integration adapter
 
-Detect a consumer root `meson.build`. This adapter applies only to a `meson` export whose
-dependency has a locked vendor; Meson has no native Git dependency form owned by this adapter.
+Detect a consumer root `meson.build`. The lifecycle passes `Export.Path` as the
+consumer-root-relative directory in the one submodule checkout. This adapter only connects that
+directory and never creates, updates, copies, or removes a checkout.
 
-# decision A generated subproject include and one owned root line
+# decision One owned dependency region in the consumer build
 
-Write sorted `subproject('<id>')` blocks to the wholly tool-owned `deps/git-a2a/meson.build`. The root
-file gets exactly `subdir('deps/git-a2a') # git-a2a`; remove only that marked line and only when no managed
-dependency remains. Wire regenerates the generated file after any foreign content and warns that
-the content was discarded. Unwire repairs or removes the generated file and never treats foreign
-content as an ownership conflict.
+Write sorted `subdir(Export.Path)` lines inside a marked region immediately after the root
+`project()` statement, before consumer statements can use dependency variables. This keeps paths
+consumer-root-relative, which Meson requires because `subdir` forbids `..`. Remove only the named
+owned line and remove the region only when no managed dependency remains. Foreign bytes inside
+the owned region are reported and canonically repaired; all bytes outside it remain untouched.
 
-# invariant Meson vendor paths are real subproject directories
+# invariant One resolved submodule source tree
 
-Meson rejects path traversal in a wrap `directory` key. A dependency therefore uses the explicit
-vendor path `subprojects/<id>` and has no dependency/export subpath; the generated include calls
-that real subproject by id. Reject any other path with the exact corrective `set --vendor-path`
-command. This avoids symlinks and works on Windows.
+Read-only Capability rejects empty, `.`, absolute, and escaping paths as typed not-wirable. Meson
+does not demand a second checkout under `subprojects/`; the owned region references the shared
+submodule source directly. Pull configures it in `.git-a2a/build/meson` without compiling the
+whole consumer. Remove reconfigures when managed Meson dependencies remain; removing the last
+one deletes the adapter-owned setup tree so consumer references to the intentionally removed
+dependency do not block removal. Inspect reports both declaration drift and a missing checkout.
+Commit selection and checkout ownership remain with the submodule adapter.
 
-# test Golden and real-toolchain lifecycle
+# test Golden lifecycle
 
-Fixture tests cover Wire, byte-identical second Wire, Drift, path rejection, foreign-content
-repair, Unwire restoring root bytes, and sorted blocks. `GITA2A_IT=1` runs setup and compile with
-Meson and Ninja in the pinned integration image.
+Tests cover private editor idempotence, Inspect, read-only Capability, missing checkouts,
+foreign-content repair, removal restoring root bytes, sorted lines, and unrelated entries.

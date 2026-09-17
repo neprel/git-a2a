@@ -2,13 +2,206 @@ package pypi
 
 import (
 	"context"
-	"github.com/neprel/git-a2a/internal/adapter"
-	"github.com/neprel/git-a2a/internal/manifest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/neprel/git-a2a/internal/adapter"
 )
+
+func TestSyncNativeReconcilesManagerLockBeforeEnvironment(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell fixture")
+	}
+	for _, test := range []struct {
+		name, variant string
+		want          []string
+	}{
+		{"poetry-pull", "poetry", []string{"lock --no-interaction", "sync --no-root --no-interaction"}},
+		{"pdm-pull", "pdm", []string{"update --no-self --update-reuse fixture-py"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			log := filepath.Join(root, "commands.log")
+			writeExecutable(t, filepath.Join(root, "bin", test.variant), "#!/bin/sh\nif [ \"$1\" = --version ]; then echo version 2.2.1; exit 0; fi\nprintf '%s\\n' \"$*\" >> \"$COMMAND_LOG\"\n")
+			t.Setenv("COMMAND_LOG", log)
+			t.Setenv("PATH", filepath.Join(root, "bin")+string(os.PathListSeparator)+os.Getenv("PATH"))
+			if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte(managerProject(test.variant)), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if err := (Adapter{}).syncNative(context.Background(), root, adapter.Export{Name: "fixture-py"}); err != nil {
+				t.Fatal(err)
+			}
+			body, err := os.ReadFile(log)
+			if err != nil {
+				t.Fatal(err)
+			}
+			lines := strings.Split(strings.TrimSpace(string(body)), "\n")
+			if strings.Join(lines, "|") != strings.Join(test.want, "|") {
+				t.Fatalf("commands = %#v, want %#v", lines, test.want)
+			}
+		})
+	}
+}
+
+func TestPEP621SyncResolvesDependencies(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell fixture")
+	}
+	root := t.TempDir()
+	log := filepath.Join(root, "python.log")
+	writeExecutable(t, filepath.Join(root, "bin", "pip"), "#!/bin/sh\necho pip 25.2\n")
+	writeExecutable(t, venvPythonPath(root), "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$COMMAND_LOG\"\n")
+	t.Setenv("COMMAND_LOG", log)
+	t.Setenv("PATH", filepath.Join(root, "bin")+string(os.PathListSeparator)+os.Getenv("PATH"))
+	project := "[project]\nname = \"consumer\"\ndependencies = [\"fixture-py @ git+https://example.test/fixture.git@" + strings.Repeat("a", 40) + "\"]\n"
+	if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte(project), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := (Adapter{}).syncNative(context.Background(), root, adapter.Export{Name: "fixture-py"}); err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	command := string(body)
+	if strings.Contains(command, "--no-deps") || !strings.Contains(command, "-m pip install --force-reinstall") || strings.Count(command, "-m pip install") != 2 {
+		t.Fatalf("pip command does not resolve dependencies: %s", command)
+	}
+}
+
+func TestPDMRemoveUsesTargetedNativeOperation(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell fixture")
+	}
+	root := t.TempDir()
+	log := filepath.Join(root, "commands.log")
+	writeExecutable(t, filepath.Join(root, "bin", "pdm"), "#!/bin/sh\nif [ \"$1\" = --version ]; then echo PDM 2.26.2; exit 0; fi\nprintf '%s\\n' \"$*\" >> \"$COMMAND_LOG\"\n")
+	t.Setenv("COMMAND_LOG", log)
+	t.Setenv("PATH", filepath.Join(root, "bin")+string(os.PathListSeparator)+os.Getenv("PATH"))
+	if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte(managerProjectWithDependency("pdm", "fixture-py", "https://example.test/fixture.git", strings.Repeat("a", 40))), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	change, err := (Adapter{}).Remove(context.Background(), root, adapter.Dependency{}, adapter.Export{Name: "fixture-py"}, adapter.Locked{})
+	if err != nil || !change.Changed {
+		t.Fatalf("Remove() = %#v, %v", change, err)
+	}
+	body, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(string(body)); got != "remove --no-self fixture-py" {
+		t.Fatalf("pdm command = %q", got)
+	}
+}
+
+func TestEnsurePDMEnvironmentRecreatesOnlySelectedMissingVenv(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell fixture")
+	}
+	root := t.TempDir()
+	environment := filepath.Join(t.TempDir(), "project-venv")
+	selected := filepath.Join(environment, "bin", "python")
+	if err := os.WriteFile(filepath.Join(root, ".pdm-python"), []byte(selected+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	log := filepath.Join(root, "venv.log")
+	writeExecutable(t, filepath.Join(root, "bin", "python3"), "#!/bin/sh\nprintf '%s\\n' \"$*\" > \"$COMMAND_LOG\"\n")
+	t.Setenv("COMMAND_LOG", log)
+	t.Setenv("PATH", filepath.Join(root, "bin")+string(os.PathListSeparator)+os.Getenv("PATH"))
+	if err := ensurePDMEnvironment(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := strings.TrimSpace(string(body)), "-m venv "+environment; got != want {
+		t.Fatalf("venv command = %q, want %q", got, want)
+	}
+}
+
+func TestInspectExternalManagerEnvironmentUsesLockAndDirectURL(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell fixture")
+	}
+	for _, variant := range []string{"poetry", "pdm"} {
+		t.Run(variant, func(t *testing.T) {
+			root := t.TempDir()
+			commit := strings.Repeat("c", 40)
+			gitURL := "https://example.test/acme/fixture.git"
+			name := "fixture-py"
+			python := filepath.Join(root, "external", "bin", "python")
+			metadata := `{"url":"` + gitURL + `","vcs_info":{"vcs":"git","commit_id":"` + commit + `"}}`
+			writeExecutable(t, python, "#!/bin/sh\nprintf '%s\\n' \"$DIRECT_URL\"\n")
+			writeExecutable(t, filepath.Join(root, "bin", variant), managerDiscoveryScript(variant))
+			t.Setenv("DIRECT_URL", metadata)
+			t.Setenv("PROJECT_PYTHON", python)
+			t.Setenv("PATH", filepath.Join(root, "bin")+string(os.PathListSeparator)+os.Getenv("PATH"))
+			if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte(managerProjectWithDependency(variant, name, gitURL, commit)), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if variant == "pdm" {
+				if err := os.WriteFile(filepath.Join(root, ".pdm-python"), []byte(python+"\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			lockName := map[string]string{"poetry": "poetry.lock", "pdm": "pdm.lock"}[variant]
+			lock := "[[package]]\nname = \"" + name + "\"\nversion = \"1.0.0\"\n[package.source]\ntype = \"git\"\nurl = \"" + gitURL + "\"\nresolved_reference = \"" + commit + "\"\n"
+			if err := os.WriteFile(filepath.Join(root, lockName), []byte(lock), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			dep := adapter.Dependency{Git: gitURL}
+			exp := adapter.Export{Adapter: "pypi", Name: name}
+			locked := adapter.Locked{Git: gitURL, Commit: commit}
+			findings, err := (Adapter{}).Inspect(context.Background(), root, dep, exp, locked)
+			if err != nil || len(findings) != 0 {
+				t.Fatalf("Inspect() = %#v, %v", findings, err)
+			}
+
+			staleMetadata := `{"url":"` + gitURL + `","vcs_info":{"vcs":"git","commit_id":"` + strings.Repeat("d", 40) + `"}}`
+			t.Setenv("DIRECT_URL", staleMetadata)
+			findings, err = (Adapter{}).Inspect(context.Background(), root, dep, exp, locked)
+			if err != nil || len(findings) != 1 || findings[0].File != variant+" project environment" {
+				t.Fatalf("stale Inspect() = %#v, %v", findings, err)
+			}
+		})
+	}
+}
+
+func writeExecutable(t *testing.T, path, body string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func managerProject(variant string) string {
+	if variant == "poetry" {
+		return "[tool.poetry]\nname = \"consumer\"\nversion = \"0.1.0\"\n[tool.poetry.dependencies]\npython = \"^3.11\"\n"
+	}
+	return "[project]\nname = \"consumer\"\ndependencies = []\n[tool.pdm]\ndistribution = false\n"
+}
+
+func managerProjectWithDependency(variant, name, gitURL, commit string) string {
+	if variant == "poetry" {
+		return managerProject(variant) + name + " = { git = \"" + gitURL + "\", rev = \"" + commit + "\" }\n"
+	}
+	return "[project]\nname = \"consumer\"\ndependencies = [\"" + name + " @ git+" + gitURL + "@" + commit + "\"]\n[tool.pdm]\ndistribution = false\n"
+}
+
+func managerDiscoveryScript(variant string) string {
+	if variant == "poetry" {
+		return "#!/bin/sh\nif [ \"$1\" = --version ]; then echo 'Poetry 2.2.1'; else printf '%s\\n' \"$PROJECT_PYTHON\"; fi\n"
+	}
+	return "#!/bin/sh\necho 'PDM 2.26.2'\n"
+}
 
 func TestWireGoldenIdempotentUnwire(t *testing.T) {
 	root := t.TempDir()
@@ -23,8 +216,8 @@ func TestWireGoldenIdempotentUnwire(t *testing.T) {
 	if err = os.WriteFile(filepath.Join(root, "uv.lock"), nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	dep := adapter.Dependency{Git: "https://github.com/acme/lib-utils.git", Ref: "main", Track: "locked"}
-	exp := adapter.Export{Ecosystem: "pypi", Name: "acme-lib-utils"}
+	dep := adapter.Dependency{Name: "lib-utils", Git: "https://github.com/acme/lib-utils.git", Ref: "main"}
+	exp := adapter.Export{Adapter: "pypi", Name: "acme-lib-utils"}
 	locked := adapter.Locked{Git: dep.Git, Commit: strings.Repeat("a", 40)}
 	a := Adapter{}
 	change, err := a.Wire(context.Background(), root, dep, exp, locked)
@@ -58,30 +251,6 @@ func TestWireGoldenIdempotentUnwire(t *testing.T) {
 	}
 }
 
-func TestVendoredUVPathLifecycle(t *testing.T) {
-	root := t.TempDir()
-	original := "[project]\nname = \"consumer\"\ndependencies = []\n\n[tool.uv]\n"
-	if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte(original), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	dep := adapter.Dependency{ID: "acme-lib", Vendor: &manifest.Vendor{Mode: "copy"}}
-	exp := adapter.Export{Ecosystem: "pypi", Name: "acme-lib", Path: "python"}
-	locked := adapter.Locked{Vendor: &manifest.LockedVendor{Mode: "copy", Path: "deps/acme-lib"}}
-	a := Adapter{}
-	if change, err := a.Wire(context.Background(), root, dep, exp, locked); err != nil || !change.Changed {
-		t.Fatalf("Wire=%#v %v", change, err)
-	}
-	if got, _ := os.ReadFile(filepath.Join(root, "pyproject.toml")); !strings.Contains(string(got), `"acme-lib" = { path = "deps/acme-lib/python" }`) {
-		t.Fatalf("path wiring:\n%s", got)
-	}
-	if findings, err := a.Drift(context.Background(), root, dep, exp, locked); err != nil || len(findings) != 0 {
-		t.Fatalf("Drift=%v %v", findings, err)
-	}
-	if change, err := a.Unwire(context.Background(), root, dep, exp); err != nil || !change.Changed {
-		t.Fatalf("Unwire=%#v %v", change, err)
-	}
-}
-
 func TestDriftMissingEntryIsUnwired(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte("[project]\nname = \"consumer\"\ndependencies = []\n"), 0o644); err != nil {
@@ -89,11 +258,51 @@ func TestDriftMissingEntryIsUnwired(t *testing.T) {
 	}
 	findings, err := (Adapter{}).Drift(context.Background(), root,
 		adapter.Dependency{Git: "https://github.com/acme/lib.git"},
-		adapter.Export{Ecosystem: "pypi", Name: "acme-lib"},
+		adapter.Export{Adapter: "pypi", Name: "acme-lib"},
 		adapter.Locked{Git: "https://github.com/acme/lib.git", Commit: strings.Repeat("a", 40)})
 	if err != nil || len(findings) != 1 {
 		t.Fatalf("findings=%v err=%v", findings, err)
 	}
+}
+
+func TestDetectPDMProjectWithoutLockfile(t *testing.T) {
+	root := t.TempDir()
+	content := "[project]\nname = \"consumer\"\n\n[tool.pdm]\ndistribution = true\n"
+	if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ok, got, err := (Adapter{}).Detect(root)
+	if err != nil || !ok || got != "pdm" {
+		t.Fatalf("Detect() = %v, %q, %v", ok, got, err)
+	}
+}
+
+func TestWireUsesLockedSourceAndExactCommit(t *testing.T) {
+	root := t.TempDir()
+	content := "[project]\nname = \"consumer\"\ndependencies = []\n"
+	if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	commit := strings.Repeat("c", 40)
+	dep := adapter.Dependency{Git: "https://stale.example.test/lib.git", Ref: "main"}
+	exp := adapter.Export{Adapter: "pypi", Name: "acme-lib"}
+	locked := adapter.Locked{Git: "https://canonical.example.test/lib.git", Commit: commit}
+	if _, err := (Adapter{}).Wire(context.Background(), root, dep, exp, locked); err != nil {
+		t.Fatal(err)
+	}
+	got := string(mustReadPyProject(t, root))
+	if !strings.Contains(got, "git+"+locked.Git+"@"+commit) || strings.Contains(got, dep.Git) || strings.Contains(got, "@main") {
+		t.Fatalf("dependency was not pinned to the locked source and commit:\n%s", got)
+	}
+}
+
+func mustReadPyProject(t *testing.T, root string) []byte {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(root, "pyproject.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
 }
 
 func TestWireConvertsInlineDependencyArraysOnly(t *testing.T) {
@@ -105,8 +314,8 @@ func TestWireConvertsInlineDependencyArraysOnly(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte(initial), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		dep := adapter.Dependency{Git: "https://github.com/acme/lib.git", Ref: "main", Track: "locked"}
-		exp := adapter.Export{Ecosystem: "pypi", Name: "acme-lib"}
+		dep := adapter.Dependency{Git: "https://github.com/acme/lib.git", Ref: "main"}
+		exp := adapter.Export{Adapter: "pypi", Name: "acme-lib"}
 		locked := adapter.Locked{Git: dep.Git, Commit: strings.Repeat("a", 40)}
 		if _, err := (Adapter{}).Wire(context.Background(), root, dep, exp, locked); err != nil {
 			t.Fatal(err)
@@ -129,8 +338,8 @@ func TestWireUpdatesExistingPEP621GitPin(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	dep := adapter.Dependency{Git: "https://mirror.example.test/acme/lib.git", Track: "locked"}
-	exp := adapter.Export{Ecosystem: "pypi", Name: "acme-lib"}
+	dep := adapter.Dependency{Git: "https://mirror.example.test/acme/lib.git"}
+	exp := adapter.Export{Adapter: "pypi", Name: "acme-lib"}
 	change, err := (Adapter{}).Wire(context.Background(), root, dep, exp, adapter.Locked{Git: dep.Git, Commit: newCommit})
 	if err != nil || !change.Changed {
 		t.Fatalf("change=%#v err=%v", change, err)
@@ -156,8 +365,8 @@ func TestWireUpdatesBareUVSourceWithoutDuplicatingOrJoiningHeader(t *testing.T) 
 	if err := os.WriteFile(filepath.Join(root, "uv.lock"), nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	dep := adapter.Dependency{Git: "https://example.test/acme/lib.git", Track: "locked"}
-	exp := adapter.Export{Ecosystem: "pypi", Name: "acme_lib"}
+	dep := adapter.Dependency{Git: "https://example.test/acme/lib.git"}
+	exp := adapter.Export{Adapter: "pypi", Name: "acme_lib"}
 	if _, err := (Adapter{}).Wire(context.Background(), root, dep, exp, adapter.Locked{Git: dep.Git, Commit: newCommit}); err != nil {
 		t.Fatal(err)
 	}

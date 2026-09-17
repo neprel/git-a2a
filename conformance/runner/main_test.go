@@ -3,21 +3,33 @@ package main
 import (
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 )
 
-func TestReadCommandReplacesWindowsPathAfterJSONDecode(t *testing.T) {
+func TestReadCommandsReplacesTokensAfterJSONDecode(t *testing.T) {
 	path := t.TempDir() + string(os.PathSeparator) + "command"
-	if err := os.WriteFile(path, []byte(`["validate","<CORPUS_ROOT>/spec/example.yml"]`), 0o644); err != nil {
+	data := `[["init","--id","acme-app"],["add","<CORPUS_ROOT>/fixture","--name","lib"]]`
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	got, err := readCommand(path, map[string]string{"<CORPUS_ROOT>": `D:\a\git-a2a`})
+	got, err := readCommands(path, map[string]string{"<CORPUS_ROOT>": `D:\a\git-a2a`})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"validate", `D:\a\git-a2a/spec/example.yml`}
+	want := [][]string{{"init", "--id", "acme-app"}, {"add", `D:\a\git-a2a/fixture`, "--name", "lib"}}
 	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("command = %#v, want %#v", got, want)
+		t.Fatalf("commands = %#v, want %#v", got, want)
+	}
+}
+
+func TestReadCommandsRejectsOldSingleInvocationProtocol(t *testing.T) {
+	path := t.TempDir() + string(os.PathSeparator) + "command"
+	if err := os.WriteFile(path, []byte(`["list"]`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readCommands(path, nil); err == nil || !strings.Contains(err.Error(), "array of argv arrays") {
+		t.Fatalf("error = %v", err)
 	}
 }
 

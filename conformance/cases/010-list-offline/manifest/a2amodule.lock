@@ -1,0 +1,19 @@
+schema: 2
+dependencies:
+  acme-lib:
+    component: acme-library
+    git: https://git.example.invalid/acme/lib.git
+    ref: main
+    commit: 0123456789abcdef0123456789abcdef01234567
+    manifest: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    bindings:
+      - adapter: submodule
+        variant: git
+        export: acme-lib
+        path: deps/acme-lib
+    agent:
+      name: Acme Library Agent
+      declaredCard: https://agents.example.invalid/acme-lib/card.json
+      card: https://agents.example.invalid/acme-lib/card.json
+      commit: 0123456789abcdef0123456789abcdef01234567
+    surface: .git-a2a/surfaces/acme-lib

@@ -1,5 +1,0 @@
-kind=gitea-issue
-state=instruction
-https://codeberg\.example/acme/lib/issues/new\?
-body=Broken
-title=Broken

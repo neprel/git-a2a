@@ -2,6 +2,7 @@ package msbuild
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html"
 	"os"
@@ -35,15 +36,15 @@ func (Adapter) Detect(root string) (bool, adapter.Variant, error) {
 	return true, "msbuild-csharp", nil
 }
 
-func (a Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) (adapter.Change, error) {
-	if dep.Vendor == nil || locked.Vendor == nil {
-		return adapter.Change{}, adapter.NotWirable("MSBuild project integration requires an explicitly vendored dependency")
+func (a Adapter) wire(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, _ adapter.Locked) (adapter.Change, error) {
+	if exp.Path == "" || exp.Path == "." {
+		return adapter.Change{}, adapter.NotWirable("MSBuild project integration requires a materialized source checkout path")
 	}
 	project, err := consumerProject(root)
 	if err != nil || project == "" {
 		return adapter.Change{}, err
 	}
-	reference, err := vendoredProject(root, dep, exp, locked)
+	reference, err := checkoutProject(root, exp)
 	if err != nil {
 		return adapter.Change{}, err
 	}
@@ -53,7 +54,7 @@ func (a Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, ex
 		return adapter.Change{}, err
 	}
 	blocks, discarded := parseBlocks(before)
-	blocks[dep.ID] = block(dep.ID, reference)
+	blocks[dep.Name] = block(dep.Name, reference)
 	next := renderBlocks(blocks)
 	projectPath := filepath.Join(root, project)
 	projectBefore, err := os.ReadFile(projectPath)
@@ -66,7 +67,7 @@ func (a Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, ex
 	}
 	changed := string(before) != string(next) || string(projectBefore) != string(projectAfter)
 	if !changed {
-		return adapter.Change{File: generatedFile, Entry: dep.ID}, nil
+		return adapter.Change{File: generatedFile, Entry: dep.Name}, nil
 	}
 	if err = os.MkdirAll(filepath.Dir(generatedPath), 0o755); err == nil {
 		err = os.WriteFile(generatedPath, next, 0o644)
@@ -78,10 +79,10 @@ func (a Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, ex
 	if discarded {
 		warning = generatedFile + " contained foreign content; git-a2a regenerated the owned file and discarded it"
 	}
-	return adapter.Change{File: generatedFile, Entry: dep.ID, Changed: true, Warning: warning}, err
+	return adapter.Change{File: generatedFile, Entry: dep.Name, Changed: true, Warning: warning}, err
 }
 
-func (Adapter) Unwire(_ context.Context, root string, dep adapter.Dependency, _ adapter.Export) (adapter.Change, error) {
+func (Adapter) unwire(_ context.Context, root string, dep adapter.Dependency, _ adapter.Export) (adapter.Change, error) {
 	project, err := consumerProject(root)
 	if err != nil || project == "" {
 		return adapter.Change{}, err
@@ -92,8 +93,8 @@ func (Adapter) Unwire(_ context.Context, root string, dep adapter.Dependency, _ 
 		return adapter.Change{}, err
 	}
 	blocks, discarded := parseBlocks(before)
-	_, hadBlock := blocks[dep.ID]
-	delete(blocks, dep.ID)
+	_, hadBlock := blocks[dep.Name]
+	delete(blocks, dep.Name)
 	if len(blocks) == 0 {
 		if err = os.Remove(generatedPath); err != nil && !os.IsNotExist(err) {
 			return adapter.Change{}, err
@@ -107,31 +108,23 @@ func (Adapter) Unwire(_ context.Context, root string, dep adapter.Dependency, _ 
 	} else {
 		err = os.WriteFile(generatedPath, renderBlocks(blocks), 0o644)
 	}
-	return adapter.Change{File: generatedFile, Entry: dep.ID, Changed: hadBlock || discarded || len(before) > 0}, err
+	return adapter.Change{File: generatedFile, Entry: dep.Name, Changed: hadBlock || discarded || len(before) > 0}, err
 }
 
-func (a Adapter) Refresh(ctx context.Context, root string, _ adapter.Dependency, _ adapter.Export, _ adapter.Locked) error {
+func (a Adapter) resolve(ctx context.Context, root string) error {
 	project, err := consumerProject(root)
 	if err != nil || project == "" {
 		return err
 	}
-	_, variant, _ := a.Detect(root)
-	if err = adapter.RequireTool(ctx, a.Ecosystem(), variant); err != nil {
-		return err
-	}
-	return adapter.Command(ctx, root, "dotnet", "build", project, "--nologo")
+	return adapter.Command(ctx, root, "dotnet", "restore", project, "--nologo")
 }
 
-func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
-	if dep.Vendor == nil || locked.Vendor == nil {
-		return []adapter.Finding{{File: generatedFile, Entry: dep.ID, Want: "vendored MSBuild integration", Got: "not vendored"}}, nil
+func (Adapter) inspectDeclaration(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, _ adapter.Locked) ([]adapter.Finding, error) {
+	if exp.Path == "" || exp.Path == "." {
+		return []adapter.Finding{{File: generatedFile, Entry: dep.Name, Want: "materialized source checkout path", Got: exp.Path}}, nil
 	}
 	project, err := consumerProject(root)
 	if err != nil || project == "" {
-		return nil, err
-	}
-	reference, err := vendoredProject(root, dep, exp, locked)
-	if err != nil {
 		return nil, err
 	}
 	body, err := readFile(filepath.Join(root, filepath.FromSlash(generatedFile)))
@@ -139,10 +132,18 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 		return nil, err
 	}
 	blocks, discarded := parseBlocks(body)
-	want := block(dep.ID, reference)
 	var findings []adapter.Finding
-	if blocks[dep.ID] != want {
-		findings = append(findings, adapter.Finding{File: generatedFile, Entry: dep.ID, Want: strings.TrimSpace(want), Got: strings.TrimSpace(blocks[dep.ID])})
+	reference, checkoutErr := checkoutProject(root, exp)
+	if checkoutErr != nil {
+		if blocks[dep.Name] == "" {
+			findings = append(findings, adapter.Finding{File: generatedFile, Entry: dep.Name, Want: "generated project reference", Got: "", Repairable: true})
+		}
+		findings = append(findings, adapter.Finding{File: exp.Path, Entry: dep.Name, Want: "materialized MSBuild project", Got: checkoutErr.Error(), Repairable: errors.Is(checkoutErr, os.ErrNotExist)})
+	} else {
+		want := block(dep.Name, reference)
+		if blocks[dep.Name] != want {
+			findings = append(findings, adapter.Finding{File: generatedFile, Entry: dep.Name, Want: strings.TrimSpace(want), Got: strings.TrimSpace(blocks[dep.Name]), Repairable: true})
+		}
 	}
 	if discarded {
 		findings = append(findings, adapter.Finding{File: generatedFile, Entry: "owned file", Want: "only generated git-a2a content", Got: "foreign content"})
@@ -152,7 +153,7 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 		return nil, err
 	}
 	if !hasImport(projectBody) {
-		findings = append(findings, adapter.Finding{File: project, Entry: "git-a2a import", Want: importLine, Got: ""})
+		findings = append(findings, adapter.Finding{File: project, Entry: "git-a2a import", Want: importLine, Got: "", Repairable: true})
 	}
 	return findings, nil
 }
@@ -175,22 +176,22 @@ func consumerProject(root string) (string, error) {
 	return projects[0], nil
 }
 
-func vendoredProject(root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) (string, error) {
-	parts := []string{locked.Vendor.Path}
-	if locked.Vendor.Mode == "submodule" && locked.Path != "" && locked.Path != "." {
-		parts = append(parts, locked.Path)
-	}
-	if exp.Path != "" && exp.Path != "." {
-		parts = append(parts, exp.Path)
-	}
-	rel := filepath.Join(parts...)
+func checkoutProject(root string, exp adapter.Export) (string, error) {
+	rel := filepath.Clean(filepath.FromSlash(exp.Path))
 	if strings.HasSuffix(rel, ".csproj") || strings.HasSuffix(rel, ".fsproj") {
+		info, err := os.Stat(filepath.Join(root, rel))
+		if err != nil {
+			return "", fmt.Errorf("nuget export %s: checkout project path: %w", exp.Name, err)
+		}
+		if info.IsDir() {
+			return "", fmt.Errorf("nuget export %s: %s is not an MSBuild project file", exp.Name, filepath.ToSlash(rel))
+		}
 		return filepath.ToSlash(rel), nil
 	}
 	abs := filepath.Join(root, rel)
 	info, err := os.Stat(abs)
 	if err != nil {
-		return "", fmt.Errorf("nuget export %s: vendored project path: %w", exp.Name, err)
+		return "", fmt.Errorf("nuget export %s: checkout project path: %w", exp.Name, err)
 	}
 	if !info.IsDir() {
 		return "", fmt.Errorf("nuget export %s: %s is not an MSBuild project", exp.Name, filepath.ToSlash(rel))

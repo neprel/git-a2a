@@ -1,7 +1,7 @@
 # working plans for the implementing agent — local, not published
 plans/
 
-# git-a2a local state (cache of dependency manifests, card snapshots)
+# git-a2a local state (manifest cache and published surfaces)
 .git-a2a/
 
 # toolchains
@@ -13,9 +13,6 @@ dist/*
 !dist/npm/**
 !dist/pypi/
 !dist/pypi/**
-!dist/mcpb/
-!dist/mcpb/**
-!dist/_.hint
 /bin/
 /build/
 /testdata/consumer-msbuild/bin/

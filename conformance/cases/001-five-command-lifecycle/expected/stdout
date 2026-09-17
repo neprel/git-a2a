@@ -1,0 +1,5 @@
+acme-lib[[:space:]]+acme-lib[[:space:]]+[0-9a-f]{40}[[:space:]]+file://
+agent: Acme Library Agent https://agents\.example\.invalid/acme-lib/card\.json
+surface: \.git-a2a/surfaces/acme-lib
+adapter: submodule/git
+acme-lib: current at [0-9a-f]{40}

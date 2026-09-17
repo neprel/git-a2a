@@ -1,0 +1,20 @@
+# Repository basenames do not define local identity; aliases do.
+# yaml-language-server: $schema=https://git-a2a.com/schema/a2amodule.v2.json
+schema: 2
+component:
+  id: combined-service
+dependencies:
+  - name: billing-common
+    git: https://github.com/acme/common.git
+    ref: main
+    bindings:
+      - adapter: golang
+        variant: go
+        export: acme.dev/billing/common
+  - name: shipping-common
+    git: https://gitlab.example.com/logistics/common.git
+    ref: stable
+    bindings:
+      - adapter: golang
+        variant: go
+        export: logistics.example/common

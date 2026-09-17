@@ -4,26 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 
 	"github.com/neprel/git-a2a/internal/manifest"
 )
-
-// VendorSourcePath returns the consumer-root-relative directory that contains an export.
-// Copy vendors already materialise dependency.path as their root; submodules retain it.
-func VendorSourcePath(exp Export, locked Locked) string {
-	if locked.Vendor == nil {
-		return ""
-	}
-	parts := []string{locked.Vendor.Path}
-	if locked.Vendor.Mode == "submodule" && locked.Path != "" && locked.Path != "." {
-		parts = append(parts, locked.Path)
-	}
-	if exp.Path != "" && exp.Path != "." {
-		parts = append(parts, exp.Path)
-	}
-	return filepath.ToSlash(filepath.Join(parts...))
-}
 
 type Variant string
 type Dependency = manifest.Dependency
@@ -34,7 +17,13 @@ type Change struct {
 	File, Entry, Warning string
 	Changed              bool
 }
-type Finding struct{ File, Entry, Want, Got string }
+type Finding struct {
+	File, Entry, Want, Got string
+	// Repairable distinguishes manager-owned lock/materialization drift from
+	// declaration drift that may be a user edit. Pull may converge repairable
+	// findings; it must stop before overwriting non-repairable findings.
+	Repairable bool
+}
 
 type NotWirableError struct{ Reason string }
 
@@ -55,8 +44,14 @@ func NotWirableReason(err error) string {
 type Adapter interface {
 	Ecosystem() string
 	Detect(root string) (bool, Variant, error)
-	Wire(ctx context.Context, root string, dep Dependency, exp Export, locked Locked) (Change, error)
-	Unwire(ctx context.Context, root string, dep Dependency, exp Export) (Change, error)
-	Refresh(ctx context.Context, root string, dep Dependency, exp Export, locked Locked) error
-	Drift(ctx context.Context, root string, dep Dependency, exp Export, locked Locked) ([]Finding, error)
+	// Capability is a read-only check that rejects only source shapes this
+	// concrete variant cannot represent. Tool and network checks are separate.
+	Capability(root string, dep Dependency, exp Export) error
+	// Pull edits the native declaration and makes the dependency usable locally.
+	// It must also repair missing materialization when the declaration is current.
+	Pull(ctx context.Context, root string, dep Dependency, exp Export, locked Locked) (Change, error)
+	// Remove converges the native declaration, lock and project-local installed state.
+	Remove(ctx context.Context, root string, dep Dependency, exp Export, locked Locked) (Change, error)
+	// Inspect is local and read-only.
+	Inspect(ctx context.Context, root string, dep Dependency, exp Export, locked Locked) ([]Finding, error)
 }

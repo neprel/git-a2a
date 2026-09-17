@@ -1,25 +1,28 @@
-# module CMake vendored integration adapter
+# module CMake checkout integration adapter
 
-Detect a consumer root `CMakeLists.txt`. This adapter applies only to a `cmake` export whose
-dependency has a locked vendor; CMake has no native Git dependency form owned by this adapter.
+Detect a consumer root `CMakeLists.txt`. The lifecycle composes this build adapter with the single
+submodule materialization and passes `Export.Path` as the consumer-root-relative source directory.
+This adapter never clones, copies, updates, or removes that checkout.
 
 # decision One generated include and one owned root line
 
-Write dependency blocks to `deps/git-a2a.cmake`, sorted by module id. Each block calls
-`add_subdirectory` for the locked vendored export path and uses the export name only as published
-target identity. The root file gets exactly `include("deps/git-a2a.cmake") # git-a2a`; remove only
-that marked line and only when the generated file has no dependency blocks. Never edit any other
-CMake content.
+Write dependency blocks to `deps/git-a2a.cmake`, sorted by dependency name. Each block calls
+`add_subdirectory` for `Export.Path`. The root file gets exactly
+`include("deps/git-a2a.cmake") # git-a2a`; remove only that marked line and only when the generated
+file has no dependency blocks. Never edit other CMake content.
 
-# invariant Wiring requires explicit locked vendoring
+# invariant Pull resolves an existing checkout without building the application
 
-Without both `dependencies[].vendor` and lock `vendor`, return a typed not-wirable reason. For a
-submodule the source path includes dependency and export subpaths; for copy it includes only the
-export subpath because copy already materialises the dependency module root.
+Capability is read-only and returns a typed not-wirable reason for an empty, `.`, absolute, or
+escaping checkout path. Pull requires the submodule-owned source directory, writes the integration,
+and runs CMake configure into `.git-a2a/build/cmake`; it does not compile the whole consumer.
+Remove deletes only owned integration and reconfigures when other managed CMake dependencies
+remain. Removing the last one deletes the adapter-owned configure tree, because configuring a
+consumer that still references the intentionally removed target would make removal impossible.
+Inspect reports both declaration drift and a missing checkout.
 
 # test Golden lifecycle
 
-Fixture tests cover Wire, byte-identical second Wire, clean Drift, a changed generated block,
-Unwire restoring the original root bytes, multiple sorted blocks, and the missing-vendor result.
-Foreign bytes outside valid generated blocks are a drift finding; Wire discards them with a
-warning and Unwire removes them without an ownership error.
+Tests cover private editor idempotence, Inspect, read-only Capability, clean and changed
+declarations, byte-restoring removal, sorted blocks, missing
+checkouts, and safe repair/removal of foreign bytes in the wholly owned generated file.

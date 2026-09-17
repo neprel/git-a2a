@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/neprel/git-a2a/internal/adapter"
-	"github.com/neprel/git-a2a/internal/manifest"
 )
 
 func TestGoldenLifecycle(t *testing.T) {
@@ -19,10 +18,10 @@ func TestGoldenLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	implementation := Adapter{}
-	dep := adapter.Dependency{ID: "acme-native", Vendor: &manifest.Vendor{Mode: "submodule"}}
-	exp := adapter.Export{Ecosystem: "cmake", Name: "acme::native", Path: "cpp"}
-	locked := adapter.Locked{Path: "modules/native", Commit: strings.Repeat("a", 40), Vendor: &manifest.LockedVendor{Mode: "submodule", Path: "deps/acme-native"}}
-	change, err := implementation.Wire(context.Background(), root, dep, exp, locked)
+	dep := adapter.Dependency{Name: "acme-native"}
+	exp := adapter.Export{Adapter: "cmake", Name: "acme::native", Path: "deps/acme-native/modules/native/cpp"}
+	locked := adapter.Locked{Commit: strings.Repeat("a", 40)}
+	change, err := implementation.wire(context.Background(), root, dep, exp, locked)
 	if err != nil || !change.Changed {
 		t.Fatalf("Wire = %#v, %v", change, err)
 	}
@@ -30,22 +29,22 @@ func TestGoldenLifecycle(t *testing.T) {
 	if got, readErr := os.ReadFile(filepath.Join(root, generatedFile)); readErr != nil || string(got) != want {
 		t.Fatalf("generated = %q, %v", got, readErr)
 	}
-	if change, err = implementation.Wire(context.Background(), root, dep, exp, locked); err != nil || change.Changed {
+	if change, err = implementation.wire(context.Background(), root, dep, exp, locked); err != nil || change.Changed {
 		t.Fatalf("second Wire = %#v, %v", change, err)
 	}
-	if findings, driftErr := implementation.Drift(context.Background(), root, dep, exp, locked); driftErr != nil || len(findings) != 0 {
+	if findings, driftErr := implementation.inspectDeclaration(context.Background(), root, dep, exp, locked); driftErr != nil || len(findings) != 0 {
 		t.Fatalf("Drift = %#v, %v", findings, driftErr)
 	}
 	if err = os.WriteFile(filepath.Join(root, generatedFile), []byte(strings.Replace(want, "cpp", "wrong", 1)), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if findings, driftErr := implementation.Drift(context.Background(), root, dep, exp, locked); driftErr != nil || len(findings) != 1 {
+	if findings, driftErr := implementation.inspectDeclaration(context.Background(), root, dep, exp, locked); driftErr != nil || len(findings) != 1 {
 		t.Fatalf("changed Drift = %#v, %v", findings, driftErr)
 	}
-	if _, err = implementation.Wire(context.Background(), root, dep, exp, locked); err != nil {
+	if _, err = implementation.wire(context.Background(), root, dep, exp, locked); err != nil {
 		t.Fatal(err)
 	}
-	if change, err = implementation.Unwire(context.Background(), root, dep, exp); err != nil || !change.Changed {
+	if change, err = implementation.unwire(context.Background(), root, dep, exp); err != nil || !change.Changed {
 		t.Fatalf("Unwire = %#v, %v", change, err)
 	}
 	if got, readErr := os.ReadFile(filepath.Join(root, rootFile)); readErr != nil || !bytes.Equal(got, original) {
@@ -56,18 +55,25 @@ func TestGoldenLifecycle(t *testing.T) {
 	}
 }
 
-func TestRequiresVendoringAndSortsBlocks(t *testing.T) {
+func TestRequiresCheckoutPathAndSortsBlocks(t *testing.T) {
 	root := t.TempDir()
 	_ = os.WriteFile(filepath.Join(root, rootFile), []byte("project(consumer)\n"), 0o644)
 	implementation := Adapter{}
-	exp := adapter.Export{Ecosystem: "cmake", Name: "acme::native"}
-	if _, err := implementation.Wire(context.Background(), root, adapter.Dependency{ID: "acme-z"}, exp, adapter.Locked{}); !adapter.IsNotWirable(err) {
+	exp := adapter.Export{Adapter: "cmake", Name: "acme::native"}
+	before, _ := os.ReadFile(filepath.Join(root, rootFile))
+	if err := implementation.Capability(root, adapter.Dependency{Name: "acme-z"}, exp); !adapter.IsNotWirable(err) {
+		t.Fatalf("Capability error = %v", err)
+	}
+	if after, _ := os.ReadFile(filepath.Join(root, rootFile)); !bytes.Equal(after, before) {
+		t.Fatal("Capability mutated the consumer")
+	}
+	if _, err := implementation.wire(context.Background(), root, adapter.Dependency{Name: "acme-z"}, exp, adapter.Locked{}); !adapter.IsNotWirable(err) {
 		t.Fatalf("error = %v", err)
 	}
 	for _, id := range []string{"acme-z", "acme-a"} {
-		dep := adapter.Dependency{ID: id, Vendor: &manifest.Vendor{Mode: "copy"}}
-		locked := adapter.Locked{Vendor: &manifest.LockedVendor{Mode: "copy", Path: "deps/" + id}}
-		if _, err := implementation.Wire(context.Background(), root, dep, exp, locked); err != nil {
+		dep := adapter.Dependency{Name: id}
+		exp.Path = "deps/" + id
+		if _, err := implementation.wire(context.Background(), root, dep, exp, adapter.Locked{Commit: strings.Repeat("b", 40)}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -77,16 +83,30 @@ func TestRequiresVendoringAndSortsBlocks(t *testing.T) {
 	}
 }
 
+func TestInspectReportsMissingCheckout(t *testing.T) {
+	root := t.TempDir()
+	_ = os.WriteFile(filepath.Join(root, rootFile), []byte("project(consumer)\n"), 0o644)
+	dep := adapter.Dependency{Name: "acme"}
+	exp := adapter.Export{Adapter: "cmake", Name: "acme", Path: "deps/acme"}
+	if _, err := (Adapter{}).wire(context.Background(), root, dep, exp, adapter.Locked{}); err != nil {
+		t.Fatal(err)
+	}
+	findings, err := (Adapter{}).Inspect(context.Background(), root, dep, exp, adapter.Locked{})
+	if err != nil || len(findings) != 1 || findings[0].Got != "missing" {
+		t.Fatalf("Inspect = %#v, %v", findings, err)
+	}
+}
+
 func TestOwnedGeneratedFileRepairsForeignContentAndUnwireNeverFails(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, rootFile), []byte("project(consumer)\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	implementation := Adapter{}
-	dep := adapter.Dependency{ID: "acme-native", Vendor: &manifest.Vendor{Mode: "copy"}}
-	exp := adapter.Export{Ecosystem: "cmake", Name: "acme::native"}
-	locked := adapter.Locked{Vendor: &manifest.LockedVendor{Mode: "copy", Path: "deps/acme-native"}}
-	if _, err := implementation.Wire(context.Background(), root, dep, exp, locked); err != nil {
+	dep := adapter.Dependency{Name: "acme-native"}
+	exp := adapter.Export{Adapter: "cmake", Name: "acme::native", Path: "deps/acme-native"}
+	locked := adapter.Locked{Commit: strings.Repeat("c", 40)}
+	if _, err := implementation.wire(context.Background(), root, dep, exp, locked); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(root, generatedFile)
@@ -94,7 +114,7 @@ func TestOwnedGeneratedFileRepairsForeignContentAndUnwireNeverFails(t *testing.T
 	if err := os.WriteFile(path, append(append([]byte(nil), want...), []byte("human_line()\n")...), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	change, err := implementation.Wire(context.Background(), root, dep, exp, locked)
+	change, err := implementation.wire(context.Background(), root, dep, exp, locked)
 	if err != nil || !change.Changed || !strings.Contains(change.Warning, "discarded") {
 		t.Fatalf("repair Wire = %#v, %v", change, err)
 	}
@@ -104,11 +124,28 @@ func TestOwnedGeneratedFileRepairsForeignContentAndUnwireNeverFails(t *testing.T
 	if err := os.WriteFile(path, append(append([]byte(nil), want...), []byte("human_line()\n")...), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	change, err = implementation.Unwire(context.Background(), root, dep, exp)
+	change, err = implementation.unwire(context.Background(), root, dep, exp)
 	if err != nil || !change.Changed {
 		t.Fatalf("Unwire = %#v, %v", change, err)
 	}
 	if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
 		t.Fatalf("generated file remains: %v", statErr)
+	}
+}
+
+func TestRemoveLastDependencyDeletesOwnedConfigureTree(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, rootFile), []byte("project(consumer)\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	build := filepath.Join(root, ".git-a2a", "build", "cmake")
+	if err := os.MkdirAll(build, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := (Adapter{}).resolveAfterRemove(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(build); !os.IsNotExist(err) {
+		t.Fatalf("owned configure tree remains: %v", err)
 	}
 }

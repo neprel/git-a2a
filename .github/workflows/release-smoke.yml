@@ -20,10 +20,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version: '1.25.x'
-          cache: true
       - name: Download the immutable release binary
         shell: bash
         env:
@@ -40,7 +36,7 @@ jobs:
             *.zip) unzip -q "release-smoke/$asset" -d release-smoke ;;
             *) tar xzf "release-smoke/$asset" -C release-smoke ;;
           esac
-      - name: Exercise version, MCP discovery, and setup
+      - name: Exercise version, help, and schema 2 init
         shell: bash
         env:
           RELEASE_TAG: ${{ inputs.tag }}
@@ -50,15 +46,18 @@ jobs:
           binary="$PWD/release-smoke/$BINARY_NAME"
           version="${RELEASE_TAG#v}"
           binary_version="${version%%-*}"
-          output="$($binary version)"
+          output="$($binary --version)"
           printf '%s\n' "$output"
           case "$output" in
             "git-a2a $binary_version "*) ;;
             *) echo "unexpected version output" >&2; exit 1 ;;
           esac
-          go run ./tools/mcp-smoke --binary "$binary"
+          help="$($binary --help)"
+          printf '%s\n' "$help"
+          printf '%s\n' "$help" | grep -F 'usage: git-a2a <init|add|pull|remove|list> [options]'
           mkdir release-smoke-root
           cd release-smoke-root
           git init -q
           "$binary" init --id acme-smoke
-          "$binary" setup --harness codex --dry-run
+          grep -F 'schema: 2' a2amodule.yml
+          "$binary" list

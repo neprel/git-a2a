@@ -1,0 +1,7 @@
+{
+  "initWorktree": true,
+  "files": {
+    "a2amodule.yml": "schema: 2\ncomponent:\n  id: acme-lib\n  description: Shared library\n  surface: public\nagent:\n  name: Acme Library Agent\n  card: https://agents.example.invalid/acme-lib/card.json\n",
+    "public/README.md": "# Acme library surface\n"
+  }
+}

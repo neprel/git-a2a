@@ -1,8 +1,0 @@
-[project]
-name = "consumer-uv"
-version = "1.0.0"
-dependencies = [
-  "click>=8",
-]
-
-[tool.uv]

@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/neprel/git-a2a/internal/adapter"
-	"github.com/neprel/git-a2a/internal/manifest"
 )
 
 func TestKotlinAndGroovyGoldenLifecycle(t *testing.T) {
@@ -23,10 +22,10 @@ func TestKotlinAndGroovyGoldenLifecycle(t *testing.T) {
 				t.Fatal(err)
 			}
 			implementation := Adapter{}
-			dep := adapter.Dependency{ID: "acme-lib", Vendor: &manifest.Vendor{Mode: "submodule"}}
-			exp := adapter.Export{Ecosystem: "maven", Name: "com.acme:lib-utils", Path: "jvm"}
-			locked := adapter.Locked{Path: "modules/lib", Vendor: &manifest.LockedVendor{Mode: "submodule", Path: "deps/acme-lib"}}
-			change, err := implementation.Wire(context.Background(), root, dep, exp, locked)
+			dep := adapter.Dependency{Name: "acme-lib"}
+			exp := adapter.Export{Adapter: "maven", Name: "com.acme:lib-utils", Path: "deps/acme-lib/modules/lib/jvm"}
+			locked := adapter.Locked{Commit: strings.Repeat("a", 40)}
+			change, err := implementation.wire(context.Background(), root, dep, exp, locked)
 			if err != nil || !change.Changed {
 				t.Fatalf("Wire = %#v, %v", change, err)
 			}
@@ -47,13 +46,13 @@ func TestKotlinAndGroovyGoldenLifecycle(t *testing.T) {
 					t.Fatalf("generated missing %q:\n%s", want, generatedBody)
 				}
 			}
-			if change, err = implementation.Wire(context.Background(), root, dep, exp, locked); err != nil || change.Changed {
+			if change, err = implementation.wire(context.Background(), root, dep, exp, locked); err != nil || change.Changed {
 				t.Fatalf("second Wire = %#v, %v", change, err)
 			}
-			if findings, driftErr := implementation.Drift(context.Background(), root, dep, exp, locked); driftErr != nil || len(findings) != 0 {
+			if findings, driftErr := implementation.inspectDeclaration(context.Background(), root, dep, exp, locked); driftErr != nil || len(findings) != 0 {
 				t.Fatalf("Drift = %#v, %v", findings, driftErr)
 			}
-			if change, err = implementation.Unwire(context.Background(), root, dep, exp); err != nil || !change.Changed {
+			if change, err = implementation.unwire(context.Background(), root, dep, exp); err != nil || !change.Changed {
 				t.Fatalf("Unwire = %#v, %v", change, err)
 			}
 			if restored, readErr := os.ReadFile(filepath.Join(root, settings)); readErr != nil || !bytes.Equal(restored, original) {
@@ -63,21 +62,28 @@ func TestKotlinAndGroovyGoldenLifecycle(t *testing.T) {
 	}
 }
 
-func TestRequiresVendorSortsAndRepairsOwnedGeneratedFile(t *testing.T) {
+func TestRequiresCheckoutPathSortsAndRepairsOwnedGeneratedFile(t *testing.T) {
 	root := t.TempDir()
 	settings := []byte("rootProject.name = \"consumer\"\n")
 	if err := os.WriteFile(filepath.Join(root, "settings.gradle.kts"), settings, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	implementation := Adapter{}
-	exp := adapter.Export{Ecosystem: "maven", Name: "com.acme:lib-utils"}
-	if _, err := implementation.Wire(context.Background(), root, adapter.Dependency{ID: "acme-z"}, exp, adapter.Locked{}); !adapter.IsNotWirable(err) {
-		t.Fatalf("missing vendor error = %v", err)
+	exp := adapter.Export{Adapter: "maven", Name: "com.acme:lib-utils"}
+	before := append([]byte(nil), settings...)
+	if err := implementation.Capability(root, adapter.Dependency{Name: "acme-z"}, exp); !adapter.IsNotWirable(err) {
+		t.Fatalf("Capability error = %v", err)
+	}
+	if after := mustRead(t, filepath.Join(root, "settings.gradle.kts")); !bytes.Equal(after, before) {
+		t.Fatal("Capability mutated the consumer")
+	}
+	if _, err := implementation.wire(context.Background(), root, adapter.Dependency{Name: "acme-z"}, exp, adapter.Locked{}); !adapter.IsNotWirable(err) {
+		t.Fatalf("missing checkout path error = %v", err)
 	}
 	for _, id := range []string{"acme-z", "acme-a"} {
-		dep := adapter.Dependency{ID: id, Vendor: &manifest.Vendor{Mode: "copy"}}
-		locked := adapter.Locked{Vendor: &manifest.LockedVendor{Mode: "copy", Path: "deps/" + id}}
-		if _, err := implementation.Wire(context.Background(), root, dep, exp, locked); err != nil {
+		dep := adapter.Dependency{Name: id}
+		exp.Path = "deps/" + id
+		if _, err := implementation.wire(context.Background(), root, dep, exp, adapter.Locked{Commit: strings.Repeat("b", 40)}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -89,9 +95,10 @@ func TestRequiresVendorSortsAndRepairsOwnedGeneratedFile(t *testing.T) {
 	if err := os.WriteFile(generated, append(append([]byte(nil), body...), []byte("println(\"foreign\")\n")...), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	dep := adapter.Dependency{ID: "acme-a", Vendor: &manifest.Vendor{Mode: "copy"}}
-	locked := adapter.Locked{Vendor: &manifest.LockedVendor{Mode: "copy", Path: "deps/acme-a"}}
-	change, err := implementation.Wire(context.Background(), root, dep, exp, locked)
+	dep := adapter.Dependency{Name: "acme-a"}
+	exp.Path = "deps/acme-a"
+	locked := adapter.Locked{Commit: strings.Repeat("b", 40)}
+	change, err := implementation.wire(context.Background(), root, dep, exp, locked)
 	if err != nil || !change.Changed || !strings.Contains(change.Warning, "discarded") {
 		t.Fatalf("repair Wire = %#v, %v", change, err)
 	}
@@ -102,8 +109,8 @@ func TestRequiresVendorSortsAndRepairsOwnedGeneratedFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, id := range []string{"acme-a", "acme-z"} {
-		dep = adapter.Dependency{ID: id, Vendor: &manifest.Vendor{Mode: "copy"}}
-		if change, err = implementation.Unwire(context.Background(), root, dep, exp); err != nil || !change.Changed {
+		dep = adapter.Dependency{Name: id}
+		if change, err = implementation.unwire(context.Background(), root, dep, exp); err != nil || !change.Changed {
 			t.Fatalf("Unwire %s = %#v, %v", id, change, err)
 		}
 	}
@@ -112,6 +119,20 @@ func TestRequiresVendorSortsAndRepairsOwnedGeneratedFile(t *testing.T) {
 	}
 	if restored := mustRead(t, filepath.Join(root, "settings.gradle.kts")); !bytes.Equal(restored, settings) {
 		t.Fatalf("settings not restored = %q", restored)
+	}
+}
+
+func TestInspectReportsMissingCompositeCheckout(t *testing.T) {
+	root := t.TempDir()
+	_ = os.WriteFile(filepath.Join(root, "settings.gradle.kts"), []byte("rootProject.name = \"consumer\"\n"), 0o644)
+	dep := adapter.Dependency{Name: "acme"}
+	exp := adapter.Export{Adapter: "maven", Name: "com.acme:lib", Path: "deps/acme"}
+	if _, err := (Adapter{}).wire(context.Background(), root, dep, exp, adapter.Locked{}); err != nil {
+		t.Fatal(err)
+	}
+	findings, err := (Adapter{}).Inspect(context.Background(), root, dep, exp, adapter.Locked{})
+	if err != nil || len(findings) != 1 || findings[0].Got != "missing" {
+		t.Fatalf("Inspect = %#v, %v", findings, err)
 	}
 }
 

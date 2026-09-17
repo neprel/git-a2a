@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	pathpkg "path"
 	"path/filepath"
 	"strings"
 
@@ -14,6 +15,8 @@ import (
 
 type Adapter struct {
 	ResolveVersion func(context.Context, string, string, string) (string, error)
+	Download       func(context.Context, string, string) error
+	Materialized   func(context.Context, string, string) (bool, string, error)
 }
 
 func (Adapter) Ecosystem() string { return "golang" }
@@ -32,14 +35,6 @@ func (a Adapter) Wire(ctx context.Context, root string, dep adapter.Dependency, 
 		return adapter.Change{}, err
 	}
 	s := string(b)
-	if locked.Vendor != nil {
-		local := "./" + adapter.VendorSourcePath(exp, locked)
-		if err := adapter.Command(ctx, root, "go", "mod", "edit", "-require="+exp.Name+"@v0.0.0", "-replace="+exp.Name+"="+local); err != nil {
-			return adapter.Change{}, err
-		}
-		next, readErr := os.ReadFile(p)
-		return adapter.Change{File: "go.mod", Entry: exp.Name, Changed: string(next) != s}, readErr
-	}
 	source, err := sourceModule(dep.Git, exp.Path)
 	if err != nil {
 		return adapter.Change{}, adapter.NotWirable(err.Error())
@@ -99,21 +94,10 @@ func (Adapter) Unwire(ctx context.Context, root string, _ adapter.Dependency, ex
 	changed := string(next) != s
 	return adapter.Change{File: "go.mod", Entry: exp.Name, Changed: changed}, err
 }
-func (Adapter) Refresh(ctx context.Context, root string, _ adapter.Dependency, _ adapter.Export, _ adapter.Locked) error {
-	return adapter.RequireTool(ctx, "golang", "go")
-}
 func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
 	b, err := os.ReadFile(filepath.Join(root, "go.mod"))
 	if err != nil {
 		return nil, err
-	}
-	if locked.Vendor != nil {
-		line := findLine(string(b), "replace", exp.Name)
-		want := "./" + adapter.VendorSourcePath(exp, locked)
-		if !strings.Contains(line, want) {
-			return []adapter.Finding{{File: "go.mod", Entry: exp.Name, Want: want, Got: strings.TrimSpace(line)}}, nil
-		}
-		return nil, nil
 	}
 	prefix := locked.Commit
 	if len(prefix) > 12 {
@@ -136,7 +120,7 @@ func sourceModule(raw, path string) (string, error) {
 	var hostPath string
 	if strings.HasPrefix(raw, "git@") {
 		parts := strings.SplitN(strings.TrimPrefix(raw, "git@"), ":", 2)
-		if len(parts) != 2 {
+		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 			return "", fmt.Errorf("unsupported git URL %q", raw)
 		}
 		hostPath = parts[0] + "/" + parts[1]
@@ -145,11 +129,23 @@ func sourceModule(raw, path string) (string, error) {
 		if err != nil || u.Host == "" {
 			return "", fmt.Errorf("cannot derive Go module source from %q", raw)
 		}
-		hostPath = u.Host + u.Path
+		switch u.Scheme {
+		case "http", "https", "git", "ssh":
+		default:
+			return "", fmt.Errorf("cannot represent Git URL scheme %q as a Go module source", u.Scheme)
+		}
+		if u.Port() != "" || u.RawQuery != "" || u.Fragment != "" {
+			return "", fmt.Errorf("cannot represent Git URL %q as a Go module source", raw)
+		}
+		hostPath = u.Hostname() + strings.TrimSuffix(u.Path, "/")
 	}
 	hostPath = strings.TrimSuffix(hostPath, ".git")
 	if path != "" && path != "." {
-		hostPath += "/" + strings.Trim(path, "/")
+		clean := pathpkg.Clean(strings.ReplaceAll(path, "\\", "/"))
+		if clean == ".." || strings.HasPrefix(clean, "../") || pathpkg.IsAbs(clean) {
+			return "", fmt.Errorf("cannot represent export path %q as a Go module source", path)
+		}
+		hostPath += "/" + clean
 	}
 	return hostPath, nil
 }

@@ -1,9 +1,11 @@
 # decision Bundler git dependencies are explicit Gemfile entries
 
-The Gem adapter owns one top-level `gem` declaration in `Gemfile`. Locked wiring uses the full
-commit as `ref`; floating wiring uses the declared ref as `branch`. An export subdirectory adds
-Bundler's native `glob: "<path>/*.gemspec"`. The adapter leaves `Gemfile.lock` downstream so it
-does not resolve or rewrite unrelated gems.
+The Gem adapter owns one top-level `gem` declaration in `Gemfile`. Wiring always uses
+`LockedDependency.Commit` as `ref`. An export subdirectory adds Bundler's native
+`glob: "<path>/*.gemspec"`. `Pull` runs `bundle install --quiet`, including when the declaration
+is unchanged, so the exact revision is locked and installed. `Remove` deletes only the owned
+root declaration and runs the same Bundler convergence, retaining unrelated and transitively
+required gems.
 
 # test Gem adapter
 
@@ -11,6 +13,8 @@ does not resolve or rewrite unrelated gems.
 - Drift checks both the normalized Git URL and locked revision.
 - Unwire removes only the named gem declaration.
 
-# decision Refresh prerequisite
+# decision Bundler lifecycle
 
-`Refresh` checks `bundle` through the shared prerequisite contract before doing any work.
+`Pull` and `Remove` check `bundle` through the shared prerequisite contract before invoking it.
+`Inspect` is offline and requires one `GIT` stanza in `Gemfile.lock` to match the dependency
+remote, exact commit, and requested gem spec together. A commit in another stanza is not evidence.

@@ -1,0 +1,13 @@
+# The complete tracked tree (except Git metadata) is the published surface.
+# yaml-language-server: $schema=https://git-a2a.com/schema/a2amodule.v2.json
+schema: 2
+component:
+  id: open-protocol
+  repository: https://github.com/acme/open-protocol.git
+  surface: .
+  exports:
+    - adapter: zig
+      name: open-protocol
+      checksum: "1220aabbccddeeff"
+agent:
+  card: agent-card.json

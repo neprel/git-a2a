@@ -1,5 +1,5 @@
 {
-  description = "Import git modules together with their owning agents";
+  description = "Manage Git component dependencies with their responsible agents";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -24,7 +24,7 @@
             pname = "git-a2a";
             inherit version;
             src = self;
-            vendorHash = "sha256-cqrIamk8awwDMvbFk0qv1Jnp8xzoqql4GtBW+Jb6m7I=";
+            vendorHash = "sha256-g+yaVIx4jxpAQ/+WrGKxhVeliYx7nLQe/zsGpxV4Fn4=";
             subPackages = [ "cmd/git-a2a" ];
             doCheck = false;
             nativeBuildInputs = [ pkgs.makeWrapper ];
@@ -39,7 +39,7 @@
               wrapProgram "$out/bin/git-a2a" --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.git ]}
             '';
             meta = {
-              description = "Import git modules together with their owning agents";
+              description = "Manage Git component dependencies with their responsible agents";
               homepage = "https://git-a2a.com";
               license = pkgs.lib.licenses.mit;
               mainProgram = "git-a2a";
@@ -52,7 +52,7 @@
         default = {
           type = "app";
           program = "${self.packages.${system}.default}/bin/git-a2a";
-          meta.description = "Import git modules together with their owning agents";
+          meta.description = "Manage Git component dependencies with their responsible agents";
         };
       });
 
@@ -66,7 +66,7 @@
           version = pkgs.runCommand "git-a2a-version-check" {
             nativeBuildInputs = [ package ];
           } ''
-            git-a2a version | grep -F "git-a2a ${version}"
+            git-a2a --version | grep -F "git-a2a ${version}"
             mkdir "$out"
           '';
         });

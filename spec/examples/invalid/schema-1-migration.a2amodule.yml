@@ -1,0 +1,8 @@
+# Invalid by design: schema 1 is rejected and has no compatibility reader.
+# See docs/migration-v2.md.
+schema: 1
+module:
+  id: legacy-component
+agents:
+  - name: legacy-owner
+    role: owner

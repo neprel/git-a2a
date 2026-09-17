@@ -1,0 +1,25 @@
+FROM golang:1.25.1-bookworm
+
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       git=1:2.39.5-0+deb12u2 \
+       ghc=9.0.2-4 \
+       haskell-stack=2.7.5-2 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -o /usr/local/bin/git-a2a ./cmd/git-a2a \
+    && CGO_ENABLED=0 go test -c -o /usr/local/bin/stack-native-test ./adapters/hackage
+
+ENV GITA2A_CLI_BIN=/usr/local/bin/git-a2a \
+    GITA2A_NATIVE_HACKAGE_IT=stack \
+    GIT_CONFIG_NOSYSTEM=1 \
+    GIT_ALLOW_PROTOCOL=file \
+    HOME=/tmp/stack-native-home \
+    STACK_ROOT=/tmp/stack-native-home/.stack
+
+RUN mkdir -p "$HOME" "$STACK_ROOT"
+
+CMD ["sh", "-ceu", "go version; git --version; ghc --version; stack --numeric-version; /usr/local/bin/stack-native-test -test.run '^TestPublicCLIStackLifecycle$' -test.count=1 -test.v"]

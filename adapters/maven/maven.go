@@ -16,7 +16,7 @@ import (
 const (
 	rootFile      = "pom.xml"
 	generatedFile = "deps/git-a2a.maven/pom.xml"
-	genHeader     = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\">\n  <modelVersion>4.0.0</modelVersion>\n  <groupId>git-a2a.generated</groupId>\n  <artifactId>vendored-modules</artifactId>\n  <version>1</version>\n  <packaging>pom</packaging>\n  <modules>\n"
+	genHeader     = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\">\n  <modelVersion>4.0.0</modelVersion>\n  <groupId>git-a2a.generated</groupId>\n  <artifactId>checkout-modules</artifactId>\n  <version>1</version>\n  <packaging>pom</packaging>\n  <modules>\n"
 	genFooter     = "  </modules>\n</project>\n"
 )
 
@@ -31,35 +31,35 @@ func (Adapter) Detect(root string) (bool, adapter.Variant, error) {
 	return e == nil, "maven", e
 }
 
-func (a Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) (adapter.Change, error) {
-	if dep.Vendor == nil || locked.Vendor == nil {
-		return adapter.Change{}, adapter.NotWirable("Maven reactor integration requires an explicitly vendored dependency")
+func (a Adapter) wire(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, _ adapter.Locked) (adapter.Change, error) {
+	if exp.Path == "" || exp.Path == "." {
+		return adapter.Change{}, adapter.NotWirable("Maven reactor integration requires a materialized source checkout path")
 	}
 	coordinate, err := parseCoordinate(exp.Name)
 	if err != nil {
 		return adapter.Change{}, err
 	}
-	module := modulePath(dep, exp, locked)
+	module := modulePath(exp)
 	gp := filepath.Join(root, filepath.FromSlash(generatedFile))
 	before, err := read(gp)
 	if err != nil {
 		return adapter.Change{}, err
 	}
 	modules, discarded := parseGenerated(before)
-	modules[dep.ID] = module
+	modules[dep.Name] = module
 	next := renderGenerated(modules)
 	rp := filepath.Join(root, rootFile)
 	rb, err := os.ReadFile(rp)
 	if err != nil {
 		return adapter.Change{}, err
 	}
-	ra, err := upsertRoot(rb, dep.ID, coordinate)
+	ra, err := upsertRoot(rb, dep.Name, coordinate)
 	if err != nil {
 		return adapter.Change{}, err
 	}
 	changed := string(before) != string(next) || string(rb) != string(ra)
 	if !changed {
-		return adapter.Change{File: generatedFile, Entry: dep.ID}, nil
+		return adapter.Change{File: generatedFile, Entry: dep.Name}, nil
 	}
 	if err = os.MkdirAll(filepath.Dir(gp), 0o755); err == nil {
 		err = os.WriteFile(gp, next, 0o644)
@@ -71,17 +71,17 @@ func (a Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, ex
 	if discarded {
 		w = generatedFile + " contained foreign content; git-a2a regenerated the owned file and discarded it"
 	}
-	return adapter.Change{File: generatedFile, Entry: dep.ID, Changed: true, Warning: w}, err
+	return adapter.Change{File: generatedFile, Entry: dep.Name, Changed: true, Warning: w}, err
 }
-func (Adapter) Unwire(_ context.Context, root string, dep adapter.Dependency, _ adapter.Export) (adapter.Change, error) {
+func (Adapter) unwire(_ context.Context, root string, dep adapter.Dependency, _ adapter.Export) (adapter.Change, error) {
 	gp := filepath.Join(root, filepath.FromSlash(generatedFile))
 	before, err := read(gp)
 	if err != nil {
 		return adapter.Change{}, err
 	}
 	modules, discarded := parseGenerated(before)
-	_, had := modules[dep.ID]
-	delete(modules, dep.ID)
+	_, had := modules[dep.Name]
+	delete(modules, dep.Name)
 	if len(modules) == 0 {
 		if err = os.Remove(gp); err != nil && !os.IsNotExist(err) {
 			return adapter.Change{}, err
@@ -94,21 +94,18 @@ func (Adapter) Unwire(_ context.Context, root string, dep adapter.Dependency, _ 
 	if re != nil {
 		return adapter.Change{}, re
 	}
-	ra := removeRoot(rb, dep.ID, len(modules) == 0)
+	ra := removeRoot(rb, dep.Name, len(modules) == 0)
 	if err == nil && string(rb) != string(ra) {
 		err = os.WriteFile(rp, ra, 0o644)
 	}
-	return adapter.Change{File: generatedFile, Entry: dep.ID, Changed: had || discarded || len(before) > 0 || string(rb) != string(ra)}, err
+	return adapter.Change{File: generatedFile, Entry: dep.Name, Changed: had || discarded || len(before) > 0 || string(rb) != string(ra)}, err
 }
-func (a Adapter) Refresh(ctx context.Context, root string, _ adapter.Dependency, _ adapter.Export, _ adapter.Locked) error {
-	if err := adapter.RequireTool(ctx, a.Ecosystem(), "maven"); err != nil {
-		return err
-	}
-	return adapter.Command(ctx, root, "mvn", "-B", "package", "-DskipTests")
+func (Adapter) resolve(ctx context.Context, root string) error {
+	return adapter.Command(ctx, root, "mvn", "-B", "-ntp", "-DskipTests", "validate")
 }
-func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
-	if dep.Vendor == nil || locked.Vendor == nil {
-		return []adapter.Finding{{File: generatedFile, Entry: dep.ID, Want: "vendored Maven integration", Got: "not vendored"}}, nil
+func (Adapter) inspectDeclaration(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, _ adapter.Locked) ([]adapter.Finding, error) {
+	if exp.Path == "" || exp.Path == "." {
+		return []adapter.Finding{{File: generatedFile, Entry: dep.Name, Want: "materialized source checkout path", Got: exp.Path}}, nil
 	}
 	coord, err := parseCoordinate(exp.Name)
 	if err != nil {
@@ -120,8 +117,8 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 	}
 	mods, foreign := parseGenerated(body)
 	var f []adapter.Finding
-	if mods[dep.ID] != modulePath(dep, exp, locked) {
-		f = append(f, adapter.Finding{File: generatedFile, Entry: dep.ID, Want: modulePath(dep, exp, locked), Got: mods[dep.ID]})
+	if mods[dep.Name] != modulePath(exp) {
+		f = append(f, adapter.Finding{File: generatedFile, Entry: dep.Name, Want: modulePath(exp), Got: mods[dep.Name], Repairable: true})
 	}
 	if foreign {
 		f = append(f, adapter.Finding{File: generatedFile, Entry: "owned file", Want: "only generated git-a2a content", Got: "foreign content"})
@@ -130,11 +127,11 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 	if err != nil {
 		return nil, err
 	}
-	if !strings.Contains(string(rb), dependencyBlock(dep.ID, coord)) {
-		f = append(f, adapter.Finding{File: rootFile, Entry: dep.ID, Want: "managed Maven dependency", Got: "missing or changed"})
+	if !strings.Contains(string(rb), dependencyBlock(dep.Name, coord)) {
+		f = append(f, adapter.Finding{File: rootFile, Entry: dep.Name, Want: "managed Maven dependency", Got: "missing or changed", Repairable: true})
 	}
 	if !strings.Contains(string(rb), moduleBlock()) {
-		f = append(f, adapter.Finding{File: rootFile, Entry: "git-a2a reactor", Want: "managed module", Got: "missing"})
+		f = append(f, adapter.Finding{File: rootFile, Entry: "git-a2a reactor", Want: "managed module", Got: "missing", Repairable: true})
 	}
 	return f, nil
 }
@@ -146,15 +143,8 @@ func parseCoordinate(v string) ([2]string, error) {
 	}
 	return [2]string{p[0], p[1]}, nil
 }
-func modulePath(dep adapter.Dependency, exp adapter.Export, l adapter.Locked) string {
-	p := []string{l.Vendor.Path}
-	if l.Vendor.Mode == "submodule" && l.Path != "" && l.Path != "." {
-		p = append(p, l.Path)
-	}
-	if exp.Path != "" && exp.Path != "." {
-		p = append(p, exp.Path)
-	}
-	x := filepath.Join(p...)
+func modulePath(exp adapter.Export) string {
+	x := filepath.Clean(filepath.FromSlash(exp.Path))
 	if filepath.Base(x) == "pom.xml" {
 		x = filepath.Dir(x)
 	}

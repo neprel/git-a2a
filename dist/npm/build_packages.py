@@ -58,15 +58,12 @@ def main() -> None:
     root = args.out / "git-a2a"
     (root / "bin").mkdir(parents=True)
     shutil.copy2(Path(__file__).parent / "bin" / "git-a2a.js", root / "bin" / "git-a2a.js")
-    repository_root = Path(__file__).resolve().parents[2]
-    shutil.copytree(repository_root / "skills" / "git-a2a", root / "skills" / "git-a2a")
     (root / "package.json").write_text(json.dumps({
         "name": "git-a2a", "version": args.version,
-        "description": "Import git modules together with their owning agents",
-        "mcpName": "io.github.neprel/git-a2a",
+        "description": "Manage Git component dependencies with their responsible agents",
         "license": "MIT", "repository": REPOSITORY,
         "bin": {"git-a2a": "bin/git-a2a.js"},
-        "engines": {"node": ">=18"}, "files": ["bin/", "skills/"],
+        "engines": {"node": ">=18"}, "files": ["bin/"],
         "optionalDependencies": optional
     }, indent=2) + "\n")
 

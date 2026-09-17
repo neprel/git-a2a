@@ -31,11 +31,7 @@ func (Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp 
 	if err != nil {
 		return adapter.Change{}, err
 	}
-	pinKey, pin := "ref", locked.Commit
-	if dep.Track == "floating" {
-		pinKey, pin = "branch", dep.Ref
-	}
-	line := fmt.Sprintf("gem %s, git: %s, %s: %s", strconv.Quote(exp.Name), strconv.Quote(dep.Git), pinKey, strconv.Quote(pin))
+	line := fmt.Sprintf("gem %s, git: %s, ref: %s", strconv.Quote(exp.Name), strconv.Quote(dep.Git), strconv.Quote(locked.Commit))
 	if exp.Path != "" {
 		line += ", glob: " + strconv.Quote(strings.TrimSuffix(exp.Path, "/")+"/*.gemspec")
 	}
@@ -61,10 +57,6 @@ func (Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, exp 
 	return adapter.Change{File: "Gemfile", Entry: exp.Name, Changed: true}, err
 }
 
-func (Adapter) Refresh(ctx context.Context, _ string, _ adapter.Dependency, _ adapter.Export, _ adapter.Locked) error {
-	return adapter.RequireTool(ctx, "gem", "bundler")
-}
-
 func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
 	body, err := os.ReadFile(filepath.Join(root, "Gemfile"))
 	if err != nil {
@@ -76,8 +68,12 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 	if len(urlMatch) == 2 {
 		gotURL = urlMatch[1]
 	}
-	badPin := dep.Track != "floating" && !strings.Contains(line, locked.Commit)
-	if line == "" || gitx.NormalizeURL(gotURL) != gitx.NormalizeURL(locked.Git) || badPin {
+	refMatch := regexp.MustCompile(`ref:\s*["']([^"']+)["']`).FindStringSubmatch(line)
+	gotRef := ""
+	if len(refMatch) == 2 {
+		gotRef = refMatch[1]
+	}
+	if line == "" || gitx.NormalizeURL(gotURL) != gitx.NormalizeURL(locked.Git) || gotRef != locked.Commit {
 		return []adapter.Finding{{File: "Gemfile", Entry: exp.Name, Want: locked.Commit, Got: line}}, nil
 	}
 	return nil, nil

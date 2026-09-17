@@ -1,6 +1,0 @@
-[project]
-name = "consumer-app"
-version = "0.0.0"
-dependencies = []
-
-[tool.uv]

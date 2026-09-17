@@ -1,0 +1,20 @@
+# CLI-owned resolution for native.a2amodule.yml.
+# yaml-language-server: $schema=https://git-a2a.com/schema/a2amodule-lock.v2.json
+schema: 2
+dependencies:
+  logging:
+    component: acme-logging
+    git: https://github.com/acme/logging.git
+    ref: main
+    commit: 3d48b1a6551c398a0f67a5826165639b8175764d
+    manifest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    bindings:
+      - adapter: golang
+        variant: go
+        export: acme.dev/logging
+    agent:
+      name: logging-owner
+      declaredCard: https://agents.acme.example/logging/.well-known/agent-card.json
+      card: https://agents.acme.example/logging/.well-known/agent-card.json
+      commit: 3d48b1a6551c398a0f67a5826165639b8175764d
+    surface: .git-a2a/surfaces/math

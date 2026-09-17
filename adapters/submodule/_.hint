@@ -1,0 +1,35 @@
+<folder_context path="adapters/submodule">
+
+<reusable_module_context name="Git submodule adapter">
+This ordinary adapter owns one Git submodule binding. The lifecycle passes the durable binding
+path in Export.Path; an empty path defaults to deps/DEPENDENCY_ALIAS. Pull materialises or
+recreates the exact resolved LockedDependency.Commit, Remove deletes only the matching clean
+submodule, and Inspect reads index and checkout state without mutation.
+</reusable_module_context>
+
+<system_invariant name="Exact detached commit">
+The parent index entry is mode 160000 at the locked commit and the submodule checkout is detached
+at that same commit. Updates use fetch plus checkout --detach. Never run git pull and never use a
+force option.
+</system_invariant>
+
+<critical_system_mandates name="Protect user Git state">
+Reject unsafe or symlinked paths, unmerged index entries, non-gitlink collisions, source identity
+mismatches, dirty submodules, and removal of a checkout not registered to this binding. A failed
+new add restores the original .gitmodules bytes and removes only Git/worktree residue created by
+that attempt. Existing clean materialisations roll back their checkout and index entry when an
+update fails after checkout.
+</critical_system_mandates>
+
+<system_invariant name="Narrow local protocol opt-in">
+Only Git commands that access a file:// source receive -c protocol.file.allow=always. Repository
+or global Git configuration is never weakened.
+</system_invariant>
+
+<verification_and_unit_test_criteria>
+Local bare-repository fixtures cover exact add and pull commits, detached HEAD, gitlink and
+.gitmodules registration, idempotence, dirty pull/removal refusal, collision refusal, complete
+safe removal, and file-protocol scoping.
+</verification_and_unit_test_criteria>
+
+</folder_context>

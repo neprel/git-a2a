@@ -1,0 +1,28 @@
+FROM golang:1.25.1-bookworm@sha256:c423747fbd96fd8f0b1102d947f51f9b266060217478e5f9bf86f145969562ee AS build
+WORKDIR /src
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -o /out/git-a2a ./cmd/git-a2a \
+ && CGO_ENABLED=0 go test -c -o /out/cabal-native ./adapters/hackage
+
+FROM golang:1.25.1-bookworm@sha256:c423747fbd96fd8f0b1102d947f51f9b266060217478e5f9bf86f145969562ee
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      git \
+      ghc=9.0.2-4 \
+      cabal-install=3.4.1.0-3 \
+ && rm -rf /var/lib/apt/lists/*
+ENV CABAL_DIR=/opt/git-a2a-cabal-home
+RUN cabal user-config init \
+ && sed -i \
+      -e 's|url: http://hackage.haskell.org/|url: https://hackage.haskell.org/|' \
+      -e '/url: https:\/\/hackage.haskell.org\//a\  secure: False' \
+      "$CABAL_DIR/config" \
+ && cabal update
+COPY --from=build /out/git-a2a /usr/local/bin/git-a2a
+COPY --from=build /out/cabal-native /usr/local/bin/cabal-native
+ENV GITA2A_NATIVE_HACKAGE_IT=cabal \
+    GITA2A_CLI_BIN=/usr/local/bin/git-a2a \
+    GITA2A_CABAL_HOME=/opt/git-a2a-cabal-home
+ENTRYPOINT ["/bin/sh", "-c"]
+CMD ["git --version && ghc --version && cabal --version && /usr/local/bin/git-a2a --version && /usr/local/bin/cabal-native -test.run '^TestPublicCLICabalLifecycle$' -test.count=1 -test.v"]

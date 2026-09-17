@@ -10,12 +10,25 @@ import (
 	"strings"
 
 	"github.com/neprel/git-a2a/internal/adapter"
-	"github.com/neprel/git-a2a/internal/gitx"
 )
 
 type Adapter struct{}
 
 func (Adapter) Ecosystem() string { return "npm" }
+
+func (a Adapter) Capability(root string, _ adapter.Dependency, exp adapter.Export) error {
+	ok, variant, err := a.Detect(root)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return adapter.NotWirable("npm consumer manifest is absent")
+	}
+	if exp.Path != "" && exp.Path != "." && variant != "pnpm" && variant != "yarn-berry" {
+		return adapter.NotWirable(fmt.Sprintf("%s cannot express subdirectory %s", variant, exp.Path))
+	}
+	return nil
+}
 
 func (Adapter) Detect(root string) (bool, adapter.Variant, error) {
 	b, err := os.ReadFile(filepath.Join(root, "package.json"))
@@ -34,8 +47,15 @@ func (Adapter) Detect(root string) (bool, adapter.Variant, error) {
 	if _, err := os.Stat(filepath.Join(root, ".yarnrc.yml")); err == nil {
 		return true, "yarn-berry", nil
 	}
-	if strings.HasPrefix(p.PackageManager, "yarn@") {
+	switch {
+	case strings.HasPrefix(p.PackageManager, "yarn@"):
 		return true, "yarn-berry", nil
+	case strings.HasPrefix(p.PackageManager, "pnpm@"):
+		return true, "pnpm", nil
+	case strings.HasPrefix(p.PackageManager, "bun@"):
+		return true, "bun", nil
+	case strings.HasPrefix(p.PackageManager, "npm@"):
+		return true, "npm", nil
 	}
 	if _, err := os.Stat(filepath.Join(root, "pnpm-lock.yaml")); err == nil {
 		return true, "pnpm", nil
@@ -54,16 +74,10 @@ func (a Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, ex
 	if err != nil || !ok {
 		return adapter.Change{}, err
 	}
-	if locked.Vendor == nil && exp.Path != "" && exp.Path != "." && v != "pnpm" && v != "yarn-berry" {
+	if exp.Path != "" && exp.Path != "." && v != "pnpm" && v != "yarn-berry" {
 		return adapter.Change{}, adapter.NotWirable(fmt.Sprintf("%s cannot express subdirectory %s", v, exp.Path))
 	}
-	if locked.Vendor == nil && exp.Path != "" && exp.Path != "." && (v == "npm" || v == "bun") {
-		return adapter.Change{}, fmt.Errorf("npm export %s has subdirectory %s: %s does not support git subdirectory dependencies", exp.Name, exp.Path, v)
-	}
-	pin := dependencyURL(dep, locked, string(v), exp.Path)
-	if locked.Vendor != nil {
-		pin = "file:" + adapter.VendorSourcePath(exp, locked)
-	}
+	pin := dependencyURL(locked, string(v), exp.Path)
 	p := filepath.Join(root, "package.json")
 	b, err := os.ReadFile(p)
 	if err != nil {
@@ -89,18 +103,13 @@ func (a Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, ex
 	return adapter.Change{File: "package.json", Entry: "dependencies." + exp.Name, Changed: changed}, err
 }
 
-func (a Adapter) Refresh(ctx context.Context, root string, _ adapter.Dependency, exp adapter.Export, _ adapter.Locked) error {
+func (a Adapter) syncNative(ctx context.Context, root string, exp adapter.Export) error {
 	_, v, err := a.Detect(root)
 	if err != nil {
 		return err
 	}
 	if err := adapter.RequireTool(ctx, a.Ecosystem(), v); err != nil {
 		return err
-	}
-	if v == "npm" {
-		if _, err := os.Stat(filepath.Join(root, "package-lock.json")); os.IsNotExist(err) {
-			return nil
-		}
 	}
 	command := refreshCommand(v, exp.Name)
 	return adapter.Command(ctx, root, command[0], command[1:]...)
@@ -109,17 +118,175 @@ func (a Adapter) Refresh(ctx context.Context, root string, _ adapter.Dependency,
 func refreshCommand(variant adapter.Variant, name string) []string {
 	switch variant {
 	case "yarn-berry":
-		return []string{"yarn", "install", "--mode=update-lockfile"}
+		return []string{"yarn", "install", "--mode=skip-build"}
 	case "pnpm":
-		return []string{"pnpm", "update", name}
+		return []string{"pnpm", "install", "--ignore-scripts"}
 	case "bun":
-		return []string{"bun", "update", name}
+		return []string{"bun", "install", "--ignore-scripts"}
 	default:
-		return []string{"npm", "install", "--package-lock-only", "--ignore-scripts", "--no-audit", "--no-fund"}
+		return []string{"npm", "install", "--ignore-scripts", "--no-audit", "--no-fund"}
 	}
 }
 
-func (a Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
+func (a Adapter) Pull(ctx context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) (adapter.Change, error) {
+	change, err := a.Wire(ctx, root, dep, exp, locked)
+	if err != nil {
+		return change, err
+	}
+	if change.Changed {
+		_, variant, detectErr := a.Detect(root)
+		if detectErr != nil {
+			return change, detectErr
+		}
+		if variant == "yarn-berry" {
+			return change, a.syncNative(ctx, root, exp)
+		}
+		if err = adapter.RequireTool(ctx, a.Ecosystem(), variant); err != nil {
+			return change, err
+		}
+		command := updateCommand(variant, exp.Name)
+		return change, adapter.Command(ctx, root, command[0], command[1:]...)
+	}
+	return change, a.syncNative(ctx, root, exp)
+}
+
+func updateCommand(variant adapter.Variant, name string) []string {
+	switch variant {
+	case "pnpm":
+		return []string{"pnpm", "update", name, "--ignore-scripts"}
+	case "bun":
+		return []string{"bun", "update", name, "--ignore-scripts"}
+	default:
+		return []string{"npm", "update", name, "--ignore-scripts", "--no-audit", "--no-fund"}
+	}
+}
+
+func (a Adapter) Remove(ctx context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) (adapter.Change, error) {
+	_, variant, err := a.Detect(root)
+	if err != nil {
+		return adapter.Change{}, err
+	}
+	if variant == "bun" {
+		if err = adapter.RequireTool(ctx, a.Ecosystem(), variant); err != nil {
+			return adapter.Change{}, err
+		}
+		// Bun's install currently leaves an extraneous Git package in
+		// node_modules after its declaration disappears. Let Bun uninstall it
+		// while the root entry is still visible, but keep package.json ownership
+		// in the byte-preserving editor below by restoring the original bytes
+		// before applying Unwire.
+		manifestPath := filepath.Join(root, "package.json")
+		original, readErr := os.ReadFile(manifestPath)
+		if readErr != nil {
+			return adapter.Change{}, readErr
+		}
+		if err = adapter.Command(ctx, root, "bun", "remove", exp.Name, "--ignore-scripts"); err != nil {
+			return adapter.Change{}, err
+		}
+		if err = os.WriteFile(manifestPath, original, 0o644); err != nil {
+			return adapter.Change{}, err
+		}
+	}
+	change, err := a.Unwire(ctx, root, dep, exp)
+	if err != nil {
+		return change, err
+	}
+	return change, a.syncNative(ctx, root, exp)
+}
+
+func (a Adapter) Inspect(ctx context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
+	findings, err := a.Drift(ctx, root, dep, exp, locked)
+	if err != nil || len(findings) != 0 {
+		return findings, err
+	}
+	_, variant, err := a.Detect(root)
+	if err != nil {
+		return nil, err
+	}
+	if file, got, ok := npmLockedRevision(root, variant, exp.Name, locked.Commit); !ok {
+		return []adapter.Finding{{File: file, Entry: exp.Name, Want: locked.Commit, Got: got, Repairable: true}}, nil
+	}
+	installed := filepath.Join(root, "node_modules", filepath.FromSlash(exp.Name))
+	if _, err = os.Stat(installed); err == nil {
+		return nil, nil
+	}
+	if variant == "yarn-berry" {
+		if _, pnpErr := os.Stat(filepath.Join(root, ".pnp.cjs")); pnpErr == nil {
+			return nil, nil
+		}
+	}
+	return []adapter.Finding{{File: filepath.ToSlash(strings.TrimPrefix(installed, root+string(filepath.Separator))), Entry: exp.Name, Want: "installed dependency", Got: "missing", Repairable: true}}, nil
+}
+
+func npmLockedRevision(root string, variant adapter.Variant, name, commit string) (file, got string, ok bool) {
+	switch variant {
+	case "yarn-berry":
+		file = "yarn.lock"
+	case "pnpm":
+		file = "pnpm-lock.yaml"
+	case "bun":
+		file = "bun.lock"
+		if _, err := os.Stat(filepath.Join(root, file)); os.IsNotExist(err) {
+			file = "bun.lockb"
+		}
+	default:
+		file = "package-lock.json"
+	}
+	body, err := os.ReadFile(filepath.Join(root, file))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return file, "missing", false
+		}
+		return file, err.Error(), false
+	}
+	if variant == "npm" {
+		var document struct {
+			Packages map[string]struct {
+				Resolved string `json:"resolved"`
+			} `json:"packages"`
+		}
+		if err := json.Unmarshal(body, &document); err != nil {
+			return file, err.Error(), false
+		}
+		entry, exists := document.Packages["node_modules/"+name]
+		if !exists {
+			return file, "missing root package entry", false
+		}
+		if !strings.Contains(entry.Resolved, commit) {
+			return file, entry.Resolved, false
+		}
+		return file, entry.Resolved, true
+	}
+	text := string(body)
+	nameAt := strings.Index(text, name)
+	if nameAt < 0 {
+		return file, "missing root package entry", false
+	}
+	for from := nameAt; from >= 0; {
+		start := from - 1024
+		if start < 0 {
+			start = 0
+		}
+		end := from + len(name) + 1024
+		if end > len(text) {
+			end = len(text)
+		}
+		if strings.Contains(text[start:end], commit) {
+			return file, commit, true
+		}
+		next := strings.Index(text[from+len(name):], name)
+		if next < 0 {
+			break
+		}
+		from += len(name) + next
+	}
+	if !strings.Contains(text, commit) {
+		return file, "locked at another revision", false
+	}
+	return file, "commit belongs to another lock entry", false
+}
+
+func (a Adapter) Drift(_ context.Context, root string, _ adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
 	b, err := os.ReadFile(filepath.Join(root, "package.json"))
 	if err != nil {
 		return nil, err
@@ -131,31 +298,19 @@ func (a Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, e
 		return nil, err
 	}
 	got := p.Dependencies[exp.Name]
-	if locked.Vendor != nil {
-		want := "file:" + adapter.VendorSourcePath(exp, locked)
-		if got != want {
-			return []adapter.Finding{{File: "package.json", Entry: exp.Name, Want: want, Got: got}}, nil
-		}
-		return nil, nil
+	_, variant, err := a.Detect(root)
+	if err != nil {
+		return nil, err
 	}
-	base := got
-	if i := strings.Index(base, "#"); i >= 0 {
-		base = base[:i]
-	}
-	badURL := got == "" || gitx.NormalizeURL(base) != gitx.NormalizeURL(locked.Git)
-	badPin := dep.Track != "floating" && !strings.Contains(got, locked.Commit)
-	if badURL || badPin {
-		return []adapter.Finding{{File: "package.json", Entry: exp.Name, Want: locked.Commit, Got: got}}, nil
+	want := dependencyURL(locked, string(variant), exp.Path)
+	if got != want {
+		return []adapter.Finding{{File: "package.json", Entry: exp.Name, Want: want, Got: got}}, nil
 	}
 	return nil, nil
 }
 
-func dependencyURL(dep adapter.Dependency, locked adapter.Locked, variant, path string) string {
-	ref := locked.Commit
-	if dep.Track == "floating" {
-		ref = dep.Ref
-	}
-	url := dep.Git
+func dependencyURL(locked adapter.Locked, variant, path string) string {
+	url := locked.Git
 	if strings.HasPrefix(url, "git@") {
 		parts := strings.SplitN(url, ":", 2)
 		if len(parts) == 2 {
@@ -166,17 +321,13 @@ func dependencyURL(dep adapter.Dependency, locked adapter.Locked, variant, path 
 		url = "git+" + url
 	}
 	if variant == "yarn-berry" {
-		if dep.Track == "floating" {
-			url += "#head=" + ref
-		} else {
-			url += "#commit=" + ref
-		}
+		url += "#commit=" + locked.Commit
 		if path != "" && path != "." {
 			url += "&workspace=" + path
 		}
 		return url
 	}
-	url += "#" + ref
+	url += "#" + locked.Commit
 	if path != "" && path != "." && variant == "pnpm" {
 		url += "&path:/" + strings.TrimPrefix(path, "/")
 	}

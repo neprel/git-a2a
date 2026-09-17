@@ -2,24 +2,28 @@
 
 The Composer adapter owns `repositories[<package-name>]` in Composer's named object form, or the
 unique `type: vcs` entry with the dependency Git URL when an existing manifest uses Composer's
-array form, plus `require[<package-name>]`. The repository remains `type: vcs`; a locked dependency uses
-`dev-<ref>#<full-commit>` and a floating dependency uses `dev-<ref>`. Named repositories let
-`set` replace the source without leaving stale VCS entries; array entries are addressed by their
+array form, plus `require[<package-name>]`. The repository remains `type: vcs`; its constraint is
+`dev-<ref>#<LockedDependency.Commit>`. Array entries are addressed by their
 normalized URL. Subdirectory exports return a typed not-wirable result because Composer's VCS
 metadata cannot select them.
-With a locked vendor, the owned repository becomes `type: path` at the materialised export and
-the requirement is `*`; subdirectory exports are valid in this mode.
 
-# decision composer.lock stays downstream
+# decision Composer owns native resolution
 
-Wiring never runs dependency resolution or rewrites `composer.lock`.
+`Pull` runs a targeted `composer update <package> --with-dependencies` after editing, so the exact
+commit is present in `composer.lock` and the configured vendor directory. `Remove` delegates the
+targeted package removal to Composer before deleting the owned repository entry; unrelated root
+requirements remain. `Inspect` verifies the declaration, lock revision, and installed package.
 
 # test Composer adapter
 
 - Fixture/golden wiring is idempotent and preserves unrelated JSON fields.
 - Drift checks the named VCS URL and locked revision.
 - Unwire removes only the package's repository and requirement.
+- The central native-lifecycle runner uses Composer 2.8.12 in a pinned container and the public CLI to prove add with
+  an existing lock, real autoload use, fresh-clone and same-commit repair, same-version revision
+  advance, idempotence, targeted remove, and preservation of an unrelated locked package.
 
-# decision Refresh prerequisite
+# invariant capability precedes mutation
 
-`Refresh` checks `composer` through the shared prerequisite contract before doing any work.
+The root-only VCS source restriction is returned as typed not-wirable by the read-only
+`Capability` check. Missing Composer is a tool error before either lifecycle operation edits a file.

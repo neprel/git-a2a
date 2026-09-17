@@ -1,17 +1,18 @@
 # decision Pub uses the native nested Git descriptor
 
 The Pub adapter owns one two-space-indented entry under top-level `dependencies`. It writes
-`git.url`, `git.ref`, and optional `git.path`; locked refs are the full lock commit and floating
-refs are the declared branch. It splices only that YAML entry, preserving every unrelated byte.
+`git.url`, the full `LockedDependency.Commit` as `git.ref`, and optional `git.path`; requested
+branch names are never written. It splices only that YAML entry, preserving every unrelated byte.
 Inline dependency maps are rejected as not wirable instead of being reformatted.
 If top-level `dependencies` is absent, the adapter creates a delimited mapping and removes the
 container as a unit on unwire.
-With a locked vendor the owned entry uses Pub's `path` descriptor and omits the Git mapping.
 
-# decision pubspec.lock stays downstream
+# decision Pub lifecycle materializes packages
 
-Wiring does not run `dart pub get`: resolution may update unrelated packages. Consumers refresh
-`pubspec.lock` in their normal Dart or Flutter workflow.
+`Pull` runs `dart pub get`, including when the declaration is unchanged, to refresh
+`pubspec.lock` and `.dart_tool/package_config.json`. `Remove` deletes only the owned root
+declaration and runs the same Pub convergence, retaining unrelated and transitively required
+packages.
 
 # test Pub adapter
 
@@ -19,7 +20,8 @@ Wiring does not run `dart pub get`: resolution may update unrelated packages. Co
 - A subdirectory export writes `git.path`; drift checks URL and locked ref.
 - Unwire restores the original fixture bytes.
 
-# decision Refresh prerequisite
+# decision Pub lifecycle prerequisite
 
-`Refresh` checks the detected Dart or Flutter Pub command through the shared prerequisite
-contract before doing any work.
+`Pull` and `Remove` check `dart` through the shared prerequisite contract before invoking
+`dart pub get`. `Inspect` is offline and checks the exact `resolved-ref` in `pubspec.lock`, the
+package entry in `.dart_tool/package_config.json`, and the referenced materialization directory.

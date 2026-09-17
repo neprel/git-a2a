@@ -44,7 +44,7 @@ def main() -> None:
         files = {
             "git_a2a.py": launcher, "git_a2a_bin/__init__.py": b"",
             "git_a2a_bin/" + ("git-a2a.exe" if goos == "windows" else "git-a2a"): binary_from(matches[0], goos == "windows"),
-            f"{dist_info}/METADATA": f"Metadata-Version: 2.4\nName: git-a2a\nVersion: {args.version}\nSummary: Import git modules together with their owning agents\nLicense-Expression: MIT\nRequires-Python: >=3.9\n\n".encode(),
+            f"{dist_info}/METADATA": f"Metadata-Version: 2.4\nName: git-a2a\nVersion: {args.version}\nSummary: Manage Git component dependencies with their responsible agents\nLicense-Expression: MIT\nRequires-Python: >=3.9\n\n".encode(),
             f"{dist_info}/WHEEL": f"Wheel-Version: 1.0\nGenerator: git-a2a\nRoot-Is-Purelib: false\nTag: {tag}\n".encode(),
             f"{dist_info}/entry_points.txt": b"[console_scripts]\ngit-a2a = git_a2a:main\n",
         }

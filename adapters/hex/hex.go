@@ -31,18 +31,9 @@ func (Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp 
 	if err != nil {
 		return adapter.Change{}, err
 	}
-	line := ""
-	if locked.Vendor != nil {
-		line = fmt.Sprintf("    {%s, path: %s", atom(exp.Name), strconv.Quote(adapter.VendorSourcePath(exp, locked)))
-	} else {
-		pinKey, pin := "ref", locked.Commit
-		if dep.Track == "floating" {
-			pinKey, pin = "branch", dep.Ref
-		}
-		line = fmt.Sprintf("    {%s, git: %s, %s: %s", atom(exp.Name), strconv.Quote(dep.Git), pinKey, strconv.Quote(pin))
-		if exp.Path != "" && exp.Path != "." {
-			line += ", sparse: " + strconv.Quote(exp.Path)
-		}
+	line := fmt.Sprintf("    {%s, git: %s, ref: %s", atom(exp.Name), strconv.Quote(dep.Git), strconv.Quote(locked.Commit))
+	if exp.Path != "" && exp.Path != "." {
+		line += ", sparse: " + strconv.Quote(exp.Path)
 	}
 	line += "}"
 	next, changed, err := upsert(string(body), exp.Name, line)
@@ -73,30 +64,23 @@ func (Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, exp 
 	return adapter.Change{File: "mix.exs", Entry: exp.Name, Changed: true}, err
 }
 
-func (Adapter) Refresh(ctx context.Context, _ string, _ adapter.Dependency, _ adapter.Export, _ adapter.Locked) error {
-	return adapter.RequireTool(ctx, "hex", "mix")
-}
-
 func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
 	body, err := os.ReadFile(filepath.Join(root, "mix.exs"))
 	if err != nil {
 		return nil, err
 	}
 	line := strings.TrimSpace(dependencyLine(exp.Name).FindString(string(body)))
-	if locked.Vendor != nil {
-		want := "path: " + strconv.Quote(adapter.VendorSourcePath(exp, locked))
-		if line == "" || !strings.Contains(line, want) {
-			return []adapter.Finding{{File: "mix.exs", Entry: exp.Name, Want: want, Got: line}}, nil
-		}
-		return nil, nil
-	}
 	match := regexp.MustCompile(`git:\s*["']([^"']+)["']`).FindStringSubmatch(line)
 	gotURL := ""
 	if len(match) == 2 {
 		gotURL = match[1]
 	}
-	badPin := dep.Track != "floating" && !strings.Contains(line, locked.Commit)
-	if line == "" || gitx.NormalizeURL(gotURL) != gitx.NormalizeURL(locked.Git) || badPin {
+	refMatch := regexp.MustCompile(`ref:\s*["']([^"']+)["']`).FindStringSubmatch(line)
+	gotRef := ""
+	if len(refMatch) == 2 {
+		gotRef = refMatch[1]
+	}
+	if line == "" || gitx.NormalizeURL(gotURL) != gitx.NormalizeURL(locked.Git) || gotRef != locked.Commit {
 		return []adapter.Finding{{File: "mix.exs", Entry: exp.Name, Want: locked.Commit, Got: line}}, nil
 	}
 	return nil, nil

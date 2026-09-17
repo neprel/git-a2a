@@ -71,26 +71,22 @@ func (a Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, ex
 	if loc == nil {
 		return adapter.Change{File: file, Entry: exp.Name}, nil
 	}
-	if variant == "stack" {
-		created := regexp.MustCompile(`(?m)^extra-deps:[ \t]*# git-a2a:created ` + regexp.QuoteMeta(exp.Name) + `\n`)
-		if header := created.FindIndex(body); header != nil {
-			loc[0] = header[0]
-		}
-	}
+	createdHeader := variant == "stack" && regexp.MustCompile(`(?m)^extra-deps:[ \t]*# git-a2a:created `+regexp.QuoteMeta(exp.Name)+`\n`).Match(body)
 	if variant == "cabal" && loc[0] > 0 && body[loc[0]-1] == '\n' {
 		loc[0]--
 	}
 	next := string(body[:loc[0]]) + string(body[loc[1]:])
+	if createdHeader {
+		header := regexp.MustCompile(`(?m)^extra-deps:[ \t]*# git-a2a:created ` + regexp.QuoteMeta(exp.Name) + `\n`)
+		remaining := regexp.MustCompile(`(?m)^# git-a2a:begin ([^\n]+)\n`).FindStringSubmatch(next)
+		if len(remaining) == 2 {
+			next = header.ReplaceAllString(next, "extra-deps: # git-a2a:created "+remaining[1]+"\n")
+		} else {
+			next = header.ReplaceAllString(next, "")
+		}
+	}
 	err = os.WriteFile(path, []byte(next), 0o644)
 	return adapter.Change{File: file, Entry: exp.Name, Changed: true}, err
-}
-
-func (a Adapter) Refresh(ctx context.Context, root string, _ adapter.Dependency, _ adapter.Export, _ adapter.Locked) error {
-	_, variant, err := a.Detect(root)
-	if err != nil {
-		return err
-	}
-	return adapter.RequireTool(ctx, "hackage", variant)
 }
 
 func (a Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
@@ -108,26 +104,23 @@ func (a Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, e
 	}
 	block := managedBlock(exp.Name, comment).FindString(string(body))
 	gotURL := field(block, "location")
+	gotCommit := field(block, "tag")
 	if variant == "stack" {
 		gotURL = field(block, "git")
+		gotCommit = field(block, "commit")
 	}
-	badPin := dep.Track != "floating" && !strings.Contains(block, locked.Commit)
-	if block == "" || gitx.NormalizeURL(gotURL) != gitx.NormalizeURL(locked.Git) || badPin {
+	if block == "" || gitx.NormalizeURL(gotURL) != gitx.NormalizeURL(locked.Git) || gotCommit != locked.Commit {
 		return []adapter.Finding{{File: file, Entry: exp.Name, Want: locked.Commit, Got: strings.TrimSpace(block)}}, nil
 	}
 	return nil, nil
 }
 
 func cabalBlock(dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) string {
-	pinField, pin := "tag", locked.Commit
-	if dep.Track == "floating" {
-		pinField, pin = "branch", dep.Ref
-	}
 	lines := []string{
 		"source-repository-package",
 		"    type: git",
 		"    location: " + dep.Git,
-		"    " + pinField + ": " + pin,
+		"    tag: " + locked.Commit,
 	}
 	if exp.Path != "" && exp.Path != "." {
 		lines = append(lines, "    subdir: "+exp.Path)
@@ -136,11 +129,7 @@ func cabalBlock(dep adapter.Dependency, exp adapter.Export, locked adapter.Locke
 }
 
 func stackBlock(dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) string {
-	pin := locked.Commit
-	if dep.Track == "floating" {
-		pin = dep.Ref
-	}
-	lines := []string{"- git: " + dep.Git, "  commit: " + pin}
+	lines := []string{"- git: " + dep.Git, "  commit: " + locked.Commit}
 	if exp.Path != "" && exp.Path != "." {
 		lines = append(lines, "  subdirs:", "  - "+exp.Path)
 	}

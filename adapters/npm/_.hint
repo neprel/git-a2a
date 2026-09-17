@@ -8,20 +8,25 @@ HTTP(S) and SSH Git dependencies use an explicit `git+` transport. In particular
 receives `git+ssh://...#commit=<sha>` (with SCP-style SSH URLs normalised first); bare `ssh://`
 and `https://` selectors are not valid Yarn Git dependencies. A native `git://` URL stays
 `git://` rather than becoming the invalid `git+git://` form.
-With a locked vendor the same dependency entry is `file:<vendor/export-path>` for npm, Yarn,
-pnpm, and Bun; no commit selector or Git URL remains.
+The adapter always writes `LockedDependency.Git` with the full `LockedDependency.Commit`.
 
-# decision npm refresh cannot run lifecycle scripts
+# decision npm pull materializes without lifecycle scripts
 
-When `package-lock.json` exists, refresh uses `npm install --package-lock-only --ignore-scripts
---no-audit --no-fund`. Without a package lock it performs no command. Yarn Berry, pnpm, and Bun
-use their dependency-specific native update command.
-Before either path, Refresh checks the detected executable through the shared prerequisite
-layer; a missing tool returns the same actionable error as `doctor`.
+Pull always invokes the detected manager and materializes the dependency, including when no
+native lock exists and when `node_modules` was deleted at an unchanged commit. npm uses
+install/update with `--ignore-scripts --no-audit --no-fund`; Yarn Berry, pnpm, and Bun use their
+corresponding script-disabled install/update operations. Remove edits only the owned root entry
+and then invokes the manager so native locks and project-local installation converge without
+manually deleting packages still required transitively. Bun uses its native `remove` while the
+root declaration is still present, restores the original manifest bytes, then applies the owned
+byte-preserving edit; this is required because ordinary `bun install` can retain an extraneous
+Git package in `node_modules`. Missing tools are errors, never fallback.
 
 # test npm adapter preservation
 
 - Wire and unwire are idempotent and preserve unrelated inline JSON bytes.
 - Tampering with the manifest pin is drift even without `package-lock.json`.
-- npm refresh is lockfile-only and disables scripts, audit, and funding requests.
+- npm Pull creates/updates the lock and local installation while disabling scripts, audit, and funding requests.
 - Yarn Berry output carries a `git+` transport for HTTPS, SSH, and SCP-style inputs.
+- Inspect is offline and requires the selected manager lock to associate the root package with
+  the full locked commit; the mere presence of `node_modules` or `.pnp.cjs` is insufficient.

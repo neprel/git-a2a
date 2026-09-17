@@ -1,0 +1,34 @@
+# syntax=docker/dockerfile:1.7
+# Ubuntu 24.04 arm64, pinned by platform manifest digest. The native matrix
+# records linux/arm64 for this image; this is execution evidence, not a claim
+# about macOS or Windows runtimes.
+FROM ubuntu@sha256:224a1869083a311ef3f13648a154ba79832fbef6364d31493642ca03082da254
+
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      ca-certificates=20240203 \
+      git=1:2.43.0-1ubuntu7.3 \
+      openjdk-21-jre-headless=21.0.12+8-1~24.04 \
+      rlwrap=0.46.1-1build2 \
+ && rm -rf /var/lib/apt/lists/*
+
+ADD --checksum=sha256:fe9194858e75d5af13c2e2aff92d710674d5bc5105f2b42f90a7d94d82ec023c \
+    https://download.clojure.org/install/clojure-tools-1.12.6.1673.tar.gz \
+    /tmp/clojure-tools.tar.gz
+
+RUN mkdir -p /usr/local/lib/clojure/libexec /usr/local/bin /usr/local/share/man/man1 \
+ && tar -xzf /tmp/clojure-tools.tar.gz -C /tmp \
+ && cp /tmp/clojure-tools/deps.edn /tmp/clojure-tools/example-deps.edn \
+      /tmp/clojure-tools/tools.edn /usr/local/lib/clojure/ \
+ && cp /tmp/clojure-tools/*.jar /usr/local/lib/clojure/libexec/ \
+ && sed 's@PREFIX@/usr/local/lib/clojure@g' /tmp/clojure-tools/clojure > /usr/local/bin/clojure \
+ && sed 's@BINDIR@/usr/local/bin@g' /tmp/clojure-tools/clj > /usr/local/bin/clj \
+ && chmod 0755 /usr/local/bin/clojure /usr/local/bin/clj \
+ && cp /tmp/clojure-tools/*.1 /usr/local/share/man/man1/ \
+ && rm -rf /tmp/clojure-tools /tmp/clojure-tools.tar.gz \
+ && clojure --version \
+ && java -version \
+ && git --version
+
+LABEL org.opencontainers.image.title="git-a2a Clojure native lifecycle runner" \
+      org.opencontainers.image.version="clojure-tools-1.12.6.1673"

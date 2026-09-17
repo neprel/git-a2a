@@ -17,8 +17,8 @@ func TestWireGoldenIdempotentUnwire(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "Gemfile"), original, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	dep := adapter.Dependency{Git: "https://github.com/acme/lib-utils.git", Ref: "main", Track: "locked"}
-	exp := adapter.Export{Ecosystem: "gem", Name: "acme-lib-utils", Path: "ruby/lib"}
+	dep := adapter.Dependency{Name: "acme-lib-utils", Git: "https://github.com/acme/lib-utils.git", Ref: "main"}
+	exp := adapter.Export{Adapter: "gem", Name: "acme-lib-utils", Path: "ruby/lib"}
 	locked := adapter.Locked{Git: dep.Git, Commit: strings.Repeat("a", 40)}
 	a := Adapter{}
 	change, err := a.Wire(context.Background(), root, dep, exp, locked)

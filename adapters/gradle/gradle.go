@@ -32,9 +32,9 @@ func (Adapter) Detect(root string) (bool, adapter.Variant, error) {
 	return false, "", nil
 }
 
-func (a Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) (adapter.Change, error) {
-	if dep.Vendor == nil || locked.Vendor == nil {
-		return adapter.Change{}, adapter.NotWirable("Gradle composite integration requires an explicitly vendored dependency")
+func (a Adapter) wire(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, _ adapter.Locked) (adapter.Change, error) {
+	if exp.Path == "" || exp.Path == "." {
+		return adapter.Change{}, adapter.NotWirable("Gradle composite integration requires a materialized source checkout path")
 	}
 	ok, variant, err := a.Detect(root)
 	if err != nil || !ok {
@@ -47,7 +47,7 @@ func (a Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, ex
 		return adapter.Change{}, err
 	}
 	blocks, discarded := parseBlocks(before)
-	blocks[dep.ID] = block(dep.ID, sourcePath(dep, exp, locked), exp.Name, variant)
+	blocks[dep.Name] = block(dep.Name, sourcePath(exp), exp.Name, variant)
 	next := renderBlocks(blocks)
 	settingsPath := filepath.Join(root, settings)
 	settingsBefore, err := os.ReadFile(settingsPath)
@@ -57,7 +57,7 @@ func (a Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, ex
 	settingsAfter := ensureLine(settingsBefore, line)
 	changed := !stringEqual(before, next) || !stringEqual(settingsBefore, settingsAfter)
 	if !changed {
-		return adapter.Change{File: generated, Entry: dep.ID}, nil
+		return adapter.Change{File: generated, Entry: dep.Name}, nil
 	}
 	if err = os.MkdirAll(filepath.Dir(generatedPath), 0o755); err == nil {
 		err = os.WriteFile(generatedPath, next, 0o644)
@@ -69,10 +69,10 @@ func (a Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, ex
 	if discarded {
 		warning = generated + " contained foreign content; git-a2a regenerated the owned file and discarded it"
 	}
-	return adapter.Change{File: generated, Entry: dep.ID, Changed: true, Warning: warning}, err
+	return adapter.Change{File: generated, Entry: dep.Name, Changed: true, Warning: warning}, err
 }
 
-func (a Adapter) Unwire(_ context.Context, root string, dep adapter.Dependency, _ adapter.Export) (adapter.Change, error) {
+func (a Adapter) unwire(_ context.Context, root string, dep adapter.Dependency, _ adapter.Export) (adapter.Change, error) {
 	ok, variant, err := a.Detect(root)
 	if err != nil || !ok {
 		return adapter.Change{}, err
@@ -84,8 +84,8 @@ func (a Adapter) Unwire(_ context.Context, root string, dep adapter.Dependency, 
 		return adapter.Change{}, err
 	}
 	blocks, discarded := parseBlocks(before)
-	_, hadBlock := blocks[dep.ID]
-	delete(blocks, dep.ID)
+	_, hadBlock := blocks[dep.Name]
+	delete(blocks, dep.Name)
 	if len(blocks) == 0 {
 		if err = os.Remove(generatedPath); err != nil && !os.IsNotExist(err) {
 			return adapter.Change{}, err
@@ -100,21 +100,17 @@ func (a Adapter) Unwire(_ context.Context, root string, dep adapter.Dependency, 
 		err = os.WriteFile(generatedPath, renderBlocks(blocks), 0o644)
 	}
 	changed := hadBlock || discarded || len(before) > 0
-	return adapter.Change{File: generated, Entry: dep.ID, Changed: changed}, err
+	return adapter.Change{File: generated, Entry: dep.Name, Changed: changed}, err
 }
 
-func (a Adapter) Refresh(ctx context.Context, root string, _ adapter.Dependency, _ adapter.Export, _ adapter.Locked) error {
-	ok, variant, err := a.Detect(root)
-	if err != nil || !ok {
-		return err
-	}
-	if err = adapter.RequireTool(ctx, a.Ecosystem(), variant); err != nil {
-		return err
-	}
-	return adapter.Command(ctx, root, "gradle", "--no-daemon", "build")
+func (Adapter) resolve(ctx context.Context, root string) error {
+	return adapter.Command(ctx, root, "gradle", "--no-daemon", "help")
 }
 
-func (a Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
+func (a Adapter) inspectDeclaration(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, _ adapter.Locked) ([]adapter.Finding, error) {
+	if exp.Path == "" || exp.Path == "." {
+		return []adapter.Finding{{File: "settings.gradle", Entry: dep.Name, Want: "materialized source checkout path", Got: exp.Path}}, nil
+	}
 	ok, variant, err := a.Detect(root)
 	if err != nil || !ok {
 		return nil, err
@@ -125,10 +121,10 @@ func (a Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, e
 		return nil, err
 	}
 	blocks, discarded := parseBlocks(body)
-	want := block(dep.ID, sourcePath(dep, exp, locked), exp.Name, variant)
+	want := block(dep.Name, sourcePath(exp), exp.Name, variant)
 	var findings []adapter.Finding
-	if blocks[dep.ID] != want {
-		findings = append(findings, adapter.Finding{File: generated, Entry: dep.ID, Want: strings.TrimSpace(want), Got: strings.TrimSpace(blocks[dep.ID])})
+	if blocks[dep.Name] != want {
+		findings = append(findings, adapter.Finding{File: generated, Entry: dep.Name, Want: strings.TrimSpace(want), Got: strings.TrimSpace(blocks[dep.Name]), Repairable: true})
 	}
 	if discarded {
 		findings = append(findings, adapter.Finding{File: generated, Entry: "owned file", Want: "only generated git-a2a content", Got: "foreign content"})
@@ -138,7 +134,7 @@ func (a Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, e
 		return nil, readErr
 	}
 	if !hasLine(settingsBody, line) {
-		findings = append(findings, adapter.Finding{File: settings, Entry: "git-a2a apply", Want: line, Got: ""})
+		findings = append(findings, adapter.Finding{File: settings, Entry: "git-a2a apply", Want: line, Got: "", Repairable: true})
 	}
 	return findings, nil
 }
@@ -150,15 +146,8 @@ func files(variant adapter.Variant) (generated, settings, line string) {
 	return "deps/git-a2a.settings.gradle.kts", "settings.gradle.kts", `apply(from = "deps/git-a2a.settings.gradle.kts") // git-a2a`
 }
 
-func sourcePath(dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) string {
-	parts := []string{locked.Vendor.Path}
-	if locked.Vendor.Mode == "submodule" && locked.Path != "" && locked.Path != "." {
-		parts = append(parts, locked.Path)
-	}
-	if exp.Path != "" && exp.Path != "." {
-		parts = append(parts, exp.Path)
-	}
-	return filepath.ToSlash(filepath.Join(parts...))
+func sourcePath(exp adapter.Export) string {
+	return filepath.ToSlash(filepath.Clean(exp.Path))
 }
 
 func block(id, path, coordinate string, variant adapter.Variant) string {

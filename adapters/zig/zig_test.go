@@ -17,8 +17,8 @@ func TestWireGoldenIdempotentUnwire(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "build.zig.zon"), original, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	dep := adapter.Dependency{Git: "https://github.com/acme/lib-utils.git", Ref: "main", Track: "locked"}
-	exp := adapter.Export{Ecosystem: "zig", Name: "acme_lib_utils", Extensions: map[string]any{"x-zig-hash": "1220" + strings.Repeat("b", 64)}}
+	dep := adapter.Dependency{Name: "acme-lib-utils", Git: "https://github.com/acme/lib-utils.git", Ref: "main"}
+	exp := adapter.Export{Adapter: "zig", Name: "acme_lib_utils", Checksum: "1220" + strings.Repeat("b", 64)}
 	locked := adapter.Locked{Git: dep.Git, Commit: strings.Repeat("a", 40)}
 	a := Adapter{}
 	change, err := a.Wire(context.Background(), root, dep, exp, locked)
@@ -47,9 +47,33 @@ func TestMissingHashIsNotWirable(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "build.zig.zon"), []byte(".{ .dependencies = .{} }\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	_, err := (Adapter{}).Wire(context.Background(), root, adapter.Dependency{}, adapter.Export{Name: "dep"}, adapter.Locked{})
+	path := filepath.Join(root, "build.zig.zon")
+	original := mustRead(t, path)
+	err := (Adapter{}).Capability(root, adapter.Dependency{}, adapter.Export{Name: "dep"})
 	if !adapter.IsNotWirable(err) {
 		t.Fatalf("err=%v, want typed not-wirable", err)
+	}
+	if got := mustRead(t, path); string(got) != string(original) {
+		t.Fatal("Capability mutated build.zig.zon")
+	}
+}
+
+func TestPullChecksToolBeforeMutation(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "build.zig.zon")
+	original := []byte(".{ .dependencies = .{} }\n")
+	if err := os.WriteFile(path, original, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", t.TempDir())
+	dep := adapter.Dependency{Git: "https://example.com/acme/lib.git"}
+	exp := adapter.Export{Name: "dep", Checksum: "1220" + strings.Repeat("b", 64)}
+	_, err := (Adapter{}).Pull(context.Background(), root, dep, exp, adapter.Locked{Git: dep.Git, Commit: strings.Repeat("a", 40)})
+	if !adapter.IsMissingTool(err) {
+		t.Fatalf("err=%v, want missing-tool", err)
+	}
+	if got := mustRead(t, path); string(got) != string(original) {
+		t.Fatal("Pull mutated build.zig.zon before tool preflight")
 	}
 }
 

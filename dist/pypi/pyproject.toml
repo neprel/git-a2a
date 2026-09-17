@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "git-a2a"
 version = "0.0.0.dev0"
-description = "Thin launcher for the git-a2a binary"
+description = "Manage Git component dependencies with their responsible agents"
 requires-python = ">=3.9"
 license = "MIT"
 

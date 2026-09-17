@@ -3,12 +3,12 @@ package maven
 import (
 	"bytes"
 	"context"
-	"github.com/neprel/git-a2a/internal/adapter"
-	"github.com/neprel/git-a2a/internal/manifest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/neprel/git-a2a/internal/adapter"
 )
 
 func TestGoldenRepairUnwire(t *testing.T) {
@@ -16,28 +16,28 @@ func TestGoldenRepairUnwire(t *testing.T) {
 	orig := []byte("<project>\n  <modules>\n    <module>app</module>\n  </modules>\n</project>\n")
 	mustWrite(t, filepath.Join(r, "pom.xml"), orig)
 	a := Adapter{}
-	d := adapter.Dependency{ID: "acme-lib", Vendor: &manifest.Vendor{Mode: "copy"}}
-	e := adapter.Export{Ecosystem: "maven", Name: "com.acme:lib-utils", Path: "java/pom.xml"}
-	l := adapter.Locked{Vendor: &manifest.LockedVendor{Mode: "copy", Path: "deps/acme-lib"}}
-	c, err := a.Wire(context.Background(), r, d, e, l)
+	d := adapter.Dependency{Name: "acme-lib"}
+	e := adapter.Export{Adapter: "maven", Name: "com.acme:lib-utils", Path: "deps/acme-lib/java/pom.xml"}
+	l := adapter.Locked{Commit: strings.Repeat("a", 40)}
+	c, err := a.wire(context.Background(), r, d, e, l)
 	if err != nil || !c.Changed {
 		t.Fatalf("wire=%#v %v", c, err)
 	}
-	if c, err = a.Wire(context.Background(), r, d, e, l); err != nil || c.Changed {
+	if c, err = a.wire(context.Background(), r, d, e, l); err != nil || c.Changed {
 		t.Fatalf("second=%#v %v", c, err)
 	}
-	if f, er := a.Drift(context.Background(), r, d, e, l); er != nil || len(f) > 0 {
+	if f, er := a.inspectDeclaration(context.Background(), r, d, e, l); er != nil || len(f) > 0 {
 		t.Fatalf("drift=%v %v", f, er)
 	}
 	p := filepath.Join(r, filepath.FromSlash(generatedFile))
 	want := mustRead(t, p)
 	mustWrite(t, p, append(want, []byte("foreign\n")...))
-	c, err = a.Wire(context.Background(), r, d, e, l)
+	c, err = a.wire(context.Background(), r, d, e, l)
 	if err != nil || !strings.Contains(c.Warning, "discarded") {
 		t.Fatalf("repair=%#v %v", c, err)
 	}
 	mustWrite(t, p, append(want, []byte("foreign\n")...))
-	c, err = a.Unwire(context.Background(), r, d, e)
+	c, err = a.unwire(context.Background(), r, d, e)
 	if err != nil || !c.Changed {
 		t.Fatalf("unwire=%#v %v", c, err)
 	}
@@ -45,13 +45,34 @@ func TestGoldenRepairUnwire(t *testing.T) {
 		t.Fatalf("not restored\n%s", got)
 	}
 }
-func TestRequiresVendorAndCoordinate(t *testing.T) {
+func TestRequiresCheckoutPathAndCoordinate(t *testing.T) {
 	r := t.TempDir()
 	mustWrite(t, filepath.Join(r, "pom.xml"), []byte("<project/>"))
 	a := Adapter{}
-	_, e := a.Wire(context.Background(), r, adapter.Dependency{ID: "acme"}, adapter.Export{Name: "bad"}, adapter.Locked{})
+	original := mustRead(t, filepath.Join(r, "pom.xml"))
+	if e := a.Capability(r, adapter.Dependency{Name: "acme"}, adapter.Export{Name: "bad"}); !adapter.IsNotWirable(e) {
+		t.Fatalf("Capability error = %v", e)
+	}
+	if got := mustRead(t, filepath.Join(r, "pom.xml")); !bytes.Equal(got, original) {
+		t.Fatal("Capability mutated the consumer")
+	}
+	_, e := a.wire(context.Background(), r, adapter.Dependency{Name: "acme"}, adapter.Export{Name: "bad"}, adapter.Locked{})
 	if !adapter.IsNotWirable(e) {
 		t.Fatal(e)
+	}
+}
+
+func TestInspectReportsMissingModule(t *testing.T) {
+	r := t.TempDir()
+	mustWrite(t, filepath.Join(r, "pom.xml"), []byte("<project></project>\n"))
+	d := adapter.Dependency{Name: "acme"}
+	e := adapter.Export{Name: "com.acme:lib", Path: "deps/acme"}
+	if _, err := (Adapter{}).wire(context.Background(), r, d, e, adapter.Locked{}); err != nil {
+		t.Fatal(err)
+	}
+	f, err := (Adapter{}).Inspect(context.Background(), r, d, e, adapter.Locked{})
+	if err != nil || len(f) != 1 || f[0].Got == "" {
+		t.Fatalf("Inspect = %#v, %v", f, err)
 	}
 }
 func mustWrite(t *testing.T, p string, b []byte) {

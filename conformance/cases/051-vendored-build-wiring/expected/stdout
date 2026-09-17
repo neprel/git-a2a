@@ -1,3 +1,0 @@
-golang: wired acme-lib
-cmake: wired acme-lib
-nuget: wired acme-lib

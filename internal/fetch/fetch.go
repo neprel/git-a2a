@@ -270,8 +270,16 @@ func extractSurfaceArchive(out []byte, prefix, dest string) ([]string, string, e
 		if h.Typeflag == tar.TypeXGlobalHeader || path.Base(h.Name) == "pax_global_header" {
 			continue
 		}
-		rel := strings.TrimPrefix(strings.TrimPrefix(path.Clean(h.Name), path.Clean(prefix)), "/")
+		cleanName := path.Clean(h.Name)
+		cleanPrefix := path.Clean(prefix)
+		rel := cleanName
+		if cleanPrefix != "." {
+			rel = strings.TrimPrefix(strings.TrimPrefix(cleanName, cleanPrefix), "/")
+		}
 		if rel == "" || strings.HasPrefix(rel, "../") {
+			continue
+		}
+		if rel == ".git" || strings.HasPrefix(rel, ".git/") {
 			continue
 		}
 		target := filepath.Join(dest, filepath.FromSlash(rel))

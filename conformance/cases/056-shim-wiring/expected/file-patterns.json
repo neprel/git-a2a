@@ -1,3 +1,0 @@
-{
-  "package.json": ["@acme/lib", "{{GIT_COMMIT}}"]
-}

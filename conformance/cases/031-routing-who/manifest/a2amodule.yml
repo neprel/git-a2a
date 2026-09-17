@@ -1,5 +1,0 @@
-schema: 1
-module: {id: acme-consumer}
-dependencies:
-  - id: acme-lib
-    git: https://github.com/acme/lib.git

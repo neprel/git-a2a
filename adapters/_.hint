@@ -1,88 +1,40 @@
-# module Ecosystem adapters
-
-Every ecosystem package implements the shared adapter interface: detect the consumer, wire and
-unwire one declared export, refresh the ecosystem lock when safe, and report drift against the
-single commit in `a2amodule.lock`. Adapters edit only their precisely addressed dependency and
-must preserve unrelated user content.
-
-# decision Detection follows native project markers
-
-The registry offers every adapter and lets each one detect its own native project marker:
-`package.json` for npm-family projects, `pyproject.toml` for Python, `go.mod` for Go,
-`Cargo.toml` for Cargo, `Package.swift` for SwiftPM, `pubspec.yaml` for Pub, and `Gemfile` for
-Bundler, `composer.json` for Composer, `mix.exs` for Hex/Mix, and `stack.yaml` or
-`cabal.project` for Hackage, `build.zig.zon` for Zig, and `deps.edn` for Clojure tools.deps.
-`flake.nix` for Nix flakes. A root `CMakeLists.txt` activates the vendored CMake integration
-adapter; Gradle settings activate the vendored Maven integration and a root `.csproj` or
-`.fsproj` activates the vendored NuGet/MSBuild integration; root `pom.xml` activates Maven and
-root `meson.build` activates Meson.
-Polyglot consumers may activate any combination; a
-dependency transaction applies every detected,
-applicable adapter rather than selecting a single ecosystem.
-
-# decision Adapter verification labels distinguish form from execution
-
-Every registered adapter through CMake, Gradle, MSBuild, Maven, and Meson has passed its native toolchain lifecycle in
-the opt-in Integration workflow and is `verified`. `status -v` exposes this evidence label; a
-future adapter begins `form-verified` and changes only after a recorded real-toolchain run, never
-merely because a fixture parses.
-
-The compiled integration test runs with `adapters/` as its working directory, matching `go test`
-package semantics so `../testdata/` fixtures resolve identically inside and outside containers.
-Images that do not bundle Git install it only inside their disposable CI container; the Zig job
-downloads the official versioned archive and verifies the SHA-256 published by ziglang.org.
-The Bun integration resolves the current commit of the public `acme-*` demo repository: Bun 1.2
-does not resolve a raw commit from the test's ephemeral `git://` daemon even when Git advertises
-that commit as `main`, while the public HTTPS Git path is the production form the adapter emits.
-
-# decision Not wired is policy, not an adapter success
-
-An adapter may return the typed not-wirable result with a concrete reason when the ecosystem
-cannot express the requested Git source. With implicit wiring (`dependencies[].wire` absent),
-the CLI reports `<ecosystem>: not wired: <reason>` and continues. With an explicit `wire` list,
-every requested ecosystem is mandatory: missing detection, export, or wiring is an error and
-the enclosing dependency transaction rolls back. An empty explicit list means wire nothing.
-
-# invariant One lock commit drives every adapter
-
-Locked dependencies write the exact resolved commit in every supported ecosystem. Floating
-syntax may name a branch where the ecosystem supports it, but drift still checks the commit
-recorded in `a2amodule.lock`; ecosystem lockfiles are downstream state, never authority.
-When an ecosystem requires metadata in addition to the commit (for example Go's pseudo-version
-timestamp), its own tool resolves the native selector; adapters never fabricate metadata or
-emit a syntactically convenient value that the ecosystem rejects during a real build.
-
-# invariant Manifest editors round-trip real project forms
-
-Every adapter is regression-tested against at least ten unmodified public manifests. The cycle
-`Wire` → identical second `Wire` → clean `Drift` → `Unwire` must restore the original bytes.
-When a native format has no addressable metadata for ownership, git-a2a uses ecosystem-valid
-delimiters and records whether it created a container or separator. That provenance makes
-removal reversible without guessing about a human's empty table, trailing comma, or formatting.
-
-# invariant Refresh checks its native tool first
-
-Every adapter calls the shared prerequisite check before `Refresh`, including adapters whose
-safe refresh operation is otherwise empty. The detected variant chooses the command (`yarn`,
-`pnpm`, `uv`, `poetry`, `cabal`, or `stack`); missing tools return the same actionable
-`<ecosystem>: <tool> not found — install: <platform hint>` error that `doctor` reports. `Wire`
-is a text edit and remains available without the tool.
-
-# invariant Generated integration files are wholly tool-owned and always repairable
-
-Files named `deps/git-a2a.*` are deterministic outputs owned in full by git-a2a, unlike managed
-lines inserted into a user's native root file. `Wire` parses every intact dependency block,
-discards any other bytes, regenerates the complete canonical file, and returns a warning that
-foreign content was discarded. `Drift` reports such content. `Unwire` and `remove` never fail
-because the generated file was edited: they retain other intact generated blocks or delete the
-file and its one managed root include when none remain. CMake, Gradle, MSBuild, Maven, and Meson
-all obey this contract, so a half-wired state is one `git-a2a wire` can always repair.
-
-# decision Vendored exports use native local-path forms
-
-When a lock entry has `vendor`, native ecosystems address the materialised export path rather
-than the Git URL: npm-family `file:`, Cargo `path`, Go `replace => ./...`, uv `path`, Pub `path`,
-Mix `path`, and Composer `type: path`. The path is lock `vendor.path`, plus dependency path only
-for submodules, plus export path. Drift compares this exact local form; changing or removing
-vendoring rewires the same owned entry back to its native Git form or removes it. Python path
-wiring is deliberately uv-only because generic PEP 621 has no portable source table.
+<folder_context path="adapters">
+<reusable_module_context name="platform adapters">
+Each registered adapter detects a consumer platform and concrete variant, performs a read-only
+capability check for the concrete export, Pulls one exact component commit into usable
+project-local state, Removes its root declaration and manager-owned materialization, and Inspects
+local state. Pull is the adapter operation; declaration editing is only its private first step.
+The lifecycle service persists the initially selected adapter/variant and verifies it before
+later pulls.
+</reusable_module_context>
+<system_invariant name="one commit">
+Every binding of one dependency uses LockedDependency.Commit. Floating pins and independent
+ecosystem resolution are forbidden.
+</system_invariant>
+<system_invariant name="preserve variants">
+Detection chooses a variant only during initial add. Pull uses the stored variant or fails with
+an actionable mismatch/missing-tool error; it never silently redetects another manager.
+</system_invariant>
+<system_invariant name="real materialization">
+A successful Pull means the platform can resolve or import the dependency without a second
+manual package-manager command. It repairs missing project-local materialization even when the
+manifest entry and resolved commit are unchanged. Remove invokes native manager semantics so
+root lock entries and local installations converge while unrelated and transitively required
+dependencies remain.
+</system_invariant>
+<settled_decision name="unsupported fallback">
+Capability returns the typed NotWirable error only for a source shape the concrete variant
+cannot represent. Initial selection may replace that binding with one submodule fallback.
+Missing tools, network/auth failures, and saved bindings never trigger fallback.
+</settled_decision>
+<settled_decision name="build composition">
+CMake, Gradle, MSBuild, Maven, and Meson consume the checkout owned by the submodule binding.
+They do not clone, copy, or own a second checkout.
+</settled_decision>
+<verification_and_unit_test_criteria>
+Cover capability/pull/remove/inspect, exact commit pins, missing-materialization repair,
+idempotence, saved variants, malformed native files, missing tools, rollback-owned files, and no
+deletion of unrelated or transitively required entries. Native evidence runs through the public
+CLI and proves the dependency can be used.
+</verification_and_unit_test_criteria>
+</folder_context>

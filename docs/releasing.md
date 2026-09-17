@@ -1,203 +1,56 @@
-# Releasing git-a2a
+# Release and installation maintenance
 
-Releases are created only by `.github/workflows/release.yml` after a `v*` tag is pushed. The tag
-must equal `v` plus `internal/version/VERSION`, optionally followed by a valid SemVer prerelease
-suffix; build and tests must pass before publishing starts.
-Use a release-candidate tag first, inspect every generated artifact and channel, fix the source,
-then create the stable tag on the reviewed commit. If the candidate needs a fix, use a new
-prerelease number on the fixing commit. Do not rerun a failed publish with a moved tag.
-No stable tag—including patches—may be created until an RC on the same commit has passed every gate and the reviewer has explicitly accepted it in writing in the conversation.
+This guide preserves git-a2a's binary distribution channels. It does not authorize publishing a
+release, creating a stable tag, or deploying the website.
 
-Every minor release note starts with three plain sentences a stranger can understand: the user
-problem, the new workflow, and the compatibility/security consequence. The grouped conventional
-changelog follows that story; a raw commit list is not release communication. The v1.2.0 story is:
-git-a2a can keep a dependency's source in the consumer at the same commit used by every package
-manager; submodule/copy transports drive five build systems and native local-path modes; `fetch`
-reconstructs that exact state on a fresh checkout without moving the lock.
-The v1.6.0 story is: a2amodule schema 1 now has an implementation-neutral conformance corpus and
-versioned runner on Linux and Windows; owners can publish non-enforced contact-budget guidance and
-email coordinates while consumers alone provide sendmail or SMTP delivery; the release passes
-conformance version 1 and publishes the normative specification as a generated reader page.
-The v1.7.0 story is: consumers can adopt an ordinary Git repository without requiring its owner to
-publish a manifest, optionally adding a trusted local shim for exports and contacts; every reader
-accepts either manifest extension without ambiguity; and one deterministic init interview lets
-humans and agents produce the same reviewed module declaration from the same repository facts.
+## Supported channels
 
-## GitHub configuration
+One Go binary is distributed through:
 
-The workflow uses the repository `GITHUB_TOKEN` for GitHub Releases and
-`ghcr.io/neprel/git-a2a`. Configure these optional channels separately:
+- `go install` and `go run`
+- checksum-verifying macOS/Linux and Windows installers
+- Homebrew and Scoop
+- npm launcher package
+- PyPI launchers for uv and pipx
+- GHCR scratch container
+- Nix flake
+- GitHub Release archives and Linux `.deb`, `.rpm`, and `.apk` packages
 
-- `HOMEBREW_TAP_TOKEN`: a fine-grained token with write access to
-  `neprel/homebrew-tap`. If absent, the channel job skips Homebrew publishing.
-- `SCOOP_BUCKET_TOKEN`: a fine-grained token with write access to
-  `neprel/scoop-bucket`. If absent, the channel job skips Scoop publishing.
-- npm: `git-a2a` and every `@git-a2a/*` platform package register `neprel/git-a2a` and
-  `release.yml` as their GitHub Actions trusted publisher with `npm publish` permission. The
-  job uses Node 24, npm 11.5.1 and OIDC; it has no long-lived npm token. Prereleases receive
-  npm dist-tag `next`; stable releases receive `latest`.
-- PyPI: create the GitHub environment named `pypi`, register this repository and workflow as a
-  trusted publisher for the `git-a2a` project, and keep its approval rules in that environment.
-  PyPI uses OIDC and has no long-lived token.
+Release archives cover Darwin, Linux, and Windows on amd64/arm64 and include checksums and SBOMs.
+The package-manager launchers execute the same release binary. git-a2a has no self-updater;
+users update it through the channel that installed it.
 
-Job permissions are intentionally local: tests have read-only contents; GoReleaser has
-`contents: write`, `packages: write`, and `id-token: write` only to publish and keylessly sign the
-immutable GHCR digest. The provenance job has only `contents: read`, `id-token: write`, and
-`attestations: write`; npm and PyPI have `id-token: write`. Each npm
-package includes repository metadata matching `https://github.com/neprel/git-a2a`, which npm
-requires when authenticating its trusted publisher.
+## Verification
 
-A `workflow_dispatch` recovery checks out the immutable tag, copies that tag's GoReleaser config
-outside the checkout, and injects `release.skip_upload: true` into the copy before rebuilding.
-The checkout remains clean and existing GitHub release assets remain untouched. The channel job
-downloads the published `checksums.txt` and renders Homebrew/Scoop manifests from those immutable
-asset hashes; it must never use hashes from a recovery rebuild, whose archives need not be
-byte-identical. npm checks each immutable package version and leaves an already-published version
-unchanged. Tag-triggered releases use the checked-in config with artifact upload enabled.
-Homebrew and Scoop are stable aliases: prerelease tag runs and prerelease recovery dispatches
-leave both repositories unchanged. Stable tags alone render and publish the main formula and
-manifest.
-
-## Supply-chain verification
-
-On the ordinary tag path, the `attest` job waits for both GoReleaser and MCP packaging, downloads
-the complete immutable GitHub Release, and calls the SHA-pinned
-`actions/attest-build-provenance` action over every asset. This includes archives, packages,
-checksums, SBOMs, `server.json`, and the MCPB. Recovery dispatches do not issue new attestations.
-The installer workflow starts after a successful tag-triggered Release and runs
-`gh attestation verify` with `--repo neprel/git-a2a` and
-`--signer-workflow neprel/git-a2a/.github/workflows/release.yml`.
-
-The release job resolves the pushed GHCR tag to an immutable digest and signs that digest with
-Cosign keyless signing. Verification must use the digest, GitHub's OIDC issuer, and this identity:
-
-```text
-^https://github\.com/neprel/git-a2a/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$
-```
-
-No repository secret contains a provenance or container-signing private key. Keep action and
-Cosign installer references pinned to reviewed full commit SHAs.
-
-## Nix flake
-
-`flake.nix` supports Linux and macOS on amd64 and arm64. `flake.lock` pins nixpkgs, CI runs
-`nix build` and invokes the result, and the package reports `channel=nix`. For an interactive run:
+Tag-triggered release assets carry GitHub build provenance. After downloading an asset:
 
 ```sh
-nix run github:neprel/git-a2a -- version
+gh attestation verify PATH/TO/ASSET \
+  --repo neprel/git-a2a \
+  --signer-workflow neprel/git-a2a/.github/workflows/release.yml
+sha256sum --ignore-missing -c checksums.txt
 ```
 
-Pin the repository revision rather than the moving branch in reproducible CI.
+The GHCR image is signed keylessly at its immutable digest. Verify the GitHub OIDC issuer and the
+tag-triggered release workflow identity:
 
-## macOS and Windows status
-
-The macOS binaries are not yet Apple-signed or notarized. A cask or direct browser download is
-therefore quarantined and Gatekeeper rejects its first launch. The tap publishes a checksum-
-verified formula instead: after Homebrew verifies the immutable release SHA-256, its install step
-removes `com.apple.quarantine` from that one binary. `brew test neprel/tap/git-a2a` must exercise
-the first launch. Apple signing/notarization remains required before publishing a cask or claiming
-that direct downloads are Gatekeeper-clean. The account-owner enrollment, certificate, API-key,
-and exact secret checklist is in [Apple signing preparation](apple-signing.md); adding those
-secrets does not activate signing without a separately reviewed RC.
-
-The Scoop bucket is automated. The first winget package identity is fixed as
-`Neprel.GitA2A`; its manually validated 1.4.0 manifest is under moderation in
-[microsoft/winget-pkgs#423457](https://github.com/microsoft/winget-pkgs/pull/423457). Stable-release
-automation and the live installer check remain inert until that PR merges and the dedicated fork
-token is configured. Windows binaries are not Authenticode-signed; the cost, custody, eligibility,
-and SmartScreen tradeoffs are recorded in [Windows Authenticode options](windows-signing.md), and
-no signing hook is activated until the publisher selects an option.
-Run `gh workflow run installers.yml -f live_channels=true` after publishing a stable manifest;
-the `scoop-live` job installs from the public bucket on `windows-latest` and asserts the exact
-version, target, and `channel=scoop`. Wine under amd64 QEMU on Apple Silicon is not an equivalent
-gate: the container runtime can abort before the Windows executable starts.
-
-The manually published site includes an Apache `.htaccess` that serves `.sh` and `.ps1` as
-UTF-8 `text/plain`. After every change to that file or either installer, publish with
-`make site-publish`, then run `gh workflow run installers.yml -f live_site=true`. The
-`site-live` job checks the live `Content-Type`, downloads `install.ps1` with
-`Invoke-RestMethod`, compiles the returned text, and runs the installer with `--dry-run` on
-`windows-latest`. Do not infer this result from a local server: only the production host proves
-that its `.htaccess` is enabled.
-
-The v1.0.0 acceptance run is [Installer checks #32626028405](https://github.com/neprel/git-a2a/actions/runs/32626028405).
-Its live Windows output was:
-
-```text
-text/plain; charset=utf-8
-dry-run: resolve v1.0.0 from https://github.com/neprel/git-a2a/releases
-dry-run: download and SHA-256 verify git-a2a_1.0.0_windows_amd64.zip
-dry-run: install git-a2a.exe to the runner temporary directory
+```sh
+cosign verify \
+  --certificate-identity-regexp '^https://github\.com/neprel/git-a2a/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/neprel/git-a2a@sha256:DIGEST
 ```
 
-The first complete stable tag-triggered publication is
-[Release #32629413793](https://github.com/neprel/git-a2a/actions/runs/32629413793) for v1.0.1:
-test, GoReleaser/GHCR, npm OIDC, PyPI OIDC, Homebrew, and Scoop all completed successfully.
-[Installer checks #32629684742](https://github.com/neprel/git-a2a/actions/runs/32629684742)
-then installed Scoop 1.0.1 on `windows-latest`; the version assertion is derived from
-`internal/version/VERSION`. A native Homebrew reinstall also proved that conditional quarantine
-removal succeeds when `com.apple.quarantine` is already absent.
+The standalone installers must verify checksums and retain explicit version, destination, and
+dry-run controls. They must not grow an in-process updater.
 
-The v1.1.0 release is the first stable publication to the official MCP Registry. The reviewed
-candidate passed [Release smoke #32643313888](https://github.com/neprel/git-a2a/actions/runs/32643313888),
-then the stable tag completed [Release #32643380116](https://github.com/neprel/git-a2a/actions/runs/32643380116).
-[Stable smoke #32643708054](https://github.com/neprel/git-a2a/actions/runs/32643708054) exercised the
-downloaded binary on Linux, macOS, and Windows, including MCP `tools/list` and `setup --dry-run`;
-[Installer checks #32643710728](https://github.com/neprel/git-a2a/actions/runs/32643710728) passed
-the POSIX, Windows, and live Scoop paths. The registry listed `io.github.neprel/git-a2a` version
-1.1.0 as active and latest with npm, OCI, and MCPB packages.
+## Release gate
 
-Before a stable release, manually exercise replacement of an installed binary on Windows:
+Before a future release, maintainers should verify the complete Go build/test/vet pipeline,
+schema/example parity, adapter corpus and native integration tests available on each runner,
+cross-builds for Darwin/Linux/Windows amd64 and arm64, packaging smoke tests, installer checksum
+behavior, provenance, container signatures, and documentation/site link checks.
 
-```powershell
-$env:GIT_A2A_UPGRADE_BASE_URL = "https://github.com/neprel/git-a2a/releases/download"
-git-a2a upgrade --to 1.0.0-rc.1
-git-a2a --version
-git-a2a upgrade --to 1.0.0
-git-a2a --version
-```
-
-Run this from a fresh PowerShell process with the binary installed outside the checkout. Confirm
-that the old process exits, the `.new` file is renamed into place, and a second invocation leaves
-no `.old` or `.new` sibling. The ordinary CI workflow runs `go test ./...` on `windows-latest`;
-this manual check covers the live executable-replacement path that a unit test cannot own.
-
-## Release checklist
-
-1. Set `internal/version/VERSION`, commit it, and run `.github/scripts/check-version.sh v<VERSION>`
-   and `.github/scripts/check-version.sh v<VERSION>-rc.1`. npm keeps the SemVer prerelease form;
-   PyPI maps `-rc.N` to its equivalent `rcN` spelling.
-2. Run `go test ./...`, `go build ./...`, `scripts/a2a-schema.sh`, `goreleaser check`, and
-   `goreleaser release --snapshot --clean`. The conformance script fetches the pinned official
-   A2A proto and pinned Google API imports into a temporary directory, generates the non-normative
-   JSON Schema with a pinned generator, and validates both card and catalog exports.
-3. Push the tag. Verify GitHub archives, checksums, SBOMs, deb/rpm/apk, GHCR, and every configured
-   optional channel. Require `gh attestation verify` for a downloaded asset and `cosign verify`
-   for the immutable GHCR digest. A prerelease tag must remain a GitHub prerelease and must not
-   become latest.
-4. Run `gh workflow run release-smoke.yml -f tag=v<VERSION>` and require all three native jobs
-   (Linux, macOS, Windows) to print the canonical source version (without an RC package suffix),
-   list the eight default MCP tools through stdio, and complete `setup --dry-run` against the
-   downloaded release binary.
-5. Create the stable tag on the exact reviewed commit only after the release-candidate path is
-   clean. If any source changed, run a new release candidate first.
-
-## Deferred release work
-
-These items are intentionally not implied by a successful stable release and require separate
-design, credentials, or platform acceptance:
-
-- winget stable-release automation and its live installer gate, after the accepted
-  `Neprel.GitA2A` manifest is merged and the fork token is configured;
-- Apple signing and notarization, before replacing the checksum-verified Homebrew formula with a
-  cask or claiming direct-download Gatekeeper compatibility;
-- Windows Authenticode signing, after the publisher chooses Azure Artifact Signing or an OV
-  certificate and reviews the resulting identity;
-- operating-system keystore integration for signing keys (current keys remain ordinary Git/JWKS
-  material selected by repository policy);
-- central identity federation or a certificate authority, which remains outside the product
-  boundary;
-- `git-a2a serve`, because agent hosting remains the owner's infrastructure rather than a CLI
-  responsibility;
-- the compatibility declaration open question from plan 25, until pilot B has run for at least
-  two weeks and included at least two real dependency updates.
+Apple signing preparation is documented in [apple-signing.md](apple-signing.md); Windows signing
+preparation is documented in [windows-signing.md](windows-signing.md). Missing native toolchains
+must be reported as unexecuted, not treated as native verification by cross-compilation.

@@ -10,12 +10,15 @@ import (
 func Load(root string) (*manifest.Lock, error) {
 	l, err := manifest.LoadLock(filepath.Join(root, "a2amodule.lock"))
 	if os.IsNotExist(err) {
-		return &manifest.Lock{Schema: 1, Dependencies: map[string]manifest.LockedDependency{}}, nil
+		return &manifest.Lock{Schema: manifest.CurrentSchema, Dependencies: map[string]manifest.LockedDependency{}}, nil
 	}
 	return l, err
 }
 
 func Write(root string, l *manifest.Lock) error {
+	if err := l.Validate(); err != nil {
+		return err
+	}
 	b, err := manifest.MarshalLock(l)
 	if err != nil {
 		return err

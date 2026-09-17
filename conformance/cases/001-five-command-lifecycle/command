@@ -1,0 +1,8 @@
+[
+  ["init", "--id", "acme-consumer", "--description", "Consumer component"],
+  ["add", "{{GIT_URL}}", "--name", "acme-lib"],
+  ["list", "acme-lib"],
+  ["pull", "acme-lib"],
+  ["remove", "acme-lib"],
+  ["list", "--json"]
+]

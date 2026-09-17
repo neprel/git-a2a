@@ -1,0 +1,7 @@
+acme-lib[[:space:]]+acme-library[[:space:]]+0123456789abcdef0123456789abcdef01234567[[:space:]]+https://git\.example\.invalid/acme/lib\.git
+agent: Acme Library Agent https://agents\.example\.invalid/acme-lib/card\.json
+adapter: submodule/git
+"name": "acme-lib"
+"component": "acme-library"
+"commit": "0123456789abcdef0123456789abcdef01234567"
+"surface": "\.git-a2a/surfaces/acme-lib"

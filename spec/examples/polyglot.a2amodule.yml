@@ -1,0 +1,22 @@
+# One dependency, one resolved revision, and several durable native selections.
+# yaml-language-server: $schema=https://git-a2a.com/schema/a2amodule.v2.json
+schema: 2
+component:
+  id: acme-polyglot-app
+  repository: https://github.com/acme/polyglot-app.git
+agent:
+  card: .a2a/agent-card.json
+dependencies:
+  - name: core-utils
+    git: https://github.com/acme/core-utils.git
+    ref: main
+    bindings:
+      - adapter: npm
+        variant: pnpm
+        export: "@acme/core-utils"
+      - adapter: pypi
+        variant: uv
+        export: acme-core-utils
+      - adapter: golang
+        variant: go
+        export: acme.dev/core-utils

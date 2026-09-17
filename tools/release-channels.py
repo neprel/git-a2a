@@ -37,7 +37,7 @@ def render_formula(version: str, checksums: dict[str, str]) -> str:
     amd64_name = f"git-a2a_brew_{version}_darwin_amd64.tar.gz"
     arm64_name = f"git-a2a_brew_{version}_darwin_arm64.tar.gz"
     return f'''class GitA2a < Formula
-  desc "Import git modules together with their owning agents"
+  desc "Manage Git component dependencies with their responsible agents"
   homepage "https://github.com/neprel/git-a2a"
   version "{version}"
   license "Apache-2.0"
@@ -82,7 +82,7 @@ def render_scoop(version: str, checksums: dict[str, str]) -> str:
             },
         },
         "homepage": "https://github.com/neprel/git-a2a",
-        "description": "Import git modules together with their owning agents",
+        "description": "Manage Git component dependencies with their responsible agents",
     }
     return json.dumps(manifest, indent=4) + "\n"
 

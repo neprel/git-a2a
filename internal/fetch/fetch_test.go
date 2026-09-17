@@ -179,6 +179,40 @@ func TestSurfaceFallsBackFromBareArchiveAndReturnsTree(t *testing.T) {
 	}
 }
 
+func TestRootSurfacePreservesDotfilesAndExcludesGitMetadata(t *testing.T) {
+	var archive bytes.Buffer
+	w := tar.NewWriter(&archive)
+	for name, body := range map[string]string{
+		".well-known/agent-card.json": "{}\n",
+		"README.md":                   "surface\n",
+		".git/config":                 "must-not-escape\n",
+	} {
+		if err := w.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: int64(len(body))}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := w.Write([]byte(body)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	dest := t.TempDir()
+	files, _, err := extractSurfaceArchive(archive.Bytes(), ".", dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := strings.Join(files, ","), ".well-known/agent-card.json,README.md"; got != want {
+		t.Fatalf("files = %q, want %q", got, want)
+	}
+	if _, err := os.Stat(filepath.Join(dest, ".well-known", "agent-card.json")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dest, ".git")); !os.IsNotExist(err) {
+		t.Fatalf(".git was materialized: %v", err)
+	}
+}
+
 func runGit(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command("git", args...)

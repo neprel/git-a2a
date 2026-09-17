@@ -13,7 +13,6 @@ import tempfile
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SKILL = ROOT / "skills/git-a2a"
 SITE_SKILL = ROOT / "sites/git-a2a.com/.well-known/skills/git-a2a"
-THIN_SKILL = ROOT / "internal/setupskill/thin"
 INDEX = ROOT / "sites/git-a2a.com/.well-known/skills/index.json"
 REFERENCES = {
     "cli.md": ROOT / "docs/cli.md",
@@ -26,21 +25,18 @@ def fail(message: str) -> None:
     raise SystemExit(f"skill-sync: {message}")
 
 
-def metadata(skill_md: str) -> tuple[str, str, str]:
+def metadata(skill_md: str) -> tuple[str, str]:
     match = re.match(r"---\n(.*?)\n---\n", skill_md, re.S)
     if not match:
         fail("SKILL.md has no frontmatter")
     frontmatter = match.group(1)
     values: dict[str, str] = {}
-    for key in ("name", "description", "compatibility"):
+    for key in ("name", "description"):
         value = re.search(rf"^{key}:\s*(.+)$", frontmatter, re.M)
         if not value:
             fail(f"SKILL.md lacks {key}")
         values[key] = value.group(1).strip().strip('"')
-    version = re.search(r'^\s+version:\s*"([^\"]+)"$', frontmatter, re.M)
-    if not version:
-        fail("SKILL.md lacks metadata.version")
-    return values["name"], values["description"], version.group(1)
+    return values["name"], values["description"]
 
 
 def build(destination: pathlib.Path) -> None:
@@ -54,10 +50,7 @@ def build(destination: pathlib.Path) -> None:
         shutil.copy2(source, references / name)
 
     skill_md = (skill_target / "SKILL.md").read_text()
-    name, description, version = metadata(skill_md)
-    expected_version = (ROOT / "internal/version/VERSION").read_text().strip()
-    if version != expected_version:
-        fail(f"metadata.version {version} differs from tool version {expected_version}")
+    name, description = metadata(skill_md)
     index = {
         "skills": [{
             "name": name,
@@ -88,23 +81,6 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         rendered = pathlib.Path(temporary)
         build(rendered)
-        # The CLI embeds only a thin pointer skill; keep its metadata version synchronized
-        # without copying the full reference set into every configured repository.
-        expected_version = (ROOT / "internal/version/VERSION").read_text().strip()
-        thin_md = THIN_SKILL / "SKILL.md"
-        thin_body = thin_md.read_text()
-        thin_current = re.sub(
-            r"(^\s+version:\s*)[^\n]+",
-            rf"\g<1>{expected_version}",
-            thin_body,
-            count=1,
-            flags=re.M,
-        )
-        thin_expected = {
-            path.relative_to(THIN_SKILL) for path in THIN_SKILL.rglob("*") if path.is_file()
-        }
-        if thin_expected != {pathlib.Path("SKILL.md"), pathlib.Path("references/README.md")}:
-            fail("thin setup skill must contain only SKILL.md and references/README.md")
         if args.check:
             if not SITE_SKILL.exists() or not same_tree(rendered / "skill", SITE_SKILL):
                 fail("site skill copy is stale; run tools/sync-skill.py")
@@ -113,9 +89,7 @@ def main() -> None:
             references = SKILL / "references"
             if not references.exists() or not same_tree(rendered / "skill" / "references", references):
                 fail("skill references are stale; run tools/sync-skill.py")
-            if thin_body != thin_current:
-                fail("thin setup skill version is stale; run tools/sync-skill.py")
-            print("skill-sync: references, site copy, thin setup copy, index, and tool version are current")
+            print("skill-sync: references, site copy, index, and tool version are current")
             return
         references = SKILL / "references"
         if references.exists():
@@ -125,10 +99,9 @@ def main() -> None:
             shutil.rmtree(SITE_SKILL)
         SITE_SKILL.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(rendered / "skill", SITE_SKILL)
-        thin_md.write_text(thin_current)
         INDEX.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(rendered / "index.json", INDEX)
-        print("skill-sync: wrote references, site copy, thin setup metadata, and discovery index")
+        print("skill-sync: wrote references, site copy, and discovery index")
 
 
 if __name__ == "__main__":

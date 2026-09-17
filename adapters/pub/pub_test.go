@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/neprel/git-a2a/internal/adapter"
-	"github.com/neprel/git-a2a/internal/manifest"
 )
 
 func TestWireGoldenIdempotentUnwire(t *testing.T) {
@@ -16,8 +15,8 @@ func TestWireGoldenIdempotentUnwire(t *testing.T) {
 	fixture := filepath.Join("..", "..", "testdata", "consumer-pub")
 	original, _ := os.ReadFile(filepath.Join(fixture, "pubspec.yaml"))
 	_ = os.WriteFile(filepath.Join(root, "pubspec.yaml"), original, 0o644)
-	dep := adapter.Dependency{Git: "https://github.com/acme/lib-utils.git", Ref: "main", Track: "locked"}
-	exp := adapter.Export{Ecosystem: "pub", Name: "acme_lib_utils", Path: "dart/package"}
+	dep := adapter.Dependency{Name: "acme-lib", Git: "https://github.com/acme/lib-utils.git", Ref: "main"}
+	exp := adapter.Export{Adapter: "pub", Name: "acme_lib_utils", Path: "dart/package"}
 	locked := adapter.Locked{Git: dep.Git, Commit: strings.Repeat("a", 40)}
 	a := Adapter{}
 	change, err := a.Wire(context.Background(), root, dep, exp, locked)
@@ -35,6 +34,17 @@ func TestWireGoldenIdempotentUnwire(t *testing.T) {
 	if findings, err := a.Drift(context.Background(), root, dep, exp, locked); err != nil || len(findings) != 0 {
 		t.Fatalf("drift=%v err=%v", findings, err)
 	}
+	manifestPath := filepath.Join(root, "pubspec.yaml")
+	branchPin := strings.Replace(string(mustRead(t, manifestPath)), `ref: "`+locked.Commit+`"`, `ref: "main"`, 1)
+	if err := os.WriteFile(manifestPath, []byte(branchPin), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if findings, err := a.Drift(context.Background(), root, dep, exp, locked); err != nil || len(findings) != 1 {
+		t.Fatalf("branch pin drift=%v err=%v", findings, err)
+	}
+	if _, err := a.Wire(context.Background(), root, dep, exp, locked); err != nil {
+		t.Fatal(err)
+	}
 	if change, err = a.Unwire(context.Background(), root, dep, exp); err != nil || !change.Changed {
 		t.Fatalf("unwire=%#v err=%v", change, err)
 	}
@@ -44,25 +54,11 @@ func TestWireGoldenIdempotentUnwire(t *testing.T) {
 	}
 }
 
-func TestVendoredPathLifecycle(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "pubspec.yaml"), []byte("name: consumer\ndependencies:\n"), 0o644); err != nil {
+func mustRead(t *testing.T, path string) []byte {
+	t.Helper()
+	body, err := os.ReadFile(path)
+	if err != nil {
 		t.Fatal(err)
 	}
-	dep := adapter.Dependency{ID: "acme-lib", Vendor: &manifest.Vendor{Mode: "copy"}}
-	exp := adapter.Export{Ecosystem: "pub", Name: "acme_lib", Path: "dart"}
-	locked := adapter.Locked{Vendor: &manifest.LockedVendor{Mode: "copy", Path: "deps/acme-lib"}}
-	a := Adapter{}
-	if change, err := a.Wire(context.Background(), root, dep, exp, locked); err != nil || !change.Changed {
-		t.Fatalf("Wire=%#v %v", change, err)
-	}
-	if got, _ := os.ReadFile(filepath.Join(root, "pubspec.yaml")); !strings.Contains(string(got), `path: "deps/acme-lib/dart"`) {
-		t.Fatalf("path wiring:\n%s", got)
-	}
-	if findings, err := a.Drift(context.Background(), root, dep, exp, locked); err != nil || len(findings) != 0 {
-		t.Fatalf("Drift=%v %v", findings, err)
-	}
-	if change, err := a.Unwire(context.Background(), root, dep, exp); err != nil || !change.Changed {
-		t.Fatalf("Unwire=%#v %v", change, err)
-	}
+	return body
 }

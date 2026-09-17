@@ -17,8 +17,8 @@ func TestWireGoldenIdempotentUnwire(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "flake.nix"), original, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	dep := adapter.Dependency{Git: "https://github.com/acme/lib-utils.git", Ref: "main", Track: "locked"}
-	exp := adapter.Export{Ecosystem: "nix", Name: "acme-lib-utils", Path: "nix/lib"}
+	dep := adapter.Dependency{Name: "acme-lib-utils", Git: "https://github.com/acme/lib-utils.git", Ref: "main"}
+	exp := adapter.Export{Adapter: "nix", Name: "acme-lib-utils", Path: "nix/lib"}
 	locked := adapter.Locked{Git: dep.Git, Commit: strings.Repeat("a", 40)}
 	a := Adapter{}
 	change, err := a.Wire(context.Background(), root, dep, exp, locked)
@@ -39,6 +39,25 @@ func TestWireGoldenIdempotentUnwire(t *testing.T) {
 	}
 	if got := mustRead(t, filepath.Join(root, "flake.nix")); string(got) != string(original) {
 		t.Fatalf("unwire differs\ngot:\n%s\nwant:\n%s", got, original)
+	}
+}
+
+func TestPullChecksToolBeforeMutation(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "flake.nix")
+	original := []byte("{ inputs = {}; outputs = { self }: {}; }\n")
+	if err := os.WriteFile(path, original, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", t.TempDir())
+	dep := adapter.Dependency{Git: "https://example.com/acme/lib.git", Ref: "main"}
+	exp := adapter.Export{Name: "dep"}
+	_, err := (Adapter{}).Pull(context.Background(), root, dep, exp, adapter.Locked{Git: dep.Git, Commit: strings.Repeat("a", 40)})
+	if !adapter.IsMissingTool(err) {
+		t.Fatalf("err=%v, want missing-tool", err)
+	}
+	if got := mustRead(t, path); string(got) != string(original) {
+		t.Fatal("Pull mutated flake.nix before tool preflight")
 	}
 }
 

@@ -1,17 +1,19 @@
-# decision Cargo git dependencies use rev or branch
+# decision Cargo git dependencies use an exact revision
 
-The Cargo adapter owns one entry in `[dependencies]`. Locked wiring writes the full lock commit
-as `rev`; floating wiring writes the declared ref as `branch`. Cargo discovers a named crate
-anywhere in the Git repository, so an export subdirectory does not become a Cargo `path` key.
-Unrelated TOML text and dependency entries remain byte-for-byte unchanged.
+The Cargo adapter owns one entry in `[dependencies]`. Wiring always writes the full
+`LockedDependency.Commit` as `rev`; the requested declaration ref is never written as a branch.
+Cargo discovers a named crate anywhere in the Git repository, so an export subdirectory does
+not become a Cargo `path` key. Unrelated TOML text and dependency entries remain byte-for-byte
+unchanged.
 If `[dependencies]` is absent, the adapter creates it inside a delimited block; unwire removes
 the block as a unit instead of leaving an empty table.
-With a locked vendor the owned entry instead contains only `path = "<vendor/export-path>"`.
 
-# decision Cargo.lock stays downstream
+# decision Cargo lifecycle uses fetch resolution
 
-The adapter does not run `cargo update` while wiring. That command can resolve and rewrite
-unrelated packages; the consumer's normal Cargo workflow creates or refreshes `Cargo.lock`.
+`Pull` runs `cargo fetch` after editing the exact-revision Git dependency. This creates or
+refreshes `Cargo.lock` and downloads missing sources even when the declaration was already
+current. `Remove` deletes only the owned root declaration and runs `cargo fetch` again so Cargo
+prunes unreachable resolution state while retaining unrelated and transitively required crates.
 
 # test Cargo adapter
 
@@ -19,6 +21,8 @@ unrelated packages; the consumer's normal Cargo workflow creates or refreshes `C
 - Drift checks both the normalized Git URL and the locked revision.
 - Unwire removes only the exported crate entry.
 
-# decision Refresh prerequisite
+# decision Cargo lifecycle prerequisite
 
-`Refresh` checks `cargo` through the shared prerequisite contract before doing any work.
+`Pull` and `Remove` check `cargo` through the shared prerequisite contract before invoking it.
+`Inspect` is offline and requires the matching `[[package]]` stanza in `Cargo.lock` to carry a
+Git source containing the exact locked commit. Another package at that commit is not evidence.

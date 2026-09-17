@@ -1,8 +1,7 @@
 {
   "name": "git-a2a",
   "version": "0.0.0-dev",
-  "description": "Thin launcher for the git-a2a binary",
-  "mcpName": "io.github.neprel/git-a2a",
+  "description": "Manage Git component dependencies with their responsible agents",
   "license": "MIT",
   "bin": { "git-a2a": "bin/git-a2a.js" },
   "engines": { "node": ">=18" },

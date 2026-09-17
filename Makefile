@@ -1,4 +1,4 @@
-.PHONY: build test snapshot pilot docs-check skills-check installers-check site-check site-publish
+.PHONY: build test native-report-test snapshot docs-check skills-check installers-check site-check site-publish
 
 build:
 	CGO_ENABLED=0 go build -trimpath -o bin/git-a2a ./cmd/git-a2a
@@ -6,17 +6,15 @@ build:
 test:
 	go test ./...
 
+native-report-test:
+	python3 -m unittest discover -s tools/native-lifecycle -p 'test_*.py'
+
 snapshot:
 	goreleaser release --snapshot --clean
 
-pilot:
-	./scripts/pilot.sh
-
 docs-check:
-	go test ./internal/cli -run 'TestInitExamplesAreCompleteValidManifests'
-	python3 tools/gen-reference.py --check
+	go test ./spec
 	python3 tools/sync-skill.py --check
-	python3 tools/gen-spec-page.py --check
 
 skills-check:
 	python3 tools/sync-skill.py --check

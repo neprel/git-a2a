@@ -59,10 +59,6 @@ func (Adapter) Unwire(_ context.Context, root string, _ adapter.Dependency, exp 
 	return adapter.Change{File: "flake.nix", Entry: exp.Name, Changed: true}, err
 }
 
-func (Adapter) Refresh(ctx context.Context, _ string, _ adapter.Dependency, _ adapter.Export, _ adapter.Locked) error {
-	return adapter.RequireTool(ctx, "nix", "flake")
-}
-
 func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
 	body, err := os.ReadFile(filepath.Join(root, "flake.nix"))
 	if err != nil {
@@ -76,13 +72,14 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 	}
 	parsed, _ := url.Parse(got)
 	base := got
+	gotCommit := ""
 	if parsed != nil && parsed.Scheme != "" {
+		gotCommit = parsed.Query().Get("rev")
 		parsed.RawQuery = ""
 		base = parsed.String()
 	}
 	base = strings.TrimPrefix(base, "git+")
-	badPin := dep.Track != "floating" && !strings.Contains(got, "rev="+locked.Commit)
-	if block == "" || gitx.NormalizeURL(base) != gitx.NormalizeURL(locked.Git) || badPin {
+	if block == "" || gitx.NormalizeURL(base) != gitx.NormalizeURL(locked.Git) || gotCommit != locked.Commit {
 		return []adapter.Finding{{File: "flake.nix", Entry: exp.Name, Want: locked.Commit, Got: strings.TrimSpace(block)}}, nil
 	}
 	return nil, nil
@@ -108,9 +105,7 @@ func flakeURL(dep adapter.Dependency, exp adapter.Export, locked adapter.Locked)
 	if dep.Ref != "" {
 		query.Set("ref", strings.TrimPrefix(dep.Ref, "refs/heads/"))
 	}
-	if dep.Track != "floating" {
-		query.Set("rev", locked.Commit)
-	}
+	query.Set("rev", locked.Commit)
 	if exp.Path != "" && exp.Path != "." {
 		query.Set("dir", exp.Path)
 	}

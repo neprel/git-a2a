@@ -8,12 +8,12 @@ on:
       - install.sh
       - install.ps1
       - docs/cli.md
+      - docs/manifest-reference.md
+      - docs/migration-v2.md
       - README.md
       - adapters/**
-      - internal/cli/setup.go
       - spec/_.hint
-      - tools/gen-reference.py
-      - tools/gen-spec-page.py
+      - tools/sync-skill.py
       - scripts/site-package.sh
       - scripts/site-publish.sh
       - Makefile
@@ -25,12 +25,12 @@ on:
       - install.sh
       - install.ps1
       - docs/cli.md
+      - docs/manifest-reference.md
+      - docs/migration-v2.md
       - README.md
       - adapters/**
-      - internal/cli/setup.go
       - spec/_.hint
-      - tools/gen-reference.py
-      - tools/gen-spec-page.py
+      - tools/sync-skill.py
       - scripts/site-package.sh
       - scripts/site-publish.sh
       - Makefile

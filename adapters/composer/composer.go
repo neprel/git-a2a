@@ -27,7 +27,7 @@ func (Adapter) Detect(root string) (bool, adapter.Variant, error) {
 }
 
 func (Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) (adapter.Change, error) {
-	if locked.Vendor == nil && exp.Path != "" && exp.Path != "." {
+	if exp.Path != "" && exp.Path != "." {
 		return adapter.Change{}, adapter.NotWirable("Composer VCS repositories require composer.json at the repository root")
 	}
 	path := filepath.Join(root, "composer.json")
@@ -40,13 +40,7 @@ func (Adapter) Wire(_ context.Context, root string, dep adapter.Dependency, exp 
 		return adapter.Change{}, err
 	}
 	repositoryType, repositoryURL := "vcs", dep.Git
-	constraint := "dev-" + branchName(dep.Ref)
-	if dep.Track != "floating" {
-		constraint += "#" + locked.Commit
-	}
-	if locked.Vendor != nil {
-		repositoryType, repositoryURL, constraint = "path", adapter.VendorSourcePath(exp, locked), "*"
-	}
+	constraint := "dev-" + branchName(dep.Ref) + "#" + locked.Commit
 	repository, _ := json.Marshal(map[string]string{"type": repositoryType, "url": repositoryURL})
 	var next []byte
 	var repositoryChanged bool
@@ -82,11 +76,7 @@ func (Adapter) Unwire(_ context.Context, root string, dep adapter.Dependency, ex
 		repositories = doc["repositories"]
 	}
 	if strings.HasPrefix(strings.TrimSpace(string(repositories)), "[") {
-		repositoryURL := dep.Git
-		if dep.Vendor != nil {
-			repositoryURL = dependencyVendorPath(dep, exp)
-		}
-		next, repositoryChanged, err = removeArrayRepository(next, repositoryURL)
+		next, repositoryChanged, err = removeArrayRepository(next, dep.Git)
 	} else {
 		next, repositoryChanged, err = removeObjectEntry(next, "repositories", exp.Name)
 	}
@@ -97,10 +87,6 @@ func (Adapter) Unwire(_ context.Context, root string, dep adapter.Dependency, ex
 		err = os.WriteFile(path, next, 0o644)
 	}
 	return adapter.Change{File: "composer.json", Entry: "require." + exp.Name, Changed: requireChanged || repositoryChanged}, err
-}
-
-func (Adapter) Refresh(ctx context.Context, _ string, _ adapter.Dependency, _ adapter.Export, _ adapter.Locked) error {
-	return adapter.RequireTool(ctx, "composer", "composer")
 }
 
 func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp adapter.Export, locked adapter.Locked) ([]adapter.Finding, error) {
@@ -115,19 +101,12 @@ func (Adapter) Drift(_ context.Context, root string, dep adapter.Dependency, exp
 	if err := json.Unmarshal(body, &doc); err != nil {
 		return nil, err
 	}
-	if locked.Vendor != nil {
-		want := adapter.VendorSourcePath(exp, locked)
-		repositoryType, repositoryURL := repositoryFor(doc.Repositories, exp.Name, want)
-		if repositoryType != "path" || filepath.ToSlash(repositoryURL) != want || doc.Require[exp.Name] != "*" {
-			return []adapter.Finding{{File: "composer.json", Entry: exp.Name, Want: "path " + want, Got: repositoryURL + " " + doc.Require[exp.Name]}}, nil
-		}
-		return nil, nil
-	}
 	repositoryType, repositoryURL := repositoryFor(doc.Repositories, exp.Name, locked.Git)
 	constraint := doc.Require[exp.Name]
-	badPin := dep.Track != "floating" && !strings.Contains(constraint, locked.Commit)
-	if repositoryType != "vcs" || gitx.NormalizeURL(repositoryURL) != gitx.NormalizeURL(locked.Git) || constraint == "" || badPin {
-		return []adapter.Finding{{File: "composer.json", Entry: exp.Name, Want: locked.Commit, Got: repositoryURL + " " + constraint}}, nil
+	wantConstraint := "dev-" + branchName(dep.Ref) + "#" + locked.Commit
+	if repositoryType != "vcs" || gitx.NormalizeURL(repositoryURL) != gitx.NormalizeURL(locked.Git) || constraint != wantConstraint {
+		got := strings.TrimSpace(repositoryURL + " " + constraint)
+		return []adapter.Finding{{File: "composer.json", Entry: exp.Name, Want: locked.Commit, Got: got}}, nil
 	}
 	return nil, nil
 }
@@ -138,21 +117,6 @@ func branchName(ref string) string {
 		return "main"
 	}
 	return ref
-}
-
-func dependencyVendorPath(dep adapter.Dependency, exp adapter.Export) string {
-	path := dep.Vendor.Path
-	if path == "" {
-		path = filepath.ToSlash(filepath.Join("deps", dep.ID))
-	}
-	parts := []string{path}
-	if dep.Vendor.Mode == "submodule" && dep.Path != "" && dep.Path != "." {
-		parts = append(parts, dep.Path)
-	}
-	if exp.Path != "" && exp.Path != "." {
-		parts = append(parts, exp.Path)
-	}
-	return filepath.ToSlash(filepath.Join(parts...))
 }
 
 func mustJSON(value string) []byte {

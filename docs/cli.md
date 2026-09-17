@@ -1,476 +1,77 @@
-# git-a2a command reference
+# CLI reference
 
-Every command accepts the global `--timeout DURATION` option (default `120s`) and `--yes` as a
-non-interactive default-selection flag. Only `init` may prompt, and only on a TTY without
-`--yes` or `--answers`. Requested data is written to
-stdout; verdicts and advisories go to stderr. Exit `0` means success, `1` means a
-completed check found drift/failure, and `2` means invalid input or nothing resolved.
-The repository's `.hint` sources and the commands used to read them are explained in
-[Specification as source (HINT)](../README.md#specification-as-source-hint).
+The executable may be invoked as `git-a2a` or, when installed on `PATH`, as `git a2a`.
+The two spellings run the same program. The domain surface is exactly five commands.
 
-## init
-
-`git-a2a init [--id ID] [--description TEXT] [--surface DIR] [--export ECOSYSTEM=NAME]
-[--example lib|app] [--interview [--json] | --answers FILE|-] [--yes]`
-creates canonical `a2amodule.yml` and adds `.git-a2a/` to `.gitignore`. Repeat `--export`.
-On a TTY, plain `init` asks the ordered interview questions, prints defaults and a manifest
-preview, and confirms the write; `?` prints a question's why-line. Non-TTY input accepts computed
-defaults and names `--answers` instead of blocking. `--interview` is read-only and prints each
-question's field path, prompt, why, computed default, confidence, and validation; `--json` makes
-that briefing structured. `--answers <file>` accepts a JSON or YAML map keyed by those field
-paths; use `--answers -` to read the map from stdin. Missing keys use defaults and unknown keys
-exit `2` in sorted order. Given the same
-repository state and answers, TTY and answers modes write byte-identical manifests.
-`--example lib|app` writes a complete commented baseline and composes with `--answers`.
-Exit `1` if a write would replace a manifest; invalid answers/combinations exit `2`.
+## `init`
 
 ```text
-$ git-a2a init --id acme-app --yes
-initialized module acme-app
+git a2a init
 ```
+
+Creates a minimal schema 2 `a2amodule.yml` in the repository root and adds `.git-a2a/` to
+`.gitignore`. It refuses to overwrite either `a2amodule.yml` or `a2amodule.yaml`. The result may
+omit `agent`, in which case the command reports that the component is incomplete for publication.
+
+## `add`
 
 ```text
-$ git-a2a init --example lib --id acme-lib
-initialized lib example module acme-lib
+git a2a add SOURCE [--name NAME] [--ref REF] [--path PATH]
 ```
 
-## validate
+Fetches the upstream schema 2 manifest, requires `agent.card`, rejects self-reference, and
+resolves the requested ref once. If `--ref` is omitted, the remote's actual default branch is
+recorded. `--name` selects the consumer-local alias; it need not equal `component.id`. `--path`
+selects a component manifest in a subdirectory of the source repository.
 
-`git-a2a validate [FILE ...] [--json] [--schema-report]` validates manifests and locks; without
-paths it checks the files in the current module. `--schema-report` adds the schema number and a
-sorted list of optional schema paths that the file actually uses; sequence elements use `[]`.
-With `--json`, those values are `schema` and `features` on each structured result. Invalid files
-exit `1`; a schema newer than the tool is refused with an upgrade diagnostic and exits `2`; an
-empty subject set also exits `2`.
+The command chooses every applicable export/adapter for the consumer and persists each concrete
+variant. If no native integration applies, it uses the submodule adapter. One transaction applies
+the code, optional surface, declaration, and lock; the lock is written only after success.
+
+## `pull`
 
 ```text
-$ git-a2a validate
-a2amodule.yml: valid
-1 file(s): valid
+git a2a pull [NAME]
 ```
+
+Without a name, updates every dependency in stable alias order. With a name, updates only that
+dependency. Pull resolves each dependency's saved ref once, then calls its saved adapters and
+variants at that commit. It also refreshes the upstream manifest, owner metadata, and optional
+surface. Missing cache, checkout, or surface content is restored as part of this lifecycle.
+
+`pull` is not the system `git pull` command. It never silently chooses another adapter or
+package manager because the local environment changed. When updating all dependencies, a failure
+may leave earlier successful dependencies updated; the summary identifies both successes and
+failures.
+
+## `remove`
 
 ```text
-$ git-a2a validate a2amodule.yml --schema-report
-a2amodule.yml: valid
-  schema: 1
-  feature: module.exports
+git a2a remove NAME
 ```
 
-## add
+Removes the named dependency's owned native entries, submodule, surface, cache, declaration, and
+lock entry. It preserves user-authored files, dirty submodules, unrelated native entries, and
+other dependencies. Unsafe removal fails instead of deleting user changes.
 
-`git-a2a add URL [--id ID] [--path DIR] [--track locked|floating] [--wire LIST|--no-wire]
-[--vendor submodule|copy] [--vendor-path PATH] [--no-refresh] [--insecure-skip-signers]`
-fetches the remote manifest, resolves one commit, wires detected ecosystems, writes the lock,
-and snapshots cards. `--vendor` explicitly materialises the locked source as a submodule or copy;
-its default path is `deps/<id>`, overridden by `--vendor-path`. `--no-refresh` edits project
-manifests but skips package-manager Refresh.
-Vendored native exports use local path forms (npm `file:`, Cargo `path`, Go `replace`, uv/Pub/Mix
-`path`, Composer `type: path`); build-system adapters generate owned local integration files.
-Meson requires `--vendor-path subprojects/<id>`.
-Missing optional toolchains warn but do not prevent the manifest edit.
-When a predeclared dependency requires signed commits, verification happens before any write;
-`--insecure-skip-signers` is an explicit emergency override recorded as `verified: skipped`.
-Exit `1` covers fetch/wiring failure and `2` invalid arguments.
+## `list`
 
 ```text
-$ git-a2a add https://github.com/acme/lib.git --wire npm,golang
-added acme-lib at ea1e8656ad1e6eaeef81759c10969e64defdd9ce
+git a2a list [NAME] [--json]
 ```
 
-## set
+Reports the alias, upstream component identity, Git source, requested ref, installed commit,
+saved adapter variants, declared agent and card URL, surface path, and local problems. It is
+offline and read-only: it does not resolve a remote ref, run a package manager, or test agent
+liveness. Missing recoverable local state is shown as unknown or missing with a suggestion to
+run `pull`.
 
-`git-a2a set ID [--git URL] [--ref REF] [--path DIR] [--track locked|floating] [--id NEW-ID]
-[--vendor submodule|copy|--no-vendor] [--vendor-path PATH] [--force] [--dry-run] [--no-refresh]
-[--insecure-skip-signers]`
-transactionally changes a dependency source, identity, or vendoring choice and rewires it.
-`--force` explicitly permits replacing dirty vendored content; `--no-refresh` skips
-package-manager Refresh. Exit `1`
-means the transaction failed and rolled back; exit `2` means the ID/options did not resolve.
+## Service flags and exit status
 
-```text
-$ git-a2a set acme-lib --ref release/1.x --dry-run
-would set acme-lib to ref release/1.x
-```
+`--help` and `--version` are service flags, not domain commands.
 
-## pin
+- Exit `0`: success.
+- Exit `1`: operational or partial failure.
+- Exit `2`: invalid invocation or input.
 
-`git-a2a pin ID [COMMIT] [--no-refresh]` changes the dependency ref to a full 40-character
-commit. Without `COMMIT`, the currently locked commit is used. `--no-refresh` skips
-package-manager Refresh. Exit `1` means lock/rewiring failure; exit `2`
-means an unknown ID or invalid SHA.
-
-```text
-$ git-a2a pin acme-lib
-set acme-lib to https://github.com/acme/lib.git at ea1e8656ad1e6eaeef81759c10969e64defdd9ce
-```
-
-## unpin
-
-`git-a2a unpin ID --ref REF [--track locked|floating] [--no-refresh]` returns a pinned dependency
-to a branch or tag and resolves it immediately. `--no-refresh` skips package-manager Refresh.
-Exit `1` means the transaction failed; exit `2` means the arguments or dependency were invalid.
-
-```text
-$ git-a2a unpin acme-lib --ref main
-set acme-lib to https://github.com/acme/lib.git at ea1e8656ad1e6eaeef81759c10969e64defdd9ce
-```
-
-## wire
-
-`git-a2a wire [ID] [--ecosystem NAME] [--no-refresh]` reapplies declared exports to detected
-project files. With `--ecosystem`, that adapter is mandatory; `--no-refresh` skips its
-package-manager Refresh. Invalid/missing subjects exit `2`; a required adapter failure exits `1`.
-
-```text
-$ git-a2a wire acme-lib --ecosystem npm
-npm: wired acme-lib
-```
-
-## update
-
-`git-a2a update [ID ...] [--check] [--review|--no-review] [--follow-moves] [--accept-keys]
-[--force] [--no-refresh] [--insecure-skip-signers]`
-resolves upstream refs and transactionally updates changed dependencies. `--check` only reports
-availability; `--review` prints manifest/surface diffs; `--no-refresh` skips package-manager
-Refresh; moves require explicit `--follow-moves`. Dirty or drifted vendored content refuses an
-update unless `--force` makes replacement explicit. Exit `1`
-means updates exist in check mode or an update failed; exit `2` means no dependency resolved.
-
-```text
-$ git-a2a update --check
-acme-lib: ea1e8656ad1e -> 3ad806dc575c
-1 dependency update(s) available
-```
-
-## remove
-
-`git-a2a remove ID [--keep-wiring] [--force]` removes the manifest/lock/cache entry, its vendored
-tree, and normally unwires all owned package-manager entries. Dirty or drifted vendored content
-is retained unless `--force` explicitly permits its deletion. Exit `1` means removal failed;
-exit `2` means the ID/options did not resolve.
-
-After any successful `add`, `update`, `set`, `pin`, `unpin`, `wire`, or `remove`, an existing
-`AGENTS.md` managed block is rendered again as the final mutation. These commands never create a
-new block; use `sync` once to opt in.
-
-```text
-$ git-a2a remove acme-lib
-removed acme-lib (cache deleted; it can be recreated by add)
-```
-
-## fetch
-
-`git-a2a fetch [ID ...] [--surface] [--json] [--insecure-skip-signers]` restores disposable
-`.git-a2a/cache` content from the exact commits and hashes in `a2amodule.lock`. Without IDs it
-fetches every dependency; `--surface` also restores a declared surface whose tree hash is already
-recorded in the lock. A declared vendored checkout is also restored and verified from the lock.
-For submodule mode this is equivalent to an exact locked `git submodule update --init`; copy mode
-is reconstructed from locked Git tree bytes.
-It never resolves a moving ref and never changes the manifest, lock, or package-manager files.
-Missing/incomplete lock entries and hash mismatches exit `1`; invalid
-options or an empty dependency set exit `2`.
-
-```text
-$ git-a2a fetch --json
-[{"id":"acme-lib","commit":"ea1e8656ad1e6eaeef81759c10969e64defdd9ce","manifest":"sha256:…","method":"sparse"}]
-```
-
-## show
-
-`git-a2a show [ID] [--json] [--surface]` prints the own or cached dependency manifest. With
-`--surface`, it materialises and lists the published surface before showing it. Exit `2` means
-the module or surface was not resolvable.
-
-```text
-$ git-a2a show acme-lib --surface
-surface/API.md
-schema: 1
-```
-
-## sync
-
-`git-a2a sync [--check] [--brief] [--target FILE]` renders the dependency/owner roster into
-`AGENTS.md` and repeated targets. `--check` exits `1` without writing when blocks are stale.
-
-```text
-$ git-a2a sync
-AGENTS.md
-updated 1 managed block(s)
-```
-
-## who
-
-`git-a2a who [ID] [--intent INTENT] [--path FILE] [--json]` applies intent → role → scoped
-agent → contact routing. No match exits `2`.
-
-```text
-$ git-a2a who acme-lib --intent change
-acme-lib change → owner → library-owner
-```
-
-## contact
-
-`git-a2a contact [ID] [--intent INTENT --message FILE|-] [--wait] [--external-ok] [--dry-run]
-[--list-drivers]` uses the first routed contact. Resolution is consumer plugin, built-in driver,
-consumer-consented `http`/`exec`, then an exact instruction. GitHub, GitLab, and Gitea-family issue
-drivers prefer `gh`, `glab`, or `tea`, then their REST API using consumer environment credentials;
-without either they print a prefilled issue deep link. Email uses consumer `sendmail`, then
-`GITA2A_SMTP_URL=smtps://user@host` plus `GITA2A_SMTP_PASSWORD`, then an instruction. `--wait` selects A2A streaming. `--dry-run`
-keeps delivery at the instruction layer. `--list-drivers` needs no message and shows the selected
-layer globally or for one dependency's declared kinds. An owner declaration
-`accepts-external: false` refuses a different organisation;
-only the CLI exposes `--external-ok`, so a human can explicitly approve and record the override.
-MCP has no bypass. Each delivery writes one record including `driver=...` and stores no
-conversation state. Consumer-installed kinds use the versioned [contact plugin
-protocol](contact-plugins.md). Owner-described invocations never add credentials or use a shell;
-MCP always refuses declared `exec`. `ask` is an alias. Exit `1` means delivery failed; exit `2`
-means routing/input resolved nothing.
-
-```text
-$ printf 'Please review the API.' | git-a2a contact acme-lib --intent review --message -
-agent="owner" kind=github-issue id="https://github.com/acme/lib/issues/42" state=created driver=gh
-```
-
-## status
-
-`git-a2a status [ID ...] [--offline] [--json] [-v]` checks upstream, manifest/cache hashes,
-wiring, cards/trust, and rendered blocks. The table contains dependencies only; the consuming
-module is summarized below it. A repository that has not run `sync` has roster/SYNC `none`, which
-is healthy; `stale` means an existing managed block differs. Human output adds `VENDOR` only
-when at least one dependency is vendored; it reports `none`, a pinned submodule, a copy, missing
-state, or drift. JSON always includes `vendor`. `-v` adds own-module findings,
-prerequisite state, and adapter verification labels. Any unhealthy dependency or own-module
-check exits `1`; no match exits `2`.
-
-```text
-$ git-a2a status --offline
-acme-lib  canonical  branch main  unknown  clean  npm clean  unknown  none
-consumer-app: manifest valid · agents none · roster none
-1 dependency: clean
-```
-
-## card
-
-`git-a2a card <export|validate|verify|show> [options]` manages native A2A cards:
-`card export AGENT [--out FILE]`, `card validate FILE|URL`, `card verify FILE|URL [--jwks URL]...
-[--key THUMBPRINT]...`, and
-`card show [ID] [AGENT] [--json]`. Unresolvable input exits `2`; invalid content/signature exits
-`1`.
-
-```text
-$ git-a2a card verify ./owner-card.json
-./owner-card.json: verified EdDSA signature with key production
-card signature verified
-```
-
-## trust
-
-`git-a2a trust show [ID] [--json]` reports the consumer's commit/card/origin requirements,
-the lock's commit-verification state and accepted card keys, and the owner's origin and external
-contact declarations. It reads no network. An unknown dependency or invalid option exits `2`;
-an unreadable lock exits `1`.
-
-```text
-$ git-a2a trust show acme-lib
-acme-lib: commits signed (signed), cards signed, origin-required true
-1 trust declaration(s)
-```
-
-## catalog
-
-`git-a2a catalog export [--out FILE]` emits an ARD 1.0 `ai-catalog.json` whose entries reference
-or embed the module's A2A cards. Exit `1` means encoding/writing failed; exit `2` means no valid
-module or agents resolved.
-
-```text
-$ git-a2a catalog export --out ai-catalog.json
-exported 2 A2A catalog entrie(s)
-```
-
-## agent
-
-`git-a2a agent add NAME --role ROLE [--scope GLOB]... [--card URL] [--contact FIELDS]...
-[--yes]` adds an agent binding. Each contact is comma-separated `key=value`; list values such as
-`intents` and `labels` use `|`, for example
-`intents=question|change,kind=github-issue,repo=acme/lib,labels=from-agent|change-request`.
-`git-a2a agent remove NAME [--yes]` removes it. `git-a2a agent list [--json] [--yes]` returns
-agents in stable name order. Mutations preserve comments, key order, extension keys, and
-flow/block style of untouched YAML nodes, validate, write atomically, then update an existing
-AGENTS.md managed block. Invalid fields exit `2`; validation/write failures and
-duplicates exit `1`; an unknown removal or empty list exits `2`.
-
-```text
-$ git-a2a agent add acme-lib-owner --role owner --scope '**' --contact 'intents=question|change,kind=github-issue,repo=acme/lib'
-added agent acme-lib-owner
-$ git-a2a agent list
-acme-lib-owner  owner  **  1 contact(s)
-1 agent(s)
-```
-
-## export
-
-`git-a2a export add ECOSYSTEM NAME [--path PATH] [--yes]` adds a native export to the current
-module. The result is validated and written atomically; relative path and duplicate violations
-exit `1`, while invalid arguments exit `2`.
-
-```text
-$ git-a2a export add npm @acme/lib --path packages/js
-added npm export @acme/lib
-```
-
-## policy
-
-`git-a2a policy set [INTENT=ROLE ...] [--may LIST] [--may-not LIST] [--notes TEXT] [--yes]`
-creates or updates intent routing and, when supplied, replaces the comma-separated consumer
-permission lists or policy notes. Omitted fields and every unrelated YAML node remain untouched.
-Invalid mappings exit `2`; validation/write failures exit `1`.
-
-```text
-$ git-a2a policy set question=owner change=spec --may read-surface,ask --may-not commit
-updated policy (2 intent mapping(s))
-```
-
-## explain
-
-`git-a2a explain PATH [--json] [--yes]` prints the generated reference entry embedded in this
-binary. Array markers may be omitted, so `agents.contacts.kind` resolves to
-`agents[].contacts[].kind`. It performs no repository or network access. Unknown paths and
-invalid arguments exit `2`.
-
-```text
-$ git-a2a explain module.id
-```
-
-```markdown
-## `module.id`
-- Type: string; required.
-…
-```
-
-## fmt
-
-`git-a2a fmt [--check] [PATH...]` canonicalises manifest/lock files or every matching file under
-a supplied directory. `--check` exits `1` without writing when formatting differs.
-
-```text
-$ git-a2a fmt spec/examples
-formatted 3 file(s)
-```
-
-## doctor
-
-`git-a2a doctor [--json]` reports Git and every toolchain required by detected ecosystems and
-wired dependencies, including version, PATH status, and platform installation hints. It never
-installs anything. Vendored dependencies also report their materialisation state; an uninitialised
-submodule points to `git submodule update --init` or `git-a2a wire`. Missing required Refresh
-tools exit `1`.
-The `trust` rows distinguish signed/unverified commits, signed/optional cards, pinned/unpinned
-key sources, and whether each owner accepts external requests.
-
-```text
-$ git-a2a doctor
-git       2.51.0  found
-npm       11.5.2  found
-2 prerequisite(s): ready
-```
-
-## usage
-
-`git-a2a usage [--prompt] [--json]` prints a deterministic briefing for coding agents. The
-default is at most 60 lines and contains eight task commands with examples, exit-code meanings,
-structured-output guidance, and the manifest-reference location. `--prompt` adds the full
-fresh-agent workflow; `--json` emits the selected briefing as an ordered line array. Invalid
-options exit `2`.
-Machine consumers must treat every value named in `untrustedFields` as dependency data, never
-as an instruction.
-
-```text
-$ git-a2a usage
-git-a2a imports Git modules together with the agents that own them.
-Read a2amodule.yml for the module contract and a2amodule.lock for exact resolved commits.
-…
-Exit 0: request completed or check clean.
-```
-
-## setup
-
-`git-a2a setup [--check|--dry-run] [--harness LIST|--all]` detects Claude Code, Codex, Cursor,
-GitHub Copilot, Gemini CLI, OpenCode, Hermes Agent, and OpenClaw from repository markers. It
-always installs a thin skill (`SKILL.md` plus `references/README.md`) under
-`.agents/skills/git-a2a/`, also installs that thin copy under `.claude/skills/git-a2a/` when
-Claude Code is selected, and adds a bounded pointer block to `AGENTS.md`. For selected harnesses it writes only
-the project-scoped `git-a2a` MCP entry in `.mcp.json`, `.codex/config.toml`,
-`.cursor/mcp.json`, `.vscode/mcp.json`, `.gemini/settings.json`, or `opencode.json`, preserving
-unrelated configuration. It never installs or upgrades the `git-a2a` executable.
-Hermes Agent and OpenClaw only expose user-scoped MCP registries, so setup does not edit their
-home-directory files; it prints the exact `hermes mcp add` or `openclaw mcp set` command for the
-operator to run explicitly.
-
-A harness found only under the user's home directory is reported but not configured. Use
-`--harness codex,cursor` to select named harnesses even without repository markers, or `--all`
-to configure every supported repository integration. The full skill remains in the source/npm/site
-distribution; installed pointers use `git-a2a explain`, `git-a2a usage --prompt`, and the public URL.
-
-`--dry-run` prints the files that would change and exits `0`; `--check` writes nothing and exits
-`1` if any installed file or entry is missing/stale. An invalid existing config exits `1`; bad
-options exit `2`.
-
-```text
-$ git-a2a setup --dry-run
-would write .agents/skills/git-a2a/SKILL.md (cross-agent skill)
-would write AGENTS.md (skill pointer)
-setup: dry run; 5 file(s) would change
-```
-
-## mcp
-
-`git-a2a mcp [--allow-write] [--roots DIR[,DIR...]]... [--any-root] [--print-roots]` runs a
-stateless MCP server over stdio. By default it exposes exactly eight tools (`who`, `show`,
-`status`, `validate`, `doctor`, `fetch`, `explain`, `usage`), and
-four repository resources (`a2amodule://manifest`, `a2amodule://lock`,
-`a2amodule://roster`, `a2amodule://reference`). `--allow-write` additionally exposes `add`,
-`update`, `set`, `wire`, `sync`, and `contact`; `remove` remains CLI-only. The process opens no
-network listener and stores no server state. Protocol or command failures exit `1`; invalid
-options exit `2`.
-MCP `contact` enforces `accepts-external: false` and intentionally has no `external-ok` input:
-approving an external delivery remains a human CLI action.
-Descriptions, access gates, and annotations for all 14 tools are in the generated
-[MCP tool text audit](mcp-tools.md).
-
-Repository-dependent tools accept an optional `root` path, defaulting to the server startup
-directory. It must remain inside the startup directory, a repeated `--roots DIR[,DIR...]` value,
-or a `file://` root declared by a roots-capable client. The same post-symlink boundary applies to
-`files`, `target`, and other path arguments. An escape is an `isError` tool result with exit code
-2 and no partial work. `--print-roots` prints the startup and flag roots without starting the
-server. `--any-root` is the explicit unbounded opt-out and is never written by setup. Fixed
-resources refer to the startup repository. Use `--roots` or client workspace roots for one server
-that manages multiple repositories, or launch one isolated stdio server per repository.
-
-Run `git-a2a setup` to write project-scoped configuration for detected harnesses, including
-Claude Code's `.mcp.json`, or copy an exact configuration from the [MCP guide](mcp.md).
-
-```text
-$ git-a2a mcp
-```
-
-## version
-
-`git-a2a version [--check]` prints version, commit, target, and install channel. `--check` alone
-uses the network and exits `1` when an update is available. If only prereleases exist, it reports
-that no stable release is published and exits `0`; prereleases never become `latest`.
-
-```text
-$ git-a2a version
-git-a2a 1.0.0 (2a46f1368876, darwin/arm64, channel=binary)
-```
-
-## upgrade
-
-`git-a2a upgrade [--to VERSION]` downloads, checksum-verifies, and atomically replaces only a
-standalone binary-channel installation. Managed channels exit `1` with their native update
-command.
-
-```text
-$ git-a2a upgrade --to 1.0.1
-upgraded git-a2a 1.0.0 -> 1.0.1
-```
+There are no compatibility aliases or migration command. See [Migrating from schema 1](migration-v2.md).
