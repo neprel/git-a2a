@@ -8,7 +8,8 @@ the owner's Agent Card reference, and materializes an optional published surface
 ```sh
 git a2a init
 git a2a add https://github.com/acme/lib-utils.git --name lib-utils
-git a2a list lib-utils
+git a2a list
+git a2a whose lib-utils
 ```
 
 `add` requires an upstream schema 2 manifest and `agent.card`; a plain Git repository is not a
@@ -33,7 +34,7 @@ checkout merely because code was installed.
 
 ## Consult the responsible agent
 
-`git a2a list lib-utils` shows the declared agent and a usable Agent Card reference. HTTPS cards
+`git a2a whose lib-utils` shows the declared agent and a usable Agent Card reference. HTTPS cards
 remain URLs; repository-relative cards resolve to recoverable `.git-a2a/agents/` metadata from
 the applied commit. Give that reference and your request to an external A2A client. git-a2a does
 not send the message, hold a conversation, create a task, or decide how the external client
@@ -47,6 +48,8 @@ git a2a pull
 ```
 
 The first form updates one dependency; the second updates all dependencies in stable order.
+When no dependencies are declared, the second form reports `No dependencies.` and succeeds
+without changing files.
 Pull invokes each saved adapter at the newly resolved commit and refreshes owner metadata and
 surface. It also reconstructs missing owned materialization after a fresh clone. It is not a
 wrapper around `git pull`, and it does not redetect a new package-manager variant.

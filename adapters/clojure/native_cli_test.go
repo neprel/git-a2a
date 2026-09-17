@@ -11,7 +11,7 @@ import (
 )
 
 // TestPublicCLIClojureLifecycle exercises the Clojure adapter through the
-// public five-command CLI. The pinned native runner enables this test; in that
+// public six-command CLI. The pinned native runner enables this test; in that
 // environment a missing clojure/clj executable is a hard failure, never a
 // successful skip.
 func TestPublicCLIClojureLifecycle(t *testing.T) {
@@ -61,7 +61,7 @@ agent:
 	}
 	depsBeforeList := clojureRead(t, filepath.Join(consumer, "deps.edn"))
 	lockBeforeList := clojureRead(t, filepath.Join(consumer, "a2amodule.lock"))
-	listed := runClojureNative(t, consumer, bin, "list", "fixture")
+	listed := runClojureNative(t, consumer, bin, "list")
 	if !strings.Contains(listed, "problem:") || !strings.Contains(listed, "got missing") {
 		t.Fatalf("list did not report missing Clojure materialization:\n%s", listed)
 	}

@@ -3,9 +3,51 @@ hint-format: 1
 ---
 # Current theses
 
-## Thesis T-migrated-sites: Preserve reviewed project guidance
+## Thesis T-six-command-sites: Document list and whose
 Status: accepted
+Based-on: user:decision
+Supersedes: T-migrated-sites
+
+### Guidance
+<folder_context path="sites">
+<product_goal_and_intent name="static public documentation">
+sites/git-a2a.com is the local-first static documentation and installer package for schema 2 and
+the six-command CLI. It explains component code, its one responsible Agent Card, and optional
+surface without presenting git-a2a as a messaging, catalog, trust, setup, MCP, or agent-hosting
+product.
+</product_goal_and_intent>
+<system_invariant name="canonical copies">
+Public install.sh is byte-identical to root install.sh. Public schema/a2amodule.v2.json and
+schema/a2amodule-lock.v2.json are byte-identical to spec/schema sources. The published portable
+skill tree is byte-identical to skills/git-a2a.
+</system_invariant>
+<settled_decision name="static local-first">
+Use existing hand-written HTML/CSS/assets with no framework, analytics, remote fonts, or runtime
+service. Pages work from file:// and static HTTP. Preserve responsive accessibility and brand.
+</settled_decision>
+<user_interface_surface name="documentation pages">
+The landing page shows code dependency, owning agent card, and surface plus exactly init/add/pull/
+remove/list/whose and installation. /spec and /schema document schema 2. Remove extension/catalog/demo/
+trust/MCP/setup/contact material; historical schema 1 links resolve to a migration explanation,
+never a reader that suggests compatibility.
+</user_interface_surface>
+<compilation_and_testing_pipeline>
+make site-check validates installers, strict local links, canonical copies, HTML metadata,
+publication allowlist, stale-term absence, and transfer budget. Do not deploy during local work.
+</compilation_and_testing_pipeline>
+</folder_context>
+
+### Rationale
+The user directly added whose and required the restored site design to remain intact.
+# Investigations
+
+# Historical theses
+
+
+## Thesis T-migrated-sites: Preserve reviewed project guidance
+Status: superseded
 Based-on: user-reviewed-contract-migration
+Superseded-by: T-six-command-sites
 
 ### Guidance
 <folder_context path="sites">
@@ -38,7 +80,3 @@ publication allowlist, stale-term absence, and transfer budget. Do not deploy du
 
 ### Rationale
 Migrated from the pre-2.0 HINT source format without changing its guidance.
-
-# Investigations
-
-# Historical theses

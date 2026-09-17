@@ -88,7 +88,7 @@ func TestRelativeTransitionsAndOfflineRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	finalize()
-	listed, problems := ForList(root, "lib", second.Agent)
+	listed, problems := ForInspection(root, "lib", second.Agent)
 	if len(problems) != 0 || listed.Card == "" || listed.DeclaredCard != "two.json" || listed.Commit != commitB {
 		t.Fatalf("listed=%+v problems=%v", listed, problems)
 	}
@@ -100,7 +100,7 @@ func TestRelativeTransitionsAndOfflineRecovery(t *testing.T) {
 	if err := os.Remove(filepath.Join(root, filepath.FromSlash(listed.Card))); err != nil {
 		t.Fatal(err)
 	}
-	listed, problems = ForList(root, "lib", second.Agent)
+	listed, problems = ForInspection(root, "lib", second.Agent)
 	if listed.Card != "" || len(problems) == 0 {
 		t.Fatalf("missing card reported as usable: %+v %v", listed, problems)
 	}
@@ -109,7 +109,7 @@ func TestRelativeTransitionsAndOfflineRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	finalize()
-	if listed, problems = ForList(root, "lib", second.Agent); listed.Card == "" || len(problems) != 0 {
+	if listed, problems = ForInspection(root, "lib", second.Agent); listed.Card == "" || len(problems) != 0 {
 		t.Fatalf("recovery failed: %+v %v", listed, problems)
 	}
 
@@ -125,7 +125,7 @@ func TestRelativeTransitionsAndOfflineRecovery(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(root, ".git-a2a", "agents", "lib")); !os.IsNotExist(err) {
 		t.Fatalf("relative to HTTPS transition left stale card: %v", err)
 	}
-	if listed, problems = ForList(root, "lib", https.Agent); listed.Card != https.Agent.Card || len(problems) != 0 {
+	if listed, problems = ForInspection(root, "lib", https.Agent); listed.Card != https.Agent.Card || len(problems) != 0 {
 		t.Fatalf("HTTPS list = %+v %v", listed, problems)
 	}
 }
@@ -154,7 +154,7 @@ func TestApplyAndListRejectSymlinkEscape(t *testing.T) {
 	if _, _, err := Apply(root, "lib", prepared); err == nil {
 		t.Fatal("symlinked metadata root accepted")
 	}
-	listed, problems := ForList(root, "lib", prepared.Agent)
+	listed, problems := ForInspection(root, "lib", prepared.Agent)
 	if listed.Card != "" || len(problems) == 0 {
 		t.Fatalf("symlink exposed as usable: %+v %v", listed, problems)
 	}

@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-// TestPublicCLINPMVariantLifecycle exercises the public five-command surface.
+// TestPublicCLINPMVariantLifecycle exercises the public six-command surface.
 // Native jobs opt in explicitly; once enabled, a missing advertised manager is
 // a hard failure from the CLI rather than a skip.
 func TestPublicCLINPMVariantLifecycle(t *testing.T) {

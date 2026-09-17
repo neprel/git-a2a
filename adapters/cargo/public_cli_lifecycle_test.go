@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-// TestPublicCLICargoLifecycle exercises Cargo through the public five-command
+// TestPublicCLICargoLifecycle exercises Cargo through the public six-command
 // surface and then compiles and runs the consumer. The explicit version gate
 // makes native evidence reproducible instead of silently accepting whichever
 // Cargo happens to be on PATH. For example:

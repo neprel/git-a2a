@@ -14,7 +14,7 @@ const (
 	goCLISource = "https://github.com/git-a2a-tests/native-go-fixture.git"
 )
 
-// TestPublicCLIGoLifecycle exercises Go through the public five-command CLI.
+// TestPublicCLIGoLifecycle exercises Go through the public six-command CLI.
 // The source is a local Git repository reached through a process-local Git URL
 // rewrite, so the Go tool still resolves real pseudo-versions without relying
 // on an external forge or module proxy.

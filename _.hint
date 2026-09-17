@@ -3,9 +3,85 @@ hint-format: 1
 ---
 # Current theses
 
-## Thesis T-migrated-root: Preserve reviewed project guidance
+## Thesis T-six-command-root: Adopt the six-command CLI contract
 Status: accepted
+Based-on: user:decision
+Supersedes: T-migrated-root
+
+### Guidance
+<folder_context path=".">
+<application_context name="git-a2a schema 2">
+git-a2a is a cross-platform Git component dependency manager. A dependency combines code,
+one responsible external agent, and an optional published surface. The CLI applies code through
+consumer-platform adapters and exposes metadata for an external A2A client; it never sends A2A
+messages, runs agents, hosts endpoints, or manages tasks.
+</application_context>
+<system_invariant name="six domain commands">
+The only domain commands are init, add, pull, remove, list, and whose. --help and --version are service
+flags. Do not add aliases or reintroduce install, update, restore, show, validate, status, who,
+contact, card, catalog, trust, setup, mcp, upgrade, wire, fetch, sync, doctor, pin, or authoring
+commands.
+</system_invariant>
+<settled_decision name="schema 2 files">
+The root declaration is exactly one of a2amodule.yml or a2amodule.yaml; generators write .yml.
+The lock is a2amodule.lock and local recoverable state is under ignored .git-a2a/. Schema 1 is
+rejected before mutation and has no compatibility reader or migrate command.
+</settled_decision>
+<settled_decision name="component ownership">
+A manifest declares one component and at most one responsible external agent. The agent is an
+A2A Agent Card reference, not duplicated skills, interfaces, authentication, roles, scopes,
+intents, contacts, trust policy, or liveness state. An incomplete manifest created by init may
+omit the agent; an upstream used by add or pull must declare agent.card.
+</settled_decision>
+<settled_decision name="direct dependencies and revision">
+Dependencies are direct and consumer-local aliases. Add resolves an omitted ref to the actual
+default branch. Pull resolves the requested branch, tag, or commit once; every polyglot binding,
+the upstream manifest, and surface use that same commit. The selected adapter and concrete
+variant are durable in the declaration and lock and must never change because PATH or marker
+files changed. Lock is written only after a successful per-dependency transaction.
+</settled_decision>
+<settled_decision name="surface">
+Surface is optional upstream tracked data and is not installation. A declared relative directory
+or '.' is materialized from the applied commit under .git-a2a/surfaces/ALIAS. Exclude .git,
+untracked files, traversal, and symlink escape. Missing surface means no published source access.
+</settled_decision>
+<settled_decision name="adapter matrix">
+Preserve every real adapter in adapters/: npm-family, Python, Go, Cargo, Swift, Pub, Gem,
+Composer, Hex, Hackage, Zig, Clojure, Nix, CMake, Gradle, MSBuild, Maven, and Meson. Git submodule
+is an ordinary registry adapter. Build adapters compose with one submodule materialization and
+must not recreate vendor/copy subsystems. Unsupported native Git sources fall back explicitly to
+submodule; a missing executable never silently changes a saved adapter.
+</settled_decision>
+<critical_system_mandates name="safe mutation">
+Preflight conflicts, tools, and dirty submodules before mutation. Never erase user changes.
+Snapshot and roll back owned manifests, native lockfiles, and Git metadata on failure; report
+unrecoverable external cache state precisely. Pass remote data as argv/data, never shell code.
+</critical_system_mandates>
+<approved_dependency_whitelist name="Go runtime">
+gopkg.in/yaml.v3 is the only non-standard-library runtime dependency. Do not use CGO.
+</approved_dependency_whitelist>
+<compilation_and_testing_pipeline>
+Keep go build ./..., go test ./..., go vet ./..., race tests, schema/examples parity, adapter
+corpus, conformance, docs/site checks, and darwin/linux/windows amd64/arm64 cross-builds green.
+Native execution claims require that native runtime; cross-compilation is build evidence only.
+</compilation_and_testing_pipeline>
+<scope_boundary name="distribution">
+Keep binary installation and packaging channels, removing only MCP/setup/self-updater artifacts.
+Do not publish a release, create a stable tag, or deploy the site without a separate request.
+</scope_boundary>
+</folder_context>
+
+### Rationale
+The user directly replaced the five-command surface with the six-command list/whose contract.
+# Investigations
+
+# Historical theses
+
+
+## Thesis T-migrated-root: Preserve reviewed project guidance
+Status: superseded
 Based-on: user-reviewed-contract-migration
+Superseded-by: T-six-command-root
 
 ### Guidance
 <folder_context path=".">
@@ -72,7 +148,3 @@ Do not publish a release, create a stable tag, or deploy the site without a sepa
 
 ### Rationale
 Migrated from the pre-2.0 HINT source format without changing its guidance.
-
-# Investigations
-
-# Historical theses

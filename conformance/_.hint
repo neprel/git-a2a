@@ -3,9 +3,74 @@ hint-format: 1
 ---
 # Current theses
 
-## Thesis T-migrated-conformance: Preserve reviewed project guidance
+## Thesis T-conformance-v3: Cover the six-command CLI
 Status: accepted
+Based-on: user:decision
+Supersedes: T-migrated-conformance
+
+### Guidance
+<folder_context path="conformance">
+
+<application_context name="git-a2a schema 2 implementation conformance corpus">
+This subtree is a language-neutral executable contract for schema 2. It tests only the six public
+domain commands through a supplied binary and never imports the reference implementation. A second
+implementation clones the repository, sets CONFORMANCE_BIN, and receives the same cases and verdicts.
+</application_context>
+
+<settled_decision name="Version 3 cases are sequential filesystem contracts">
+Every numbered directory under cases/ contains manifest/ as the initial working directory, command
+as a JSON array of argv arrays, and expected/exit-code. Invocations run in order in the same fresh
+temporary repository and stop at the first non-zero exit. Optional expected/stdout and stderr contain
+one Go-compatible regular expression per non-comment line; ! negates a pattern. Files under
+expected/files/ match byte-for-byte, expected/absent paths must not exist, and
+expected/file-patterns.json checks required syntax. env.json adds environment values.
+</settled_decision>
+
+<system_invariant name="The runner treats the implementation as an external program">
+CONFORMANCE_BIN names one executable. The runner invokes it without a shell, observes only public
+stdout, stderr, exit status, and filesystem effects, and never calls an internal package. Cases use
+only acme-* identities and have no credentials or public network dependency.
+</system_invariant>
+
+<settled_decision name="Git lifecycle fixtures are local and revision-consistent">
+git-fixture.json creates one tracked source commit and a local bare remote, optionally initializing
+the consumer as a Git repository. {{GIT_URL}} and {{GIT_COMMIT}} are the only source tokens. The
+six-command lifecycle case proves init, add, list, whose, pull, and remove in one repository, with the same
+commit used for the submodule, lock metadata, agent discovery, and surface materialization.
+</settled_decision>
+
+<settled_decision name="Conformance versions independently from CLI releases">
+conformance/VERSION is the integer protocol and contract revision. Version 3 retains version 2 sequencing; version 2 intentionally broke
+the schema 1 runner protocol: command is now a sequence, and removed HTTP/contact, disposable-cache,
+shell-fixture, and platform-skip facilities are not accepted.
+</settled_decision>
+
+<scope_boundary name="Schema 2 public behavior">
+Cover init, add, pull, remove, local list text/JSON and whose text/JSON, schema 1 and dual-manifest rejection, and
+representative removed-command rejection. Adapter-specific corpora and unit tests own the full
+platform matrix; conformance uses the real submodule fallback to exercise lifecycle without external
+package managers.
+</scope_boundary>
+
+<compilation_and_testing_pipeline name="Conformance gates">
+CONFORMANCE_BIN=&lt;absolute binary&gt; go run ./conformance/runner must pass on Linux and Windows.
+go test ./conformance/runner covers protocol parsing and normalization. The corpus must exercise all
+six domain commands and must not require network access beyond its local bare Git fixture.
+</compilation_and_testing_pipeline>
+
+</folder_context>
+
+### Rationale
+The user directly changed list selection into whose and expanded the public surface to six commands.
+# Investigations
+
+# Historical theses
+
+
+## Thesis T-migrated-conformance: Preserve reviewed project guidance
+Status: superseded
 Based-on: user-reviewed-contract-migration
+Superseded-by: T-conformance-v3
 
 ### Guidance
 <folder_context path="conformance">
@@ -61,7 +126,3 @@ five domain commands and must not require network access beyond its local bare G
 
 ### Rationale
 Migrated from the pre-2.0 HINT source format without changing its guidance.
-
-# Investigations
-
-# Historical theses

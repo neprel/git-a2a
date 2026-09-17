@@ -45,10 +45,10 @@ test.describe('reduced motion', () => {
   test('renders the complete current owner loop immediately', async ({ page }) => {
     await page.goto('/');
     const terminal = page.locator('#terminal-body');
-    for (const command of ['init --id my-app', 'add https://github.com/acme/utils', 'list utils', 'pull utils', 'remove utils']) {
+    for (const command of ['init --id my-app', 'add https://github.com/acme/utils', 'list', 'whose utils', 'pull utils', 'remove utils']) {
       await expect(terminal).toContainText(`git-a2a ${command}`);
     }
-    await expect(terminal).toContainText('owner: utils-agent');
+    await expect(terminal).toContainText('card: .git-a2a/agents/utils/agent-card.json');
     await expect(terminal).not.toContainText('demo/run.sh');
     await expect(page.locator('.hero .panel-note').last()).toContainText('Illustrative session');
     await expect(terminal.locator('.caret')).toHaveCount(1);
@@ -83,8 +83,10 @@ test.describe('static terminal fallback', () => {
     await page.goto('/');
     const terminal = page.locator('#terminal-body');
     await expect(terminal).toContainText('git-a2a init --id my-app');
+    await expect(terminal).toContainText('git-a2a list');
+    await expect(terminal).toContainText('git-a2a whose utils');
     await expect(terminal).toContainText('git-a2a remove utils');
-    await expect(terminal).toContainText('owner: utils-agent');
+    await expect(terminal).toContainText('agent: utils-agent');
     await expect(terminal).not.toContainText('demo/run.sh');
     await expect(terminal).not.toContainText('Docker');
 
@@ -127,7 +129,7 @@ test('terminal copy provides only the example commands', async ({ page, context 
   const label = button.locator('[aria-live="polite"]');
   await button.click();
   await expect(label).toHaveText('copied');
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("git-a2a init --id my-app\ngit-a2a add https://github.com/acme/utils\ngit-a2a list utils\ngit-a2a pull utils\ngit-a2a remove utils");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("git-a2a init --id my-app\ngit-a2a add https://github.com/acme/utils\ngit-a2a list\ngit-a2a whose utils\ngit-a2a pull utils\ngit-a2a remove utils");
   await expect(label).toHaveText('copy', { timeout: 1800 });
 });
 

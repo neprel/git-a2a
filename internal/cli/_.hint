@@ -3,9 +3,59 @@ hint-format: 1
 ---
 # Current theses
 
-## Thesis T-migrated-internal-cli: Preserve reviewed project guidance
+## Thesis T-six-command-cli: Separate list and whose
 Status: accepted
+Based-on: user:decision
+Supersedes: T-migrated-internal-cli
+
+### Guidance
+<folder_context path="internal/cli">
+<user_interface_surface name="CLI">
+Expose exactly init, add, pull, remove, list, whose plus --help and --version. The dispatcher, help,
+completion/docs, tests, and errors contain no old aliases. Exit 0 is success, 1 operational or
+partial failure, and 2 invalid invocation/input.
+</user_interface_surface>
+<function_contract name="init">
+Create a minimal schema 2 a2amodule.yml without overwriting either accepted manifest spelling;
+add .git-a2a/ to .gitignore. No interview or harness setup. An omitted agent is explicitly
+reported as incomplete for publication.
+</function_contract>
+<function_contract name="add">
+add SOURCE accepts optional --name, --ref, and --path. Fetch and validate the upstream schema 2
+manifest and required agent, reject self-reference, resolve one commit, choose all applicable
+exports/adapters (or submodule fallback), persist variants, apply transactionally, materialize
+relative Agent Card and surface, then write the already validated declaration and lock. A
+successful add leaves every selected platform dependency usable without a manual install.
+</function_contract>
+<function_contract name="pull">
+pull [NAME] succeeds without mutation when no dependencies exist. Otherwise it preflights all selected entries, then processes aliases in stable order. Each entry
+resolves ref once and calls the saved adapter bindings; missing materialization is restored.
+Successful earlier entries may remain if a later entry fails, and the summary must say so.
+</function_contract>
+<function_contract name="remove">
+Remove one dependency through each saved adapter so native declarations, native locks and
+project-local materialization converge, then remove its submodule, card snapshot, surface,
+cache, declaration, and lock without touching user data or other dependencies.
+</function_contract>
+<function_contract name="list and whose">
+list [--json] and whose NAME [--json] are offline and read-only. Stable list array and whose object output contain alias, component, source,
+requested ref, installed commit, saved adapter/variants, declared and usable agent-card
+references with provenance, surface path, and local problems. They perform no Git network,
+package-manager operation, or liveness check.
+</function_contract>
+</folder_context>
+
+### Rationale
+The user directly separated all-dependency list from per-alias whose and defined empty pull as success.
+# Investigations
+
+# Historical theses
+
+
+## Thesis T-migrated-internal-cli: Preserve reviewed project guidance
+Status: superseded
 Based-on: user-reviewed-contract-migration
+Superseded-by: T-six-command-cli
 
 ### Guidance
 <folder_context path="internal/cli">
@@ -46,7 +96,3 @@ package-manager operation, or liveness check.
 
 ### Rationale
 Migrated from the pre-2.0 HINT source format without changing its guidance.
-
-# Investigations
-
-# Historical theses

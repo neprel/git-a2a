@@ -65,7 +65,7 @@ def main() -> None:
     forbidden = ("ai-catalog","ext/module","demo/agents","transcript","a2amodule.v1","mcp")
     if any(term in tracked.lower() for term in forbidden): fail("legacy site artifact remains")
     visible = "\n".join(page.read_text().lower() for page in PAGES)
-    for required in ("init","add source","pull [name]","remove name","list [name]","agent card","surface"):
+    for required in ("init","add source","pull [name]","remove name","list [--json]","whose name [--json]","agent card","surface"):
         if required not in visible: fail(f"required copy missing: {required}")
     with tempfile.TemporaryDirectory() as temporary:
         package = pathlib.Path(temporary)/"public"

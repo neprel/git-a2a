@@ -1,2 +1,2 @@
-usage: git-a2a <init\|add\|pull\|remove\|list>
+usage: git-a2a <init\|add\|pull\|remove\|list\|whose>
 !install[[:space:]]+install

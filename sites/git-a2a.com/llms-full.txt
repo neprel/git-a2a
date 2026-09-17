@@ -1,8 +1,10 @@
 # git-a2a schema 2
 
-The only domain commands are `init`, `add`, `pull`, `remove`, and `list`. One dependency alias
+The only domain commands are `init`, `add`, `pull`, `remove`, `list`, and `whose`. One dependency alias
 records its Git source, requested ref, exact applied commit, and saved adapter variants. Every
-polyglot binding and the optional surface use that commit. `list` is offline and read-only.
+polyglot binding and the optional surface use that commit. `list` reports all aliases; `whose
+NAME` reports one owner, usable Agent Card reference, and available surface. Both are offline and
+read-only.
 
 An upstream used as a dependency must declare one `agent.card`. The Agent Card remains the source
 of interfaces, skills, and authentication. git-a2a never sends a message, runs or hosts an agent,
@@ -16,7 +18,7 @@ dependencies. Git submodule is an ordinary adapter and an explicit initial-selec
 for unsupported native sources; missing tools do not trigger a manager switch.
 
 An HTTPS Agent Card remains a URL. A repository-relative card is copied byte-for-byte from the
-applied commit to `.git-a2a/agents/NAME/` and exposed by `list` as a usable local reference.
+applied commit to `.git-a2a/agents/NAME/` and exposed by `whose` as a usable local reference.
 Read the optional published surface, consult the responsible agent using an external A2A client,
 then consume its published changes with `pull NAME`.
 

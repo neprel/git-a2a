@@ -70,7 +70,7 @@ func TestPublicCLIZigLifecycle(t *testing.T) {
 	}
 	zonMissing := zigRead(t, filepath.Join(consumer, "build.zig.zon"))
 	lockMissing := zigRead(t, filepath.Join(consumer, "a2amodule.lock"))
-	listed := zigCLI(t, consumer, bin, "list", "primary")
+	listed := zigCLI(t, consumer, bin, "list")
 	if !strings.Contains(listed, "problem:") {
 		t.Fatalf("list did not report missing Zig materialization:\n%s", listed)
 	}

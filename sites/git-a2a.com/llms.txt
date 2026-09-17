@@ -2,6 +2,8 @@
 
 git-a2a applies Git component dependencies through saved platform adapter variants. Each
 component declares one responsible A2A Agent Card reference and may publish a tracked surface.
+Use `list` to inspect all direct dependencies and `whose NAME` to locate one dependency's owner,
+usable Agent Card reference, and available local surface without network access.
 
 - Site: https://git-a2a.com/
 - Specification: https://github.com/neprel/git-a2a/blob/main/spec/README.md

@@ -66,3 +66,11 @@ The only schema 1 example is the deliberately invalid
 [`schema-1-migration`](./examples/invalid/schema-1-migration.a2amodule.yml). Schema 1 is rejected
 before mutation and is never reinterpreted. There is no compatibility reader or migrate command;
 follow [`docs/migration-v2.md`](../docs/migration-v2.md) to author a schema 2 declaration.
+
+## Local CLI observation contract
+
+`list [--json]` reports all direct dependency aliases; its JSON form is always an array. Owner
+lookup is separate: `whose ALIAS [--json]` returns one dependency's responsible Agent Card
+reference and locally available surface without network access, agent execution, A2A messaging,
+or file mutation. `list ALIAS` is invalid. A no-name `pull` against a valid manifest with no
+dependencies succeeds without invoking adapters or writing state; a named unknown alias fails.

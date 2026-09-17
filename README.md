@@ -15,7 +15,7 @@ documentation, examples, or source. A consumer connects the code through its own
 adapter and records the exact commit, adapter, and package-manager variant.
 
 git-a2a does not send messages, manage tasks, run agents, or host Agent Cards. Use the usable Agent Card reference
-shown by `git a2a list` with an external A2A client: an HTTPS URL or a local copy of a
+shown by `git a2a whose NAME` with an external A2A client: an HTTPS URL or a local copy of a
 repository-relative card from the applied commit.
 
 ## Quick start
@@ -26,20 +26,22 @@ Run the binary directly as `git-a2a`, or install it on `PATH` and use Git's equi
 ```sh
 git a2a init
 git a2a add https://github.com/acme/lib-utils.git --name lib-utils
-git a2a list lib-utils
+git a2a list
+git a2a whose lib-utils
 git a2a pull lib-utils
 git a2a remove lib-utils
 ```
 
-There are exactly five domain commands:
+There are exactly six domain commands:
 
 | Command | Result |
 | --- | --- |
 | `init` | Creates a minimal schema 2 `a2amodule.yml` without overwriting an existing manifest. |
 | `add SOURCE` | Resolves one commit, chooses applicable adapters, connects the component, and records its owner and surface. |
-| `pull [NAME]` | Updates one or every dependency through the adapters and variants chosen by `add`; missing materialization is restored. |
+| `pull [NAME]` | Updates one or every dependency through the adapters and variants chosen by `add`; with no dependencies it reports `No dependencies.` and succeeds without mutation. |
 | `remove NAME` | Removes only the selected dependency's owned integration and local materialization. |
-| `list [NAME]` | Reports local dependency, commit, adapter, Agent Card, surface, and problem information; `--json` is available. |
+| `list` | Reports every direct dependency, commit, adapter, Agent Card, surface, and local problem; `--json` returns the existing array format. |
+| `whose NAME` | Reports one dependency's responsible agent, usable Agent Card reference, optional local surface, and recoverable metadata problems; `--json` returns one object. |
 
 `pull` is adapter lifecycle, not a wrapper around `git pull`. All bindings of a polyglot
 component use the same resolved commit. Adapter and manager selection is durable: a later change
@@ -159,7 +161,7 @@ Maintainer and provenance details are in [the release guide](docs/releasing.md).
 - [FAQ](docs/faq.md)
 - [Release and installation maintenance](docs/releasing.md)
 
-The portable [Agent Skill](skills/git-a2a/SKILL.md) teaches a coding agent this five-command
+The portable [Agent Skill](skills/git-a2a/SKILL.md) teaches a coding agent this six-command
 workflow. It does not configure an MCP server or agent harness.
 
 ## Specification as source

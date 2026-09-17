@@ -2,7 +2,7 @@
 
 Schema 2 is an intentional break. Current git-a2a rejects schema 1 before changing files. It has
 no legacy reader, compatibility mode, deprecated aliases, or `migrate` command. Convert and
-review the repository manually before using the five-command lifecycle.
+review the repository manually before using the six-command lifecycle.
 
 ## 1. Replace the ownership model
 
@@ -57,7 +57,7 @@ init  add  pull  remove  list
 ```
 
 Replace old restore or update jobs with `pull`; replace status/show/owner queries with local
-`list` or `list --json`. Remove automation for message delivery, routing, card export, catalogs,
+`list`, `list --json`, or `whose NAME`. Remove automation for message delivery, routing, card export, catalogs,
 trust policy, copy-based vendoring, harness setup, MCP, and binary self-update. Use an external
 A2A client to contact the card reported by `list`, and use the original installation channel to
 update git-a2a itself.

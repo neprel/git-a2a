@@ -68,7 +68,7 @@ func Prepare(ctx context.Context, fetcher FileFetcher, alias, source, commit, ma
 }
 
 // ResolvedPath returns the stable consumer-relative reference used in locks
-// and list output for a repository-relative card.
+// and local metadata output for a repository-relative card.
 func ResolvedPath(alias string) string {
 	return path.Join(".git-a2a", "agents", alias, fileName)
 }
@@ -172,9 +172,9 @@ func Remove(root, alias string) (restore func() error, finalize func(), err erro
 	return func() error { return os.Rename(backup, target) }, func() { _ = os.RemoveAll(backup) }, nil
 }
 
-// ForList returns a copy suitable for offline list output. A missing or unsafe
+// ForInspection returns a copy suitable for offline CLI output. A missing or unsafe
 // local file is never returned as a usable card reference.
-func ForList(root, alias string, locked manifest.LockedAgent) (manifest.LockedAgent, []string) {
+func ForInspection(root, alias string, locked manifest.LockedAgent) (manifest.LockedAgent, []string) {
 	if isHTTPS(locked.DeclaredCard) {
 		return locked, nil
 	}

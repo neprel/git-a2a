@@ -106,7 +106,7 @@ func TestLifecycleEndToEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 	first := result.Commit
-	items, err := s.List("")
+	items, err := s.List()
 	if err != nil || len(items) != 1 || items[0].Agent == nil || items[0].Agent.Card != "https://agents.example/lib/card.json" {
 		t.Fatalf("items=%+v err=%v", items, err)
 	}
@@ -121,9 +121,39 @@ func TestLifecycleEndToEnd(t *testing.T) {
 	if _, err = s.Remove(context.Background(), "dep"); err != nil {
 		t.Fatal(err)
 	}
-	items, err = s.List("")
+	items, err = s.List()
 	if err != nil || len(items) != 0 {
 		t.Fatalf("items=%+v err=%v", items, err)
+	}
+}
+
+func TestPullWithoutDependenciesSkipsAdaptersAndStateWrites(t *testing.T) {
+	root := t.TempDir()
+	pullCalls := 0
+	s := Service{Root: root, Adapters: []adapter.Adapter{controlledAdapter{variant: "go", pullCalls: &pullCalls}}}
+	if err := s.Init("consumer", ""); err != nil {
+		t.Fatal(err)
+	}
+	manifestBefore, err := os.ReadFile(filepath.Join(root, manifest.CanonicalName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	results, err := s.Pull(context.Background(), "")
+	if err != nil || len(results) != 0 {
+		t.Fatalf("results=%+v err=%v", results, err)
+	}
+	manifestAfter, err := os.ReadFile(filepath.Join(root, manifest.CanonicalName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(manifestAfter) != string(manifestBefore) || pullCalls != 0 {
+		t.Fatalf("empty pull mutated state or called adapters (calls=%d)", pullCalls)
+	}
+	if _, err := os.Stat(filepath.Join(root, "a2amodule.lock")); !os.IsNotExist(err) {
+		t.Fatalf("empty pull created lock: %v", err)
+	}
+	if _, err := s.Pull(context.Background(), "missing"); err == nil || !strings.Contains(err.Error(), `dependency "missing" not found`) {
+		t.Fatalf("unknown dependency error=%v", err)
 	}
 }
 
@@ -153,16 +183,16 @@ func TestRelativeAgentCardLifecycleIsExactOfflineAndRecoverable(t *testing.T) {
 	if got, err := os.ReadFile(localCard); err != nil || string(got) != string(first) {
 		t.Fatalf("card=%q err=%v", got, err)
 	}
-	items, err := s.List("dep")
-	if err != nil || items[0].Agent.DeclaredCard != "metadata/owner.card" || items[0].Agent.Card != ".git-a2a/agents/dep/agent-card.json" {
-		t.Fatalf("list=%+v err=%v", items, err)
+	owner, err := s.Whose("dep")
+	if err != nil || owner.Agent.DeclaredCard != "metadata/owner.card" || owner.Agent.Card != ".git-a2a/agents/dep/agent-card.json" {
+		t.Fatalf("whose=%+v err=%v", owner, err)
 	}
 	if err = os.Remove(localCard); err != nil {
 		t.Fatal(err)
 	}
-	items, err = s.List("dep")
-	if err != nil || items[0].Agent.Card != "" || len(items[0].Problems) == 0 {
-		t.Fatalf("missing-card list=%+v err=%v", items, err)
+	owner, err = s.Whose("dep")
+	if err != nil || owner.Agent.Card != "" || len(owner.Problems) == 0 {
+		t.Fatalf("missing-card whose=%+v err=%v", owner, err)
 	}
 	if _, err = s.Pull(context.Background(), "dep"); err != nil {
 		t.Fatal(err)
@@ -193,9 +223,9 @@ func TestRelativeAgentCardLifecycleIsExactOfflineAndRecoverable(t *testing.T) {
 	if _, err = os.Stat(localCard); !os.IsNotExist(err) {
 		t.Fatalf("obsolete card remains: %v", err)
 	}
-	items, err = s.List("dep")
-	if err != nil || items[0].Agent.Card != "https://agents.example/lib/card.json" {
-		t.Fatalf("https list=%+v err=%v", items, err)
+	owner, err = s.Whose("dep")
+	if err != nil || owner.Agent.Card != "https://agents.example/lib/card.json" {
+		t.Fatalf("https whose=%+v err=%v", owner, err)
 	}
 }
 
@@ -334,7 +364,7 @@ func TestAddUnsupportedNPMSubdirectoryUsesOneSubmoduleAndNoNPMEntry(t *testing.T
 	if string(after) != string(packageJSON) {
 		t.Fatalf("npm manifest changed during fallback: %s", after)
 	}
-	items, err := s.List("lib")
+	items, err := s.List()
 	if err != nil || len(items[0].Bindings) != 1 || items[0].Bindings[0].Adapter != "submodule" {
 		t.Fatalf("items=%+v err=%v", items, err)
 	}

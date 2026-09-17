@@ -68,7 +68,7 @@ func runPublicPythonLifecycle(t *testing.T, bin, variant string) {
 	// list is an offline observation. In particular it must not rewrite a
 	// manager lock, project declaration, or installed direct_url metadata.
 	beforeList := project.stateDigest(t)
-	out := project.run(t, bin, "list", "fixture", "--json")
+	out := project.run(t, bin, "list", "--json")
 	if !strings.Contains(out, `"name": "fixture"`) && !strings.Contains(out, `"name":"fixture"`) {
 		t.Fatalf("list output does not contain fixture: %s", out)
 	}

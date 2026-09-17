@@ -65,6 +65,8 @@ func (a *App) Run(args []string) int {
 		return a.remove(ctx, args[1:])
 	case "list":
 		return a.list(args[1:])
+	case "whose":
+		return a.whose(args[1:])
 	default:
 		fmt.Fprintf(a.Err, "git-a2a: unknown command %q\n", args[0])
 		a.usage()
@@ -73,8 +75,8 @@ func (a *App) Run(args []string) int {
 }
 
 func (a *App) usage() {
-	fmt.Fprintln(a.Out, "usage: git-a2a <init|add|pull|remove|list> [options]")
-	fmt.Fprintln(a.Out, "\nCommands:\n  init    create a schema 2 component declaration\n  add     add and apply a component dependency\n  pull    apply the latest requested revision for one or all dependencies\n  remove  remove a dependency's owned integration\n  list    inspect dependencies offline\n\nService flags:\n  --help\n  --version")
+	fmt.Fprintln(a.Out, "usage: git-a2a <init|add|pull|remove|list|whose> [options]")
+	fmt.Fprintln(a.Out, "\nCommands:\n  init    create a schema 2 component declaration\n  add     add and apply a component dependency\n  pull    apply the latest requested revision for one or all dependencies\n  remove  remove a dependency's owned integration\n  list    inspect all dependencies offline\n  whose   show who owns one dependency and where to find its metadata\n\nService flags:\n  --help\n  --version")
 }
 func (a *App) commandHelp(command string) int {
 	switch command {
@@ -87,7 +89,9 @@ func (a *App) commandHelp(command string) int {
 	case "remove":
 		fmt.Fprintln(a.Out, "usage: git-a2a remove NAME")
 	case "list":
-		fmt.Fprintln(a.Out, "usage: git-a2a list [NAME] [--json]")
+		fmt.Fprintln(a.Out, "usage: git-a2a list [--json]")
+	case "whose":
+		fmt.Fprintln(a.Out, "usage: git-a2a whose NAME [--json]")
 	default:
 		fmt.Fprintf(a.Err, "git-a2a: unknown command %q\n", command)
 		return 2
@@ -194,6 +198,9 @@ func (a *App) pull(ctx context.Context, args []string) int {
 		fmt.Fprintf(a.Err, "pull: %v\n", err)
 		return 1
 	}
+	if name == "" && len(results) == 0 {
+		fmt.Fprintln(a.Out, "No dependencies.")
+	}
 	return 0
 }
 func (a *App) remove(ctx context.Context, args []string) int {
@@ -209,20 +216,17 @@ func (a *App) remove(ctx context.Context, args []string) int {
 	return 0
 }
 func (a *App) list(args []string) int {
-	name := ""
 	jsonOut := false
 	for _, arg := range args {
 		if arg == "--json" {
 			jsonOut = true
 		} else if strings.HasPrefix(arg, "-") {
 			return a.usageError("list", "unknown option "+arg)
-		} else if name != "" {
-			return a.usageError("list", "expected at most one dependency name")
 		} else {
-			name = arg
+			return a.usageError("list", fmt.Sprintf("positional arguments are not accepted; use git a2a whose %s", arg))
 		}
 	}
-	items, err := a.service().List(name)
+	items, err := a.service().List()
 	if err != nil {
 		fmt.Fprintf(a.Err, "list: %v\n", err)
 		return 1
@@ -246,6 +250,52 @@ func (a *App) list(args []string) int {
 		for _, p := range item.Problems {
 			fmt.Fprintf(a.Out, "  problem: %s\n", p)
 		}
+	}
+	return 0
+}
+func (a *App) whose(args []string) int {
+	name := ""
+	jsonOut := false
+	for _, arg := range args {
+		if arg == "--json" {
+			jsonOut = true
+		} else if strings.HasPrefix(arg, "-") {
+			return a.usageError("whose", "unknown option "+arg)
+		} else if name != "" {
+			return a.usageError("whose", "exactly one dependency name is required")
+		} else {
+			name = arg
+		}
+	}
+	if name == "" {
+		return a.usageError("whose", "exactly one dependency name is required")
+	}
+	item, err := a.service().Whose(name)
+	if err != nil {
+		fmt.Fprintf(a.Err, "whose: %v\n", err)
+		return 1
+	}
+	if jsonOut {
+		b, _ := json.MarshalIndent(item, "", "  ")
+		fmt.Fprintf(a.Out, "%s\n", b)
+		return 0
+	}
+	fmt.Fprintf(a.Out, "%s\t%s\n", item.Name, value(item.Component, "not-installed"))
+	if item.Agent == nil {
+		fmt.Fprintln(a.Out, "  agent: unavailable")
+	} else {
+		fmt.Fprintf(a.Out, "  agent: %s\n", value(item.Agent.Name, "unnamed"))
+		if item.Agent.Card != "" {
+			fmt.Fprintf(a.Out, "  card: %s\n", item.Agent.Card)
+		} else {
+			fmt.Fprintf(a.Out, "  card: unavailable (declared: %s)\n", item.Agent.DeclaredCard)
+		}
+	}
+	if item.Surface != "" {
+		fmt.Fprintf(a.Out, "  surface: %s\n", item.Surface)
+	}
+	for _, p := range item.Problems {
+		fmt.Fprintf(a.Out, "  problem: %s\n", p)
 	}
 	return 0
 }

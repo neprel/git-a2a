@@ -3,5 +3,6 @@ agent: Acme Library Agent https://agents\.example\.invalid/acme-lib/card\.json
 adapter: submodule/git
 "name": "acme-lib"
 "component": "acme-library"
-"commit": "0123456789abcdef0123456789abcdef01234567"
+"declaredCard": "https://agents\.example\.invalid/acme-lib/card\.json"
+"card": "https://agents\.example\.invalid/acme-lib/card\.json"
 "surface": "\.git-a2a/surfaces/acme-lib"

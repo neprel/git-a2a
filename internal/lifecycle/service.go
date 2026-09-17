@@ -1,4 +1,4 @@
-// Package lifecycle owns the five-command component dependency lifecycle.
+// Package lifecycle owns the six-command component dependency lifecycle.
 package lifecycle
 
 import (
@@ -44,6 +44,16 @@ type ListItem struct {
 	Ref       string                `json:"ref,omitempty"`
 	Commit    string                `json:"commit,omitempty"`
 	Bindings  []manifest.Binding    `json:"bindings"`
+	Agent     *manifest.LockedAgent `json:"agent,omitempty"`
+	Surface   string                `json:"surface,omitempty"`
+	Problems  []string              `json:"problems,omitempty"`
+}
+
+// WhoseItem reports only the locally available ownership metadata needed to
+// locate a dependency's responsible agent and published surface.
+type WhoseItem struct {
+	Name      string                `json:"name"`
+	Component string                `json:"component,omitempty"`
 	Agent     *manifest.LockedAgent `json:"agent,omitempty"`
 	Surface   string                `json:"surface,omitempty"`
 	Problems  []string              `json:"problems,omitempty"`
@@ -214,6 +224,9 @@ func (s Service) Pull(ctx context.Context, only string) ([]Result, error) {
 		}
 	}
 	if len(deps) == 0 {
+		if only == "" && len(own.Dependencies) == 0 {
+			return []Result{}, nil
+		}
 		return nil, fmt.Errorf("dependency %q not found", only)
 	}
 	sort.Slice(deps, func(i, j int) bool { return deps[i].Name < deps[j].Name })
@@ -434,7 +447,33 @@ func stageDirectoryRemoval(target string) (rollback func() error, finalize func(
 	}, func() { _ = os.RemoveAll(backup) }, nil
 }
 
-func (s Service) List(name string) ([]ListItem, error) {
+func (s Service) List() ([]ListItem, error) {
+	return s.listItems("", true)
+}
+
+func (s Service) Whose(name string) (WhoseItem, error) {
+	items, err := s.listItems(name, false)
+	if err != nil {
+		return WhoseItem{}, err
+	}
+	item := items[0]
+	whose := WhoseItem{
+		Name:      item.Name,
+		Component: item.Component,
+		Agent:     item.Agent,
+		Surface:   item.Surface,
+		Problems:  append([]string(nil), item.Problems...),
+	}
+	if whose.Surface != "" {
+		if problem := availableSurface(s.root(), name, whose.Surface); problem != "" {
+			whose.Surface = ""
+			whose.Problems = append(whose.Problems, problem)
+		}
+	}
+	return whose, nil
+}
+
+func (s Service) listItems(name string, inspectBindings bool) ([]ListItem, error) {
 	root := s.root()
 	own, err := manifest.LoadDir(root)
 	if err != nil {
@@ -444,7 +483,7 @@ func (s Service) List(name string) ([]ListItem, error) {
 	if lockErr != nil && !os.IsNotExist(lockErr) {
 		return nil, lockErr
 	}
-	var out []ListItem
+	out := make([]ListItem, 0, len(own.Dependencies))
 	for _, d := range own.Dependencies {
 		if name != "" && d.Name != name {
 			continue
@@ -457,7 +496,7 @@ func (s Service) List(name string) ([]ListItem, error) {
 				applied = &lockedCopy
 				item.Component = x.Component
 				item.Commit = x.Commit
-				listedAgent, cardProblems := cardmetadata.ForList(root, d.Name, x.Agent)
+				listedAgent, cardProblems := cardmetadata.ForInspection(root, d.Name, x.Agent)
 				item.Agent = &listedAgent
 				item.Problems = append(item.Problems, cardProblems...)
 				item.Surface = x.Surface
@@ -467,6 +506,10 @@ func (s Service) List(name string) ([]ListItem, error) {
 			} else {
 				item.Problems = append(item.Problems, "not installed; run git a2a pull "+d.Name)
 			}
+		}
+		if !inspectBindings {
+			out = append(out, item)
+			continue
 		}
 		for _, b := range d.Bindings {
 			impl := s.implementationFor(b)
@@ -506,6 +549,32 @@ func (s Service) List(name string) ([]ListItem, error) {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out, nil
+}
+
+func availableSurface(root, alias, surface string) string {
+	want := filepath.ToSlash(filepath.Join(".git-a2a", "surfaces", alias))
+	if surface != want {
+		return fmt.Sprintf("surface has invalid local path; run git a2a pull %s", alias)
+	}
+	current := root
+	for _, element := range []string{".git-a2a", "surfaces", alias} {
+		current = filepath.Join(current, element)
+		info, err := os.Lstat(current)
+		if err != nil {
+			return fmt.Sprintf("surface unavailable: %v; run git a2a pull %s", err, alias)
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Sprintf("surface unavailable: %s is a symlink; run git a2a pull %s", surface, alias)
+		}
+	}
+	info, err := os.Stat(current)
+	if err != nil {
+		return fmt.Sprintf("surface unavailable: %v; run git a2a pull %s", err, alias)
+	}
+	if !info.IsDir() {
+		return fmt.Sprintf("surface unavailable: %s is not a directory; run git a2a pull %s", surface, alias)
+	}
+	return ""
 }
 
 func (s Service) fetchUpstream(ctx context.Context, source, ref, modulePath, work string) (fetch.Result, *manifest.Manifest, error) {

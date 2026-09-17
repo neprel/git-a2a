@@ -1,7 +1,7 @@
 # CLI reference
 
 The executable may be invoked as `git-a2a` or, when installed on `PATH`, as `git a2a`.
-The two spellings run the same program. The domain surface is exactly five commands.
+The two spellings run the same program. The domain surface is exactly six commands.
 
 ## `init`
 
@@ -43,6 +43,9 @@ dependency. Pull resolves each dependency's saved ref once, then calls its saved
 variants at that commit. It also refreshes the upstream manifest, owner metadata, and optional
 surface. Missing installed packages, target environments, cache, checkout, card, or surface
 content is restored as part of this lifecycle, even when the resolved commit has not changed.
+When the manifest has no dependencies, the no-name form prints `No dependencies.`, exits `0`,
+and does not invoke adapters or write files. A named dependency that does not exist remains an
+operational error.
 
 `pull` is not the system `git pull` command. It never silently chooses another adapter or
 package manager because the local environment changed. When updating all dependencies, a failure
@@ -64,16 +67,36 @@ other dependencies. Unsafe removal fails instead of deleting user changes.
 ## `list`
 
 ```text
-git a2a list [NAME] [--json]
+git a2a list [--json]
 ```
 
-Reports the alias, upstream component identity, Git source, requested ref, installed commit,
-saved adapter variants, declared agent, usable Agent Card reference and provenance, surface path,
-and local problems. HTTPS cards remain URLs; repository-relative cards are available under
-`.git-a2a/agents/NAME/`. It is
-offline and read-only: it does not resolve a remote ref, run a package manager, or test agent
-liveness. Missing recoverable local state is shown as unknown or missing with a suggestion to
-run `pull`.
+Reports every direct dependency's alias, upstream component identity, Git source, requested ref,
+installed commit, saved adapter variants, declared agent, usable Agent Card reference and
+provenance, surface path, and local problems. `--json` returns an array, including `[]` when the
+manifest has no dependencies. Positional arguments are invalid; use `whose NAME` for one owner.
+
+This is an incompatible CLI change for the next release: scripts using `list NAME` must use
+`list --json` and select the alias from the array when they need installed dependency state, or
+use `whose NAME` when they need ownership metadata.
+
+## `whose`
+
+```text
+git a2a whose NAME [--json]
+```
+
+Explains who is responsible for the dependency named by the required consumer-local alias. Text
+output shows the upstream component, responsible agent, usable HTTPS Agent Card URL or local
+`.git-a2a/agents/NAME/agent-card.json` path, and the local published surface when available.
+Missing recoverable metadata is reported explicitly with a suggestion to run `pull NAME`.
+
+`whose --json` returns one object with `name`, optional `component`, optional `agent`, optional
+`surface`, and optional `problems`. The `agent` object is the existing locked Agent Card reference
+and provenance (`name`, `declaredCard`, usable `card`, and `commit`); it does not duplicate or
+interpret the Agent Card's interfaces, skills, authentication, or contacts.
+
+Both `list` and `whose` are offline and read-only: they do not resolve remote refs, run package
+managers or agents, send A2A messages, test liveness, or modify files.
 
 ## Service flags and exit status
 

@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-// TestPublicCLIHexLifecycle exercises Hex through the public five-command CLI.
+// TestPublicCLIHexLifecycle exercises Hex through the public six-command CLI.
 // The pinned Docker runner sets GITA2A_NATIVE_HEX=1; a missing native tool is
 // a failure once the test is enabled, never a successful skip.
 func TestPublicCLIHexLifecycle(t *testing.T) {
