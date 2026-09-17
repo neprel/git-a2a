@@ -40,15 +40,56 @@ test('mobile layout is readable and has no horizontal overflow', async ({ page }
 
 test.describe('reduced motion', () => {
   test.use({ reducedMotion: 'reduce' });
+  test.beforeEach(async ({ page }) => { await page.emulateMedia({ reducedMotion: 'reduce' }); });
 
   test('renders the complete current owner loop immediately', async ({ page }) => {
     await page.goto('/');
     const terminal = page.locator('#terminal-body');
-    await expect(terminal).toContainText('git-a2a list acme-lib-utils');
-    await expect(terminal).toContainText('python demo/a2a_client.py change');
-    await expect(terminal).toContainText('acme-lib-utils: pulled');
-    await expect(terminal).toContainText('Anonymous');
+    await expect(terminal).toContainText('./demo/run.sh');
+    await expect(terminal).toContainText('app-agent:/workspace/app');
+    await expect(terminal).toContainText('git-a2a 2.0.0 (752eda1db35315592154e7928e61a8f18454d733, linux/arm64, channel=binary)');
+    await expect(terminal).toContainText('python /demo/a2a_client.py "$card" request-fallback --timeout 300');
+    await expect(terminal).toContainText('6746eb451157f4deb804bc22ffde673c6d1e6f20');
+    await expect(terminal).toContainText('7573a09fa73e98c11a589bfef9c196541f028f7a');
+    await expect(terminal).toContainText('PASS: 2 clean-volume run(s)');
     await expect(terminal.locator('.caret')).toHaveCount(1);
+  });
+
+  test('transcript data renders the same command and output sequence', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('#terminal-body .caret')).toHaveCount(1);
+    const comparison = await page.evaluate(() => {
+      const transcript = JSON.parse(document.getElementById('transcript-data').textContent);
+      const expected = transcript.groups.flatMap(group => {
+        const outputs = group.render.flatMap(segment => {
+          const values = group[segment.stream].split('\n');
+          if (values.at(-1) === '') values.pop();
+          return values;
+        });
+        return [`$ ${group.command}`, ...outputs];
+      });
+      const actual = [...document.querySelectorAll('#terminal-body .term-line:not(.blank)')]
+        .slice(0, -1)
+        .map(element => element.textContent);
+      return { expected, actual };
+    });
+    expect(comparison.actual).toEqual(comparison.expected);
+  });
+});
+
+test.describe('static terminal fallback', () => {
+  test.use({ javaScriptEnabled: false });
+
+  test('contains the same verified Docker context and evidence without JavaScript', async ({ page }) => {
+    await page.goto('/');
+    const terminal = page.locator('#terminal-body');
+    await expect(terminal).toContainText('./demo/run.sh');
+    await expect(terminal).toContainText('Docker Compose full profile · app-agent:/workspace/app');
+    await expect(terminal).toContainText('git-a2a add "$DEMO_GIT_URL" --name acme-lib-utils --ref "$DEMO_BRANCH"');
+    await expect(terminal).toContainText('runner verified bindings=submodule/git,cmake/cmake,golang/go,npm/npm,pypi/uv');
+    await expect(terminal).toContainText('PASS: owner A2A request, commit, Pull, and npm/uv/Go/CMake assertions');
+    await expect(terminal).not.toContainText('git-a2a init');
+    await expect(terminal).not.toContainText('python demo/a2a_client.py change');
   });
 });
 
@@ -79,6 +120,42 @@ test('copy buttons announce copied state', async ({ page }) => {
   await button.click();
   await expect(label).toHaveText('copied');
   await expect(label).toHaveText('copy', { timeout: 1800 });
+});
+
+test('terminal copy provides the runnable host entrypoint', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'http://127.0.0.1:4173' });
+  await page.goto('/');
+  const button = page.getByRole('button', { name: 'Copy the full demo run command' });
+  const label = button.locator('[aria-live="polite"]');
+  await expect(button).toHaveAttribute('data-copy-command', './demo/run.sh');
+  await button.click();
+  await expect(label).toHaveText('copied');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('./demo/run.sh');
+  await expect(label).toHaveText('copy run', { timeout: 1800 });
+});
+
+test('repeated terminal copy resets label restoration', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'http://127.0.0.1:4173' });
+  await page.goto('/');
+  const button = page.getByRole('button', { name: 'Copy the full demo run command' });
+  const label = button.locator('[aria-live="polite"]');
+  await button.click();
+  await page.waitForTimeout(800);
+  await button.click();
+  await page.waitForTimeout(800);
+  await expect(label).toHaveText('copied');
+  await expect(label).toHaveText('copy run', { timeout: 900 });
+});
+
+test('terminal replay does not cancel copy label restoration', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'http://127.0.0.1:4173' });
+  await page.goto('/');
+  const copy = page.getByRole('button', { name: 'Copy the full demo run command' });
+  const label = copy.locator('[aria-live="polite"]');
+  await copy.click();
+  await page.getByRole('button', { name: 'replay' }).click();
+  await expect(label).toHaveText('copied');
+  await expect(label).toHaveText('copy run', { timeout: 1800 });
 });
 
 test('demo section retains commands, boundaries, and evidence links', async ({ page }) => {

@@ -30,14 +30,20 @@
   };
 
   document.querySelectorAll('[data-copy]').forEach(button => {
+    const label = button.querySelector('[aria-live]');
+    const original = label.textContent;
+    let restoreLabel;
     button.addEventListener('click', async () => {
       const source = button.dataset.copy === 'terminal'
-        ? transcript.groups.map(group => group.command).join('\n')
+        ? button.dataset.copyCommand || transcript.groups.map(group => group.command).join('\n')
         : document.querySelector(button.dataset.copy).textContent;
       await copyText(source);
-      const label = button.querySelector('[aria-live]');
       label.textContent = 'copied';
-      later(() => { label.textContent = 'copy'; }, 1400);
+      window.clearTimeout(restoreLabel);
+      restoreLabel = window.setTimeout(() => {
+        label.textContent = original;
+        restoreLabel = undefined;
+      }, 1400);
     });
   });
 
