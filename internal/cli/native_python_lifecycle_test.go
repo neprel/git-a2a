@@ -384,6 +384,7 @@ d = importlib.metadata.distribution("fixture-py")
 print(d.locate_file("fixture_py/__init__.py"))
 print(d.locate_file(d._path / "direct_url.json"))`
 	for _, path := range strings.Split(strings.TrimSpace(p.run(t, python, "-c", script)), "\n") {
+		path = strings.TrimSpace(path)
 		if filepath.IsAbs(path) {
 			files = append(files, path)
 		}
