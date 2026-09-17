@@ -32,11 +32,12 @@ sha256sum --ignore-missing -c checksums.txt
 ```
 
 The GHCR image is signed keylessly at its immutable digest. Verify the GitHub OIDC issuer and the
-tag-triggered release workflow identity:
+release workflow identity. Normal releases use the immutable tag ref; a recovery that completes an
+already-created immutable tag uses the protected `main` workflow ref:
 
 ```sh
 cosign verify \
-  --certificate-identity-regexp '^https://github\.com/neprel/git-a2a/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$' \
+  --certificate-identity-regexp '^https://github\.com/neprel/git-a2a/\.github/workflows/release\.yml@(refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?|refs/heads/main)$' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   ghcr.io/neprel/git-a2a@sha256:DIGEST
 ```
