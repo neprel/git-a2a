@@ -253,9 +253,9 @@ jobs:
               return
             fi
             npm publish "./${package_dir}" --access public --tag "$temporary_tag"
-            for attempt in $(seq 1 12); do
+            for attempt in $(seq 1 120); do
               if npm view "${package_name}@${package_version}" version >/dev/null 2>&1; then break; fi
-              [ "$attempt" -lt 12 ] || { echo "npm registry did not expose ${package_name}@${package_version}" >&2; exit 1; }
+              [ "$attempt" -lt 120 ] || { echo "npm registry did not expose ${package_name}@${package_version}" >&2; exit 1; }
               sleep 5
             done
             published_packages+=("$package_name")
