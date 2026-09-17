@@ -31,9 +31,9 @@
             ldflags = [
               "-s"
               "-w"
-              "-X github.com/neprel/git-a2a/internal/cli.Commit=${self.shortRev or self.dirtyShortRev or "unknown"}"
-              "-X github.com/neprel/git-a2a/internal/cli.Target=${targets.${system}}"
-              "-X github.com/neprel/git-a2a/internal/cli.Channel=nix"
+              "-X github.com/neprel/git-a2a/v2/internal/cli.Commit=${self.shortRev or self.dirtyShortRev or "unknown"}"
+              "-X github.com/neprel/git-a2a/v2/internal/cli.Target=${targets.${system}}"
+              "-X github.com/neprel/git-a2a/v2/internal/cli.Channel=nix"
             ];
             postInstall = ''
               wrapProgram "$out/bin/git-a2a" --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.git ]}

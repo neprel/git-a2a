@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/neprel/git-a2a/internal/gitx"
-	"github.com/neprel/git-a2a/internal/lifecycle"
-	versioninfo "github.com/neprel/git-a2a/internal/version"
+	"github.com/neprel/git-a2a/v2/internal/gitx"
+	"github.com/neprel/git-a2a/v2/internal/lifecycle"
+	versioninfo "github.com/neprel/git-a2a/v2/internal/version"
 )
 
 var Version = versioninfo.Current()

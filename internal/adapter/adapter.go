@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/neprel/git-a2a/internal/manifest"
+	"github.com/neprel/git-a2a/v2/internal/manifest"
 )
 
 type Variant string

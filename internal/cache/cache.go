@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/neprel/git-a2a/internal/manifest"
+	"github.com/neprel/git-a2a/v2/internal/manifest"
 )
 
 func Dir(root, id string) string { return filepath.Join(root, ".git-a2a", "cache", id) }

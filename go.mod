@@ -1,4 +1,4 @@
-module github.com/neprel/git-a2a
+module github.com/neprel/git-a2a/v2
 
 go 1.25.0
 

@@ -101,8 +101,8 @@ pin a version in CI.
 <!-- generated-facts:channels:start -->
 | Channel | Command |
 | --- | --- |
-| Go | `go install github.com/neprel/git-a2a/cmd/git-a2a@latest` |
-| Go zero-install | `go run github.com/neprel/git-a2a/cmd/git-a2a@latest --version` |
+| Go | `go install github.com/neprel/git-a2a/v2/cmd/git-a2a@latest` |
+| Go zero-install | `go run github.com/neprel/git-a2a/v2/cmd/git-a2a@latest --version` |
 | macOS/Linux installer | `curl -fsSL https://git-a2a.com/install.sh \| bash` |
 | Windows installer | `irm https://git-a2a.com/install.ps1 \| iex` |
 | Homebrew | `brew install neprel/tap/git-a2a` |

@@ -13,14 +13,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/neprel/git-a2a/adapters"
-	"github.com/neprel/git-a2a/internal/adapter"
-	"github.com/neprel/git-a2a/internal/cache"
-	"github.com/neprel/git-a2a/internal/cardmetadata"
-	"github.com/neprel/git-a2a/internal/fetch"
-	"github.com/neprel/git-a2a/internal/gitx"
-	lockfile "github.com/neprel/git-a2a/internal/lock"
-	"github.com/neprel/git-a2a/internal/manifest"
+	"github.com/neprel/git-a2a/v2/adapters"
+	"github.com/neprel/git-a2a/v2/internal/adapter"
+	"github.com/neprel/git-a2a/v2/internal/cache"
+	"github.com/neprel/git-a2a/v2/internal/cardmetadata"
+	"github.com/neprel/git-a2a/v2/internal/fetch"
+	"github.com/neprel/git-a2a/v2/internal/gitx"
+	lockfile "github.com/neprel/git-a2a/v2/internal/lock"
+	"github.com/neprel/git-a2a/v2/internal/manifest"
 )
 
 type Service struct {

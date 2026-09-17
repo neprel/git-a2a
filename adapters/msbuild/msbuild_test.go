@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/neprel/git-a2a/internal/adapter"
+	"github.com/neprel/git-a2a/v2/internal/adapter"
 )
 
 func TestGoldenRepairAndUnwireLifecycle(t *testing.T) {

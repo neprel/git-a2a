@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/neprel/git-a2a/internal/cli"
+	"github.com/neprel/git-a2a/v2/internal/cli"
 )
 
 func main() {

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/neprel/git-a2a/internal/gitx"
+	"github.com/neprel/git-a2a/v2/internal/gitx"
 )
 
 func TestPublicHostFetchStrategies(t *testing.T) {

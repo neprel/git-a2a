@@ -14,7 +14,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/neprel/git-a2a/internal/manifest"
+	"github.com/neprel/git-a2a/v2/internal/manifest"
 )
 
 const fileName = "agent-card.json"

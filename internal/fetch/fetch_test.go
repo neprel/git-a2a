@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/neprel/git-a2a/internal/gitx"
+	"github.com/neprel/git-a2a/v2/internal/gitx"
 )
 
 type fakeRunner struct {
@@ -182,11 +182,15 @@ func TestSurfaceFallsBackFromBareArchiveAndReturnsTree(t *testing.T) {
 func TestRootSurfacePreservesDotfilesAndExcludesGitMetadata(t *testing.T) {
 	var archive bytes.Buffer
 	w := tar.NewWriter(&archive)
-	for name, body := range map[string]string{
-		".well-known/agent-card.json": "{}\n",
-		"README.md":                   "surface\n",
-		".git/config":                 "must-not-escape\n",
+	for _, file := range []struct {
+		name string
+		body string
+	}{
+		{name: ".well-known/agent-card.json", body: "{}\n"},
+		{name: "README.md", body: "surface\n"},
+		{name: ".git/config", body: "must-not-escape\n"},
 	} {
+		name, body := file.name, file.body
 		if err := w.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: int64(len(body))}); err != nil {
 			t.Fatal(err)
 		}

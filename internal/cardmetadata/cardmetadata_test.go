@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/neprel/git-a2a/internal/fetch"
-	"github.com/neprel/git-a2a/internal/gitx"
-	"github.com/neprel/git-a2a/internal/manifest"
+	"github.com/neprel/git-a2a/v2/internal/fetch"
+	"github.com/neprel/git-a2a/v2/internal/gitx"
+	"github.com/neprel/git-a2a/v2/internal/manifest"
 )
 
 type recordingFetcher struct {

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/neprel/git-a2a/internal/adapter"
+	"github.com/neprel/git-a2a/v2/internal/adapter"
 )
 
 // TestNativeNPMVariantsLifecycle is intentionally opt-in: a native job that

@@ -9,8 +9,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/neprel/git-a2a/internal/adapter"
-	"github.com/neprel/git-a2a/internal/gitx"
+	"github.com/neprel/git-a2a/v2/internal/adapter"
+	"github.com/neprel/git-a2a/v2/internal/gitx"
 )
 
 // Capability performs the source-shape portion of lifecycle preflight.

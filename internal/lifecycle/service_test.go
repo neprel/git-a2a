@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/neprel/git-a2a/internal/adapter"
-	"github.com/neprel/git-a2a/internal/cardmetadata"
-	"github.com/neprel/git-a2a/internal/manifest"
+	"github.com/neprel/git-a2a/v2/internal/adapter"
+	"github.com/neprel/git-a2a/v2/internal/cardmetadata"
+	"github.com/neprel/git-a2a/v2/internal/manifest"
 )
 
 type fakeAdapter struct{ fail bool }

@@ -14,7 +14,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/neprel/git-a2a/internal/gitx"
+	"github.com/neprel/git-a2a/v2/internal/gitx"
 )
 
 type Result struct {

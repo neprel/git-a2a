@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	lockfile "github.com/neprel/git-a2a/internal/lock"
+	lockfile "github.com/neprel/git-a2a/v2/internal/lock"
 )
 
 // TestPublicCLIZigLifecycle is opt-in because it requires real Zig 0.14.1.
