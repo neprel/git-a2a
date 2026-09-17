@@ -151,13 +151,22 @@ func (a Adapter) syncNative(ctx context.Context, root string, exp adapter.Export
 		// commit changes. pip otherwise considers the installed distribution
 		// satisfied, so force only this direct requirement through resolution.
 		project := mustRead(root)
-		if err := adapter.Command(ctx, root, venvPython, "-m", "pip", "install", "--force-reinstall", "--disable-pip-version-check", projectRequirement(project, exp.Name)); err != nil {
+		direct := pipVCSRequirement(projectRequirement(project, exp.Name))
+		if err := adapter.Command(ctx, root, venvPython, "-m", "pip", "install", "--force-reinstall", "--disable-pip-version-check", direct); err != nil {
 			return err
 		}
 		// A recreated environment must also regain the consumer's unrelated
 		// direct requirements. A normal second install keeps already-satisfying
 		// versions instead of broadly upgrading or force-reinstalling them.
-		requirements := projectRequirements(project)
+		var requirements []string
+		for _, requirement := range projectRequirements(project) {
+			if normalizeProjectName(requirementName(requirement)) != normalizeProjectName(exp.Name) {
+				requirements = append(requirements, requirement)
+			}
+		}
+		if len(requirements) == 0 {
+			return nil
+		}
 		args := []string{"-m", "pip", "install", "--disable-pip-version-check"}
 		args = append(args, requirements...)
 		return adapter.Command(ctx, root, venvPython, args...)
@@ -503,6 +512,13 @@ func projectRequirement(s, name string) string {
 		}
 	}
 	return ""
+}
+
+func pipVCSRequirement(requirement string) string {
+	if _, vcs, ok := strings.Cut(requirement, " @ "); ok && strings.HasPrefix(vcs, "git+") {
+		return vcs
+	}
+	return requirement
 }
 
 func projectRequirements(s string) []string {

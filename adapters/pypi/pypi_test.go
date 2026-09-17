@@ -56,7 +56,7 @@ func TestPEP621SyncResolvesDependencies(t *testing.T) {
 	writeExecutable(t, venvPythonPath(root), "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$COMMAND_LOG\"\n")
 	t.Setenv("COMMAND_LOG", log)
 	t.Setenv("PATH", filepath.Join(root, "bin")+string(os.PathListSeparator)+os.Getenv("PATH"))
-	project := "[project]\nname = \"consumer\"\ndependencies = [\"fixture-py @ git+https://example.test/fixture.git@" + strings.Repeat("a", 40) + "\"]\n"
+	project := "[project]\nname = \"consumer\"\ndependencies = [\"fixture-py @ git+https://example.test/fixture.git@" + strings.Repeat("a", 40) + "\", \"idna==3.10\"]\n"
 	if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte(project), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -70,6 +70,9 @@ func TestPEP621SyncResolvesDependencies(t *testing.T) {
 	command := string(body)
 	if strings.Contains(command, "--no-deps") || !strings.Contains(command, "-m pip install --force-reinstall") || strings.Count(command, "-m pip install") != 2 {
 		t.Fatalf("pip command does not resolve dependencies: %s", command)
+	}
+	if strings.Contains(command, "fixture-py @ git+") || !strings.Contains(command, "git+https://example.test/fixture.git@") || !strings.Contains(command, "idna==3.10") {
+		t.Fatalf("pip command does not separate the VCS target from unrelated requirements: %s", command)
 	}
 }
 
