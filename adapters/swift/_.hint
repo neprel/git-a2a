@@ -1,4 +1,14 @@
-# decision SwiftPM owns one Package dependency expression
+---
+hint-format: 1
+---
+# Current theses
+
+## Thesis T-migrated-adapters-swift: Preserve reviewed project guidance
+Status: accepted
+Based-on: user-reviewed-contract-migration
+
+### Guidance
+#### decision SwiftPM owns one Package dependency expression
 
 The Swift adapter edits one `.package(url:..., revision:...)` expression in the top-level
 `Package(dependencies:)` array. Every dependency uses the full `LockedDependency.Commit` as
@@ -16,21 +26,28 @@ original Swift source bytes. A managed insertion into a non-empty single-line de
 uses an explicit inline marker so the closing bracket cannot be swallowed by a line comment and
 removal still restores the original layout.
 
-# invariant Source changes remove the old Swift identity
+#### invariant Source changes remove the old Swift identity
 
 When a dependency source changes, the transaction unwires adapters using the old source before
 wiring the new source. This prevents two Swift package identities from remaining in
 `Package.swift`, and remains atomic with every other ecosystem.
 
-# test Swift adapter
+#### test Swift adapter
 
 - Fixture/golden wiring is idempotent and preserves products, targets, comments, and unrelated
   package dependencies.
 - Drift checks the normalized URL and locked revision.
 - Unwire and source moves remove the old package expression only.
 
-# decision SwiftPM lifecycle prerequisite
+#### decision SwiftPM lifecycle prerequisite
 
 `Pull` and `Remove` check `swift` through the shared prerequisite contract before invoking it.
 `Inspect` is offline and requires the pin whose location matches the dependency Git source in
 `Package.resolved` to carry the exact locked revision. Another pin is not evidence.
+
+### Rationale
+Migrated from the pre-2.0 HINT source format without changing its guidance.
+
+# Investigations
+
+# Historical theses

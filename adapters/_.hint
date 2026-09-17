@@ -1,3 +1,13 @@
+---
+hint-format: 1
+---
+# Current theses
+
+## Thesis T-migrated-adapters: Preserve reviewed project guidance
+Status: accepted
+Based-on: user-reviewed-contract-migration
+
+### Guidance
 <folder_context path="adapters">
 <reusable_module_context name="platform adapters">
 Each registered adapter detects a consumer platform and concrete variant, performs a read-only
@@ -38,3 +48,10 @@ deletion of unrelated or transitively required entries. Native evidence runs thr
 CLI and proves the dependency can be used.
 </verification_and_unit_test_criteria>
 </folder_context>
+
+### Rationale
+Migrated from the pre-2.0 HINT source format without changing its guidance.
+
+# Investigations
+
+# Historical theses

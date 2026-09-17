@@ -17,10 +17,34 @@ import (
 )
 
 func TestHintCompiles(t *testing.T) {
-	command := exec.Command("hint", "spec/_.hint")
-	command.Dir = ".."
+	root := ".."
+	var paths []string
+	err := filepath.Walk(root, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if info.Mode().IsRegular() && strings.HasSuffix(path, ".hint") {
+			relative, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+			paths = append(paths, relative)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sort.Strings(paths)
+	command := exec.Command("hint", append([]string{"check"}, paths...)...)
+	command.Dir = root
 	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("compile spec HINT: %v: %s", err, output)
+		t.Fatalf("validate HINT corpus: %v: %s", err, output)
+	}
+	command = exec.Command("hint", "spec/_.hint")
+	command.Dir = root
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("render spec HINT: %v: %s", err, output)
 	}
 }
 

@@ -1,3 +1,13 @@
+---
+hint-format: 1
+---
+# Current theses
+
+## Thesis T-migrated-adapters-submodule: Preserve reviewed project guidance
+Status: accepted
+Based-on: user-reviewed-contract-migration
+
+### Guidance
 <folder_context path="adapters/submodule">
 
 <reusable_module_context name="Git submodule adapter">
@@ -33,3 +43,10 @@ safe removal, and file-protocol scoping.
 </verification_and_unit_test_criteria>
 
 </folder_context>
+
+### Rationale
+Migrated from the pre-2.0 HINT source format without changing its guidance.
+
+# Investigations
+
+# Historical theses

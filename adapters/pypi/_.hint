@@ -1,4 +1,14 @@
-# decision pyproject.toml uses minimal line-oriented edits
+---
+hint-format: 1
+---
+# Current theses
+
+## Thesis T-migrated-adapters-pypi: Preserve reviewed project guidance
+Status: accepted
+Based-on: user-reviewed-contract-migration
+
+### Guidance
+#### decision pyproject.toml uses minimal line-oriented edits
 
 The PyPI adapter edits only the matching `[project].dependencies` item and
 `[tool.uv.sources]` key. A general TOML marshal is not used because the available small Go TOML
@@ -23,7 +33,7 @@ Every variant writes `LockedDependency.Git` and the full `LockedDependency.Commi
 `rev`, Poetry uses its native inline Git table, and PDM/plain PEP 621 use a direct Git
 requirement.
 
-# decision Pull synchronizes a usable Python environment
+#### decision Pull synchronizes a usable Python environment
 
 Pull checks the saved manager through the shared prerequisite contract and synchronizes a usable
 project environment. uv runs `uv sync --no-install-project`. Poetry first runs `poetry lock`
@@ -44,7 +54,7 @@ shared caches or orphaned transitive packages.
 Unsupported subdirectories are rejected by read-only Capability before editor side effects;
 missing tools are errors and never trigger adapter fallback.
 
-# invariant Inspect uses native Python evidence
+#### invariant Inspect uses native Python evidence
 
 Inspect is offline and read-only. It discovers uv's configured project environment, Poetry's
 project interpreter, and PDM's selected interpreter (including external project environments)
@@ -52,3 +62,10 @@ instead of assuming `.venv`. For uv, Poetry, and PDM it requires the matching na
 entry at the locked Git source and full commit. Every variant verifies the installed distribution's
 PEP 610 `direct_url.json`; a matching directory name is never sufficient evidence. Missing or
 stale manager-owned lock/materialization is repairable by Pull, while declaration drift is not.
+
+### Rationale
+Migrated from the pre-2.0 HINT source format without changing its guidance.
+
+# Investigations
+
+# Historical theses

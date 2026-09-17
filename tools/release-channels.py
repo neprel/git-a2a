@@ -11,6 +11,7 @@ from pathlib import Path
 
 SHA256 = re.compile(r"[0-9a-f]{64}")
 VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?")
+PROJECT_LICENSE = Path(__file__).resolve().parent.parent / "LICENSE"
 
 
 def checksum_table(path: Path) -> dict[str, str]:
@@ -33,6 +34,12 @@ def canonical_version(version: str) -> str:
     return version.split("-", 1)[0]
 
 
+def project_license() -> str:
+    if PROJECT_LICENSE.read_text(encoding="utf-8").startswith("MIT License\n"):
+        return "MIT"
+    raise SystemExit(f"unsupported project license in {PROJECT_LICENSE}")
+
+
 def render_formula(version: str, checksums: dict[str, str]) -> str:
     amd64_name = f"git-a2a_brew_{version}_darwin_amd64.tar.gz"
     arm64_name = f"git-a2a_brew_{version}_darwin_arm64.tar.gz"
@@ -40,7 +47,7 @@ def render_formula(version: str, checksums: dict[str, str]) -> str:
   desc "Manage Git component dependencies with their responsible agents"
   homepage "https://github.com/neprel/git-a2a"
   version "{version}"
-  license "Apache-2.0"
+  license "{project_license()}"
 
   on_macos do
     if Hardware::CPU.arm?

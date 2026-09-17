@@ -52,7 +52,7 @@ jobs:
           cache: npm
           cache-dependency-path: sites/git-a2a.com/tools/browser/package-lock.json
       - name: Install HINT spec compiler
-        run: npm install --global --ignore-scripts @openhint/cli@1.5.1 @openhint/hintbook-software-engineer@1.3.1
+        run: npm install --global --ignore-scripts @openhint/cli@2.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod

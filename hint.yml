@@ -1,7 +1,0 @@
-name: git-a2a
-description: Schema 2 standard and CLI for Git component dependencies, exact-revision platform bindings, one responsible external agent, and an optional published surface
-books:
-  - npm://@openhint/hintbook-software-engineer
-ignore:
-  - plans/**
-  - .git-a2a/**

@@ -8,35 +8,73 @@ on:
         description: Existing immutable release tag to recover
         required: true
         type: string
-      publish_missing_release:
-        description: Publish an absent release without moving its immutable tag
-        required: false
-        default: false
-        type: boolean
 env:
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 permissions: {}
 jobs:
+  policy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      release_exists: ${{ steps.plan.outputs.release_exists }}
+      publish_release: ${{ steps.plan.outputs.publish_release }}
+      preserve_immutable: ${{ steps.plan.outputs.preserve_immutable }}
+      promote_stable: ${{ steps.plan.outputs.promote_stable }}
+      promote_prerelease: ${{ steps.plan.outputs.promote_prerelease }}
+      is_prerelease: ${{ steps.plan.outputs.is_prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Plan immutable publication and mutable channel promotion
+        id: plan
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          release_exists=false
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then release_exists=true; fi
+          releases="$(gh release list --limit 100 --json tagName,isPrerelease,isDraft)"
+          latest_stable="$(printf '%s' "$releases" | python3 tools/release-policy.py latest --kind stable)"
+          latest_prerelease="$(printf '%s' "$releases" | python3 tools/release-policy.py latest --kind prerelease)"
+          python3 tools/release-policy.py plan \
+            --candidate "$RELEASE_TAG" \
+            --latest-stable "$latest_stable" \
+            --latest-prerelease "$latest_prerelease" \
+            --release-exists "$release_exists" \
+            --github-output "$GITHUB_OUTPUT"
   test:
+    needs: policy
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.policy.outputs.publish_release == 'true'
         with:
           ref: ${{ env.RELEASE_TAG }}
       - name: Verify release tag matches source version
+        if: needs.policy.outputs.publish_release == 'true'
         run: .github/scripts/check-version.sh "$RELEASE_TAG"
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        if: needs.policy.outputs.publish_release == 'true'
         with:
           go-version: '1.25.x'
           cache: true
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: needs.policy.outputs.publish_release == 'true'
+        with:
+          node-version: '24'
       - name: Install HINT compiler
-        run: npm install --global --ignore-scripts @openhint/cli@1.5.1 @openhint/hintbook-software-engineer@1.3.1
-      - run: go build ./...
-      - run: go test -count=1 ./...
+        if: needs.policy.outputs.publish_release == 'true'
+        run: npm install --global --ignore-scripts @openhint/cli@2.0.1
+      - if: needs.policy.outputs.publish_release == 'true'
+        run: go build ./...
+      - if: needs.policy.outputs.publish_release == 'true'
+        run: go test -count=1 ./...
+      - if: needs.policy.outputs.preserve_immutable == 'true'
+        run: echo "existing release assets are immutable; recovering only missing downstream publications"
   goreleaser:
-    needs: test
+    needs: [policy, test]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -51,65 +89,74 @@ jobs:
         with:
           go-version: '1.25.x'
           cache: true
-      - name: Select GoReleaser configuration
-        id: release_config
-        run: |
-          config_file=.goreleaser.yaml
-          release_exists=false
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then release_exists=true; fi
-          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && { [ "$PUBLISH_MISSING_RELEASE" != true ] || [ "$release_exists" = true ]; }; then
-            config_file="$RUNNER_TEMP/goreleaser-recovery.yaml"
-            cp .goreleaser.yaml "$config_file"
-            sed -i '/^release:$/a\  skip_upload: true' "$config_file"
-          fi
-          echo "path=$config_file" >> "$GITHUB_OUTPUT"
-        env:
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PUBLISH_MISSING_RELEASE: ${{ inputs.publish_missing_release }}
       - uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        if: needs.policy.outputs.publish_release == 'true'
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-        if: github.event_name == 'push' || inputs.publish_missing_release
       - name: Log in to GitHub Container Registry
         run: echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Select configured publishers
-        id: release_args
-        run: |
-          args='release --clean'
-          release_exists=false
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then release_exists=true; fi
-          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && { [ "$PUBLISH_MISSING_RELEASE" != true ] || [ "$release_exists" = true ]; }; then
-            args="$args --skip=homebrew --skip=scoop"
-          fi
-          echo "args=$args" >> "$GITHUB_OUTPUT"
-        env:
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PUBLISH_MISSING_RELEASE: ${{ inputs.publish_missing_release }}
       - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        if: needs.policy.outputs.publish_release == 'true'
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: ${{ steps.release_args.outputs.args }} --config ${{ steps.release_config.outputs.path }}
+          args: release --clean --config .goreleaser.yaml
         env:
           GORELEASER_CURRENT_TAG: ${{ env.RELEASE_TAG }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Sign the immutable GHCR image digest with GitHub OIDC
-        if: github.event_name == 'push' || inputs.publish_missing_release
+      - name: Fill a missing immutable GHCR version from release assets
+        id: image
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           image="ghcr.io/neprel/git-a2a:${RELEASE_TAG#v}"
+          if ! docker manifest inspect "$image" >/dev/null 2>&1; then
+            version="${RELEASE_TAG#v}"
+            assets="$RUNNER_TEMP/ghcr-assets"
+            context="$RUNNER_TEMP/ghcr-context"
+            mkdir -p "$assets" "$context/linux/amd64" "$context/linux/arm64"
+            gh release download "$RELEASE_TAG" \
+              --pattern checksums.txt \
+              --pattern "git-a2a_${version}_linux_amd64.tar.gz" \
+              --pattern "git-a2a_${version}_linux_arm64.tar.gz" \
+              --dir "$assets"
+            for arch in amd64 arm64; do
+              archive="git-a2a_${version}_linux_${arch}.tar.gz"
+              expected="$(awk -v name="$archive" '$2 == name || $2 == "*" name { print $1 }' "$assets/checksums.txt")"
+              [ -n "$expected" ] || { echo "missing checksum for $archive" >&2; exit 1; }
+              actual="$(sha256sum "$assets/$archive" | awk '{print $1}')"
+              [ "$actual" = "$expected" ] || { echo "checksum mismatch for $archive" >&2; exit 1; }
+              tar -xzf "$assets/$archive" -C "$context/linux/$arch" git-a2a
+            done
+            docker buildx build \
+              --platform linux/amd64,linux/arm64 \
+              --file Dockerfile.goreleaser \
+              --tag "$image" \
+              --push "$context"
+          fi
           digest="$(docker buildx imagetools inspect "$image" --format '{{json .Manifest}}' | python3 -c 'import json,sys; print(json.load(sys.stdin)["digest"])')"
-          cosign sign --yes "ghcr.io/neprel/git-a2a@$digest"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Promote only the current stable GHCR image
+        if: needs.policy.outputs.promote_stable == 'true'
+        run: |
+          set -euo pipefail
+          versioned="ghcr.io/neprel/git-a2a@${{ steps.image.outputs.digest }}"
+          latest="ghcr.io/neprel/git-a2a:latest"
+          latest_digest="$(docker buildx imagetools inspect "$latest" --format '{{json .Manifest}}' 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["digest"])' || true)"
+          if [ "$latest_digest" != "${{ steps.image.outputs.digest }}" ]; then
+            docker buildx imagetools create --tag "$latest" "$versioned"
+          fi
+      - name: Sign the immutable GHCR image digest with GitHub OIDC
+        run: cosign sign --yes "ghcr.io/neprel/git-a2a@${{ steps.image.outputs.digest }}"
       - name: Verify the linked GHCR package is public
         run: |
           docker logout ghcr.io
           docker manifest inspect "ghcr.io/neprel/git-a2a:${RELEASE_TAG#v}" >/dev/null
   channels:
-    needs: goreleaser
+    needs: [policy, goreleaser]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -125,19 +172,13 @@ jobs:
           if [ -n "$HOMEBREW_TAP_TOKEN" ] && [ -n "$SCOOP_BUCKET_TOKEN" ]; then enabled=true; fi
           echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
       - name: Render manifests from immutable release assets
-        if: steps.credentials.outputs.enabled == 'true'
+        if: steps.credentials.outputs.enabled == 'true' && needs.policy.outputs.promote_stable == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
         run: |
           set -euo pipefail
-          case "$RELEASE_TAG" in
-            *-*)
-              echo "prerelease: leaving stable Homebrew and Scoop manifests unchanged"
-              exit 0
-              ;;
-          esac
           release_dir="$RUNNER_TEMP/release-channel"
           brew_dir="$RUNNER_TEMP/homebrew-tap"
           scoop_dir="$RUNNER_TEMP/scoop-bucket"
@@ -170,7 +211,7 @@ jobs:
             GH_TOKEN="$SCOOP_BUCKET_TOKEN" git -C "$scoop_dir" push
           fi
   npm:
-    needs: goreleaser
+    needs: [policy, goreleaser]
     runs-on: ubuntu-latest
     continue-on-error: true
     permissions:
@@ -191,24 +232,52 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: python3 dist/npm/build_packages.py --artifacts release-artifacts --version "${RELEASE_TAG#v}" --out npm-packages
       - name: Publish platform packages and launcher
+        env:
+          PROMOTE_STABLE: ${{ needs.policy.outputs.promote_stable }}
+          PROMOTE_PRERELEASE: ${{ needs.policy.outputs.promote_prerelease }}
         run: |
-          npm_tag=latest
-          case "$RELEASE_TAG" in *-*) npm_tag=next ;; esac
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          temporary_tag="recovery-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          published_packages=()
           publish_if_missing() {
-            package_dir="$1"
+            local package_dir="$1"
+            local package_name package_version
             package_name="$(node -p "require('./${package_dir}/package.json').name")"
             package_version="$(node -p "require('./${package_dir}/package.json').version")"
             if npm view "${package_name}@${package_version}" version >/dev/null 2>&1; then
               echo "${package_name}@${package_version} already exists; leaving it unchanged"
               return
             fi
-            npm publish "./${package_dir}" --access public --tag "$npm_tag"
+            npm publish "./${package_dir}" --access public --tag "$temporary_tag"
+            for attempt in $(seq 1 12); do
+              if npm view "${package_name}@${package_version}" version >/dev/null 2>&1; then break; fi
+              [ "$attempt" -lt 12 ] || { echo "npm registry did not expose ${package_name}@${package_version}" >&2; exit 1; }
+              sleep 5
+            done
+            published_packages+=("$package_name")
+          }
+          promote() {
+            local package_dir="$1"
+            local npm_tag="$2"
+            local package_name
+            package_name="$(node -p "require('./${package_dir}/package.json').name")"
+            npm dist-tag add "${package_name}@${version}" "$npm_tag"
           }
           for package in npm-packages/darwin-* npm-packages/linux-* npm-packages/windows-*; do publish_if_missing "$package"; done
           publish_if_missing npm-packages/git-a2a
+          if [ "$PROMOTE_STABLE" = true ]; then
+            for package in npm-packages/darwin-* npm-packages/linux-* npm-packages/windows-* npm-packages/git-a2a; do promote "$package" latest; done
+          elif [ "$PROMOTE_PRERELEASE" = true ]; then
+            for package in npm-packages/darwin-* npm-packages/linux-* npm-packages/windows-* npm-packages/git-a2a; do promote "$package" next; done
+          else
+            echo "older release: published missing immutable npm versions without changing dist-tags"
+          fi
+          for package_name in "${published_packages[@]}"; do
+            npm dist-tag rm "$package_name" "$temporary_tag"
+          done
   attest:
     needs: goreleaser
-    if: github.event_name == 'push' || inputs.publish_missing_release
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -240,14 +309,25 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.RELEASE_TAG }}
+      - name: Check whether the immutable PyPI version already exists
+        id: package
+        run: |
+          version="${RELEASE_TAG#v}"
+          pypi_version=$(printf '%s' "$version" | sed -E 's/-rc\.([0-9]+)$/rc\1/')
+          exists=false
+          if curl --fail --silent --show-error "https://pypi.org/pypi/git-a2a/${pypi_version}/json" >/dev/null 2>&1; then exists=true; fi
+          echo "exists=$exists" >> "$GITHUB_OUTPUT"
       - run: gh release download "$RELEASE_TAG" --dir release-artifacts
+        if: steps.package.outputs.exists != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Build PyPI wheels
+        if: steps.package.outputs.exists != 'true'
         run: |
           version="${RELEASE_TAG#v}"
           pypi_version=$(printf '%s' "$version" | sed -E 's/-rc\.([0-9]+)$/rc\1/')
           python3 dist/pypi/build_wheels.py --artifacts release-artifacts --version "$pypi_version" --out wheelhouse
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        if: steps.package.outputs.exists != 'true'
         with:
           packages-dir: wheelhouse/

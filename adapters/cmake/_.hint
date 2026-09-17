@@ -1,17 +1,27 @@
-# module CMake checkout integration adapter
+---
+hint-format: 1
+---
+# Current theses
+
+## Thesis T-migrated-adapters-cmake: Preserve reviewed project guidance
+Status: accepted
+Based-on: user-reviewed-contract-migration
+
+### Guidance
+#### module CMake checkout integration adapter
 
 Detect a consumer root `CMakeLists.txt`. The lifecycle composes this build adapter with the single
 submodule materialization and passes `Export.Path` as the consumer-root-relative source directory.
 This adapter never clones, copies, updates, or removes that checkout.
 
-# decision One generated include and one owned root line
+#### decision One generated include and one owned root line
 
 Write dependency blocks to `deps/git-a2a.cmake`, sorted by dependency name. Each block calls
 `add_subdirectory` for `Export.Path`. The root file gets exactly
 `include("deps/git-a2a.cmake") # git-a2a`; remove only that marked line and only when the generated
 file has no dependency blocks. Never edit other CMake content.
 
-# invariant Pull resolves an existing checkout without building the application
+#### invariant Pull resolves an existing checkout without building the application
 
 Capability is read-only and returns a typed not-wirable reason for an empty, `.`, absolute, or
 escaping checkout path. Pull requires the submodule-owned source directory, writes the integration,
@@ -21,8 +31,15 @@ remain. Removing the last one deletes the adapter-owned configure tree, because 
 consumer that still references the intentionally removed target would make removal impossible.
 Inspect reports both declaration drift and a missing checkout.
 
-# test Golden lifecycle
+#### test Golden lifecycle
 
 Tests cover private editor idempotence, Inspect, read-only Capability, clean and changed
 declarations, byte-restoring removal, sorted blocks, missing
 checkouts, and safe repair/removal of foreign bytes in the wholly owned generated file.
+
+### Rationale
+Migrated from the pre-2.0 HINT source format without changing its guidance.
+
+# Investigations
+
+# Historical theses

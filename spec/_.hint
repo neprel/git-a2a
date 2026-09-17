@@ -1,3 +1,13 @@
+---
+hint-format: 1
+---
+# Current theses
+
+## Thesis T-migrated-spec: Preserve reviewed project guidance
+Status: accepted
+Based-on: user-reviewed-contract-migration
+
+### Guidance
 <folder_context path="spec">
 <product_goal_and_intent name="language-independent schema 2">
 Specify one Git component, one responsible A2A Agent Card reference, exports, optional surface,
@@ -69,3 +79,10 @@ submodule-only, submodule plus build integration, directory surface, surface '.'
 aliases for equal repository basenames. Schema 1 examples are invalid migration fixtures only.
 </acceptance_criteria>
 </folder_context>
+
+### Rationale
+Migrated from the pre-2.0 HINT source format without changing its guidance.
+
+# Investigations
+
+# Historical theses

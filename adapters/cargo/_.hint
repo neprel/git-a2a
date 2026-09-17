@@ -1,4 +1,14 @@
-# decision Cargo git dependencies use an exact revision
+---
+hint-format: 1
+---
+# Current theses
+
+## Thesis T-migrated-adapters-cargo: Preserve reviewed project guidance
+Status: accepted
+Based-on: user-reviewed-contract-migration
+
+### Guidance
+#### decision Cargo git dependencies use an exact revision
 
 The Cargo adapter owns one entry in `[dependencies]`. Wiring always writes the full
 `LockedDependency.Commit` as `rev`; the requested declaration ref is never written as a branch.
@@ -8,21 +18,28 @@ unchanged.
 If `[dependencies]` is absent, the adapter creates it inside a delimited block; unwire removes
 the block as a unit instead of leaving an empty table.
 
-# decision Cargo lifecycle uses fetch resolution
+#### decision Cargo lifecycle uses fetch resolution
 
 `Pull` runs `cargo fetch` after editing the exact-revision Git dependency. This creates or
 refreshes `Cargo.lock` and downloads missing sources even when the declaration was already
 current. `Remove` deletes only the owned root declaration and runs `cargo fetch` again so Cargo
 prunes unreachable resolution state while retaining unrelated and transitively required crates.
 
-# test Cargo adapter
+#### test Cargo adapter
 
 - Fixture/golden wiring is idempotent and preserves unrelated entries and comments.
 - Drift checks both the normalized Git URL and the locked revision.
 - Unwire removes only the exported crate entry.
 
-# decision Cargo lifecycle prerequisite
+#### decision Cargo lifecycle prerequisite
 
 `Pull` and `Remove` check `cargo` through the shared prerequisite contract before invoking it.
 `Inspect` is offline and requires the matching `[[package]]` stanza in `Cargo.lock` to carry a
 Git source containing the exact locked commit. Another package at that commit is not evidence.
+
+### Rationale
+Migrated from the pre-2.0 HINT source format without changing its guidance.
+
+# Investigations
+
+# Historical theses

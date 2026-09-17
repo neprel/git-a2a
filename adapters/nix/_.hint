@@ -1,4 +1,14 @@
-# decision Nix flake inputs carry ref, rev, and dir in a native Git URL
+---
+hint-format: 1
+---
+# Current theses
+
+## Thesis T-migrated-adapters-nix: Preserve reviewed project guidance
+Status: accepted
+Based-on: user-reviewed-contract-migration
+
+### Guidance
+#### decision Nix flake inputs carry ref, rev, and dir in a native Git URL
 
 The Nix adapter owns one delimited `inputs.<name>.url` assignment in `flake.nix`. Wiring uses a
 `git+` URL with both the declared `ref` and `LockedDependency.Commit` as `rev`. An export
@@ -6,7 +16,7 @@ subdirectory becomes the native `dir` query parameter. Query encoding is determi
 updates exactly the selected input in `flake.lock`; the declaration edit by itself does not claim
 success.
 
-# test Nix adapter
+#### test Nix adapter
 
 - Fixture/golden wiring is idempotent and preserves unrelated Nix expressions and comments.
 - Drift checks the normalized Git URL and locked `rev`.
@@ -15,9 +25,16 @@ success.
   evaluation, read-only list, fresh-clone and missing-lock repair, targeted advance, rollback,
   and removal while preserving an unrelated flake input.
 
-# decision flake materialization
+#### decision flake materialization
 
 `Pull` requires `nix` before mutation and runs `nix flake lock --update-input <name>` on every
 call, including an unchanged commit, so a missing lock node is repaired and fetched. `Remove`
 deletes the owned input then runs `nix flake lock` to prune it. `Inspect` verifies the exact locked
 revision without invoking Nix.
+
+### Rationale
+Migrated from the pre-2.0 HINT source format without changing its guidance.
+
+# Investigations
+
+# Historical theses

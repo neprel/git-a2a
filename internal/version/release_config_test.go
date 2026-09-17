@@ -34,10 +34,20 @@ func TestReleaseChannelManifestsUseImmutableChecksums(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{strings.Repeat("a", 64), strings.Repeat("b", 64), "git-a2a_brew_1.2.3"} {
+	for _, want := range []string{strings.Repeat("a", 64), strings.Repeat("b", 64), "git-a2a_brew_1.2.3", `license "MIT"`} {
 		if !strings.Contains(string(formulaBody), want) {
 			t.Errorf("formula missing %q", want)
 		}
+	}
+	if strings.Contains(string(formulaBody), "Apache-2.0") {
+		t.Fatal("formula license differs from the project MIT license")
+	}
+	license, err := os.ReadFile(filepath.Join(root, "LICENSE"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(license), "MIT License") || !strings.Contains(string(formulaBody), `license "MIT"`) {
+		t.Fatal("Homebrew license must follow the project LICENSE")
 	}
 	var manifest struct {
 		Architecture map[string]struct {
@@ -56,6 +66,80 @@ func TestReleaseChannelManifestsUseImmutableChecksums(t *testing.T) {
 	}
 }
 
+func TestReleaseRecoveryPolicyDoesNotDowngradeChannels(t *testing.T) {
+	root := repositoryRoot(t)
+	script := filepath.Join(root, "tools/release-policy.py")
+	tests := []struct {
+		name              string
+		candidate         string
+		stable            string
+		prerelease        string
+		exists            bool
+		publishRelease    bool
+		preserve          bool
+		promoteStable     bool
+		promotePrerelease bool
+	}{
+		{"older recovery after newer stable", "v2.0.0", "v2.1.0", "v2.2.0-rc.1", true, false, true, false, false},
+		{"repeat current stable", "v2.1.0", "v2.1.0", "v2.2.0-rc.1", true, false, true, true, false},
+		{"partially published current stable", "v2.1.0", "v2.0.0", "", true, false, true, true, false},
+		{"prerelease leaves stable channels", "v2.2.0-rc.2", "v2.1.0", "v2.2.0-rc.1", false, true, false, false, true},
+		{"older prerelease does not move next", "v2.2.0-rc.1", "v2.1.0", "v2.2.0-rc.2", true, false, true, false, false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cmd := exec.Command("python3", script, "plan",
+				"--candidate", test.candidate,
+				"--latest-stable", test.stable,
+				"--latest-prerelease", test.prerelease,
+				"--release-exists", map[bool]string{true: "true", false: "false"}[test.exists],
+			)
+			output, err := cmd.Output()
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got struct {
+				PublishRelease    bool `json:"publish_release"`
+				PreserveImmutable bool `json:"preserve_immutable"`
+				PromoteStable     bool `json:"promote_stable"`
+				PromotePrerelease bool `json:"promote_prerelease"`
+			}
+			if err := json.Unmarshal(output, &got); err != nil {
+				t.Fatal(err)
+			}
+			if got.PublishRelease != test.publishRelease || got.PreserveImmutable != test.preserve || got.PromoteStable != test.promoteStable || got.PromotePrerelease != test.promotePrerelease {
+				t.Fatalf("unexpected plan: %+v", got)
+			}
+		})
+	}
+}
+
+func TestReleaseRecoveryPolicySelectsSemanticNewestVersions(t *testing.T) {
+	root := repositoryRoot(t)
+	script := filepath.Join(root, "tools/release-policy.py")
+	releases := `[
+		{"tagName":"v2.9.0","isDraft":false,"isPrerelease":false},
+		{"tagName":"v2.10.0","isDraft":false,"isPrerelease":false},
+		{"tagName":"v3.0.0-rc.2","isDraft":false,"isPrerelease":true},
+		{"tagName":"v3.0.0-rc.10","isDraft":false,"isPrerelease":true},
+		{"tagName":"v9.0.0","isDraft":true,"isPrerelease":false}
+	]`
+	for _, test := range []struct {
+		kind string
+		want string
+	}{{"stable", "v2.10.0"}, {"prerelease", "v3.0.0-rc.10"}} {
+		cmd := exec.Command("python3", script, "latest", "--kind", test.kind)
+		cmd.Stdin = strings.NewReader(releases)
+		output, err := cmd.Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := strings.TrimSpace(string(output)); got != test.want {
+			t.Fatalf("latest %s = %q, want %q", test.kind, got, test.want)
+		}
+	}
+}
+
 func TestReleaseConfigurationPreservesBinaryChannelsWithoutRemovedSubsystems(t *testing.T) {
 	root := repositoryRoot(t)
 	read := func(path string) string {
@@ -70,10 +154,13 @@ func TestReleaseConfigurationPreservesBinaryChannelsWithoutRemovedSubsystems(t *
 	ci := read(".github/workflows/ci.yml")
 	smoke := read(".github/workflows/release-smoke.yml")
 	goreleaser := read(".goreleaser.yaml")
-	for _, want := range []string{"contents: write", "packages: write", "id-token: write", "attestations: write", "npm publish", "pypi", "tools/release-channels.py", "cosign sign --yes"} {
+	for _, want := range []string{"contents: write", "packages: write", "id-token: write", "attestations: write", "npm publish", "pypi", "tools/release-channels.py", "tools/release-policy.py", "cosign sign --yes", "preserve_immutable", "promote_stable", "temporary_tag", "npm dist-tag rm", "npm dist-tag add", "docker manifest inspect"} {
 		if !strings.Contains(workflow, want) {
 			t.Errorf("release workflow missing %q", want)
 		}
+	}
+	if strings.Contains(goreleaser, `{{ if not .Prerelease }}latest{{ end }}`) {
+		t.Error("GoReleaser must not update GHCR latest outside downgrade policy")
 	}
 	for _, want := range []string{"darwin", "linux", "windows", "amd64", "arm64", "go test -count=1 ./..."} {
 		if !strings.Contains(ci, want) {

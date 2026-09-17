@@ -1,4 +1,14 @@
-# decision go.mod edits belong to the Go toolchain
+---
+hint-format: 1
+---
+# Current theses
+
+## Thesis T-migrated-adapters-golang: Preserve reviewed project guidance
+Status: accepted
+Based-on: user-reviewed-contract-migration
+
+### Guidance
+#### decision go.mod edits belong to the Go toolchain
 
 The Go adapter uses `go mod edit` for `-require`, `-replace`, `-droprequire`, and
 `-dropreplace`; it does not parse or reconstruct `go.mod`. Every dependency asks
@@ -6,27 +16,27 @@ The Go adapter uses `go mod edit` for `-require`, `-replace`, `-droprequire`, an
 exact pseudo-version to `go mod edit`; a fabricated zero timestamp is invalid for a real module
 and must never be written. Unrelated directives, comments, and blank lines survive.
 
-# decision Pull materializes through Go
+#### decision Pull materializes through Go
 
 After editing the declaration, every Pull runs `go mod download <export.name>`, including when
 the declaration and commit are unchanged. This makes packages from the selected module usable
 and repairs an absent module-cache entry and go.sum evidence without running `go mod tidy` or
 rewriting unrelated roots.
 
-# decision Remove preserves shared and transitive Go state
+#### decision Remove preserves shared and transitive Go state
 
 Remove uses `go mod edit -droprequire` and `-dropreplace` for the owned root only. It does not
 delete entries from the process-wide Go module cache, and does not prune go.sum: go.sum records
 verified historical/transitive content rather than root ownership, and either deletion could
 damage another project or a remaining dependency. It never runs `go mod tidy`.
 
-# decision Inspect is offline
+#### decision Inspect is offline
 
 Inspect validates go.mod through `go mod edit -json` and invokes `go list -m` with
 `-mod=readonly`, `GOPROXY=off`, and `GOSUMDB=off`; it reports absent local module content as a
 finding and cannot repair or fetch during inspection.
 
-# test Go adapter preservation
+#### test Go adapter preservation
 
 - Existing require blocks gain no duplicate directives.
 - Wiring contains the locked commit prefix even when the declaration ref names a branch.
@@ -36,3 +46,10 @@ finding and cannot repair or fetch during inspection.
 - Capability rejects unrepresentable Git URLs without touching go.mod.
 - Pull downloads on every call, so unchanged declarations repair missing materialization.
 - Remove preserves unrelated root directives and shared/transitive checksum state.
+
+### Rationale
+Migrated from the pre-2.0 HINT source format without changing its guidance.
+
+# Investigations
+
+# Historical theses

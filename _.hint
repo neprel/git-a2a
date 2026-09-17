@@ -1,3 +1,13 @@
+---
+hint-format: 1
+---
+# Current theses
+
+## Thesis T-migrated-root: Preserve reviewed project guidance
+Status: accepted
+Based-on: user-reviewed-contract-migration
+
+### Guidance
 <folder_context path=".">
 <application_context name="git-a2a schema 2">
 git-a2a is a cross-platform Git component dependency manager. A dependency combines code,
@@ -59,3 +69,10 @@ Keep binary installation and packaging channels, removing only MCP/setup/self-up
 Do not publish a release, create a stable tag, or deploy the site without a separate request.
 </scope_boundary>
 </folder_context>
+
+### Rationale
+Migrated from the pre-2.0 HINT source format without changing its guidance.
+
+# Investigations
+
+# Historical theses

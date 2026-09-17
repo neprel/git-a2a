@@ -139,7 +139,8 @@ workflow. It does not configure an MCP server or agent harness.
 ## Specification as source
 
 Repository decisions and invariants live in `.hint` files beside the artifacts they govern.
-`hint <path>` returns the knowledge governing a path, and `hint status` checks for drift. See
+`hint <path>` returns the knowledge governing a path, and `hint check <path...>` validates the
+linked research records. The repository and CI use HINT 2.0.1. See
 [HINT](https://openhint.dev/) for the tool and format.
 
 License: MIT.

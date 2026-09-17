@@ -1,3 +1,13 @@
+---
+hint-format: 1
+---
+# Current theses
+
+## Thesis T-migrated-conformance: Preserve reviewed project guidance
+Status: accepted
+Based-on: user-reviewed-contract-migration
+
+### Guidance
 <folder_context path="conformance">
 
 <application_context name="git-a2a schema 2 implementation conformance corpus">
@@ -48,3 +58,10 @@ five domain commands and must not require network access beyond its local bare G
 </compilation_and_testing_pipeline>
 
 </folder_context>
+
+### Rationale
+Migrated from the pre-2.0 HINT source format without changing its guidance.
+
+# Investigations
+
+# Historical theses

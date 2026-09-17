@@ -1,4 +1,14 @@
-# decision Composer uses an addressable VCS repository and require pair
+---
+hint-format: 1
+---
+# Current theses
+
+## Thesis T-migrated-adapters-composer: Preserve reviewed project guidance
+Status: accepted
+Based-on: user-reviewed-contract-migration
+
+### Guidance
+#### decision Composer uses an addressable VCS repository and require pair
 
 The Composer adapter owns `repositories[<package-name>]` in Composer's named object form, or the
 unique `type: vcs` entry with the dependency Git URL when an existing manifest uses Composer's
@@ -7,14 +17,14 @@ array form, plus `require[<package-name>]`. The repository remains `type: vcs`; 
 normalized URL. Subdirectory exports return a typed not-wirable result because Composer's VCS
 metadata cannot select them.
 
-# decision Composer owns native resolution
+#### decision Composer owns native resolution
 
 `Pull` runs a targeted `composer update <package> --with-dependencies` after editing, so the exact
 commit is present in `composer.lock` and the configured vendor directory. `Remove` delegates the
 targeted package removal to Composer before deleting the owned repository entry; unrelated root
 requirements remain. `Inspect` verifies the declaration, lock revision, and installed package.
 
-# test Composer adapter
+#### test Composer adapter
 
 - Fixture/golden wiring is idempotent and preserves unrelated JSON fields.
 - Drift checks the named VCS URL and locked revision.
@@ -23,7 +33,14 @@ requirements remain. `Inspect` verifies the declaration, lock revision, and inst
   an existing lock, real autoload use, fresh-clone and same-commit repair, same-version revision
   advance, idempotence, targeted remove, and preservation of an unrelated locked package.
 
-# invariant capability precedes mutation
+#### invariant capability precedes mutation
 
 The root-only VCS source restriction is returned as typed not-wirable by the read-only
 `Capability` check. Missing Composer is a tool error before either lifecycle operation edits a file.
+
+### Rationale
+Migrated from the pre-2.0 HINT source format without changing its guidance.
+
+# Investigations
+
+# Historical theses

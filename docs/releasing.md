@@ -20,6 +20,19 @@ Release archives cover Darwin, Linux, and Windows on amd64/arm64 and include che
 The package-manager launchers execute the same release binary. git-a2a has no self-updater;
 users update it through the channel that installed it.
 
+## Recovery safety
+
+Run recovery from the current `main` workflow and pass the existing immutable tag. If its GitHub
+Release already exists, the workflow never rebuilds or uploads those assets and never overwrites an
+existing versioned GHCR image, npm package, or PyPI version. A missing GHCR version is assembled
+only from checksum-verified release archives.
+
+Mutable stable channels are promoted only when the target is at least the newest published stable
+release. Recovering an older tag therefore leaves GHCR `latest`, Homebrew, Scoop, and npm `latest`
+unchanged. A prerelease never changes those stable channels; npm `next` moves only to an equal or
+newer prerelease. Missing npm packages are first published under a temporary recovery tag, which is
+removed before any eligible `latest` or `next` promotion.
+
 ## Verification
 
 Tag-triggered release assets carry GitHub build provenance. After downloading an asset:

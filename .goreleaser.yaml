@@ -166,7 +166,6 @@ dockers_v2:
     ids: [docker]
     tags:
       - "{{ .Version }}"
-      - "{{ if not .Prerelease }}latest{{ end }}"
     labels:
       org.opencontainers.image.source: https://github.com/neprel/git-a2a
       org.opencontainers.image.description: Manage Git component dependencies with their responsible agents

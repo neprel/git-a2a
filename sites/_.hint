@@ -1,3 +1,13 @@
+---
+hint-format: 1
+---
+# Current theses
+
+## Thesis T-migrated-sites: Preserve reviewed project guidance
+Status: accepted
+Based-on: user-reviewed-contract-migration
+
+### Guidance
 <folder_context path="sites">
 <product_goal_and_intent name="static public documentation">
 sites/git-a2a.com is the local-first static documentation and installer package for schema 2 and
@@ -25,3 +35,10 @@ make site-check validates installers, strict local links, canonical copies, HTML
 publication allowlist, stale-term absence, and transfer budget. Do not deploy during local work.
 </compilation_and_testing_pipeline>
 </folder_context>
+
+### Rationale
+Migrated from the pre-2.0 HINT source format without changing its guidance.
+
+# Investigations
+
+# Historical theses

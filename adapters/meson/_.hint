@@ -1,10 +1,20 @@
-# module Meson checkout integration adapter
+---
+hint-format: 1
+---
+# Current theses
+
+## Thesis T-migrated-adapters-meson: Preserve reviewed project guidance
+Status: accepted
+Based-on: user-reviewed-contract-migration
+
+### Guidance
+#### module Meson checkout integration adapter
 
 Detect a consumer root `meson.build`. The lifecycle passes `Export.Path` as the
 consumer-root-relative directory in the one submodule checkout. This adapter only connects that
 directory and never creates, updates, copies, or removes a checkout.
 
-# decision One owned dependency region in the consumer build
+#### decision One owned dependency region in the consumer build
 
 Write sorted `subdir(Export.Path)` lines inside a marked region immediately after the root
 `project()` statement, before consumer statements can use dependency variables. This keeps paths
@@ -12,7 +22,7 @@ consumer-root-relative, which Meson requires because `subdir` forbids `..`. Remo
 owned line and remove the region only when no managed dependency remains. Foreign bytes inside
 the owned region are reported and canonically repaired; all bytes outside it remain untouched.
 
-# invariant One resolved submodule source tree
+#### invariant One resolved submodule source tree
 
 Read-only Capability rejects empty, `.`, absolute, and escaping paths as typed not-wirable. Meson
 does not demand a second checkout under `subprojects/`; the owned region references the shared
@@ -22,7 +32,14 @@ one deletes the adapter-owned setup tree so consumer references to the intention
 dependency do not block removal. Inspect reports both declaration drift and a missing checkout.
 Commit selection and checkout ownership remain with the submodule adapter.
 
-# test Golden lifecycle
+#### test Golden lifecycle
 
 Tests cover private editor idempotence, Inspect, read-only Capability, missing checkouts,
 foreign-content repair, removal restoring root bytes, sorted lines, and unrelated entries.
+
+### Rationale
+Migrated from the pre-2.0 HINT source format without changing its guidance.
+
+# Investigations
+
+# Historical theses

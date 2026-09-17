@@ -1,4 +1,14 @@
-# decision Mix git dependencies use ref or branch and sparse
+---
+hint-format: 1
+---
+# Current theses
+
+## Thesis T-migrated-adapters-hex: Preserve reviewed project guidance
+Status: accepted
+Based-on: user-reviewed-contract-migration
+
+### Guidance
+#### decision Mix git dependencies use ref or branch and sparse
 
 The Hex adapter owns one tuple in the consumer's `deps` list in `mix.exs`. Wiring always uses
 `LockedDependency.Commit` as `ref`. Export
@@ -10,7 +20,7 @@ The tuple is delimited with Elixir comments; if insertion adds a comma to the pr
 the separator is marked and removed with the dependency so a pre-existing trailing-comma choice
 is never guessed.
 
-# test Hex adapter
+#### test Hex adapter
 
 - Fixture/golden wiring is idempotent and preserves unrelated Elixir code and comments.
 - Drift checks the normalized Git URL and locked revision.
@@ -20,8 +30,15 @@ is never guessed.
   revision advance through targeted pull, idempotence, remove, and preservation of an
   unrelated Mix dependency.
 
-# decision Mix lifecycle prerequisite
+#### decision Mix lifecycle prerequisite
 
 `Pull` and `Remove` check `mix` through the shared prerequisite contract before invoking it.
 `Inspect` is offline and checks the exact Git revision in `mix.lock` and the detached checkout
 revision under `deps/`; missing or stale manager state is repairable by Pull.
+
+### Rationale
+Migrated from the pre-2.0 HINT source format without changing its guidance.
+
+# Investigations
+
+# Historical theses

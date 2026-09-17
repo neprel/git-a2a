@@ -1,11 +1,21 @@
-# decision One Hackage export adapter supports Cabal and Stack projects
+---
+hint-format: 1
+---
+# Current theses
+
+## Thesis T-migrated-adapters-hackage: Preserve reviewed project guidance
+Status: accepted
+Based-on: user-reviewed-contract-migration
+
+### Guidance
+#### decision One Hackage export adapter supports Cabal and Stack projects
 
 The adapter ecosystem is `hackage`. `stack.yaml` selects the Stack variant; otherwise
 `cabal.project` selects Cabal. Cabal wiring owns a delimited `source-repository-package` stanza
 whose `tag` is `LockedDependency.Commit`. Stack wiring owns a delimited `extra-deps` git item
 whose `commit` is the same exact commit. Both native forms carry an export subdirectory.
 
-# invariant Haskell dependency blocks are precisely addressed
+#### invariant Haskell dependency blocks are precisely addressed
 
 The package export name appears only in comment delimiters around the owned stanza/item. Human
 Cabal fields and Stack entries outside those delimiters remain byte-for-byte unchanged.
@@ -13,12 +23,12 @@ When Stack has no `extra-deps`, its created header is marked and removed togethe
 owned item rather than leaving an empty project field. If the dependency named by the created
 header is removed first, ownership transfers to another managed item so the YAML list remains valid.
 
-# test Hackage adapter
+#### test Hackage adapter
 
 - Cabal and Stack each have fixture/golden, idempotence, drift, and unwire coverage.
 - Drift checks the normalized Git URL and locked commit in either variant.
 
-# decision native materialization
+#### decision native materialization
 
 `Pull` checks the saved tool before editing and then runs `cabal build all` for Cabal or
 `stack build` for Stack. This resolves and materializes the dependency even when the owned block
@@ -27,3 +37,10 @@ project plan, updating Stack's native lock without compiling consumer code; it n
 variants. Offline `Inspect` requires Stack's exact native lock commit plus `.stack-work`, or for
 Cabal the project plan plus an exact-commit Git checkout under `dist-newstyle/src`; missing or
 stale manager evidence is repairable by Pull.
+
+### Rationale
+Migrated from the pre-2.0 HINT source format without changing its guidance.
+
+# Investigations
+
+# Historical theses

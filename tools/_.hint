@@ -1,3 +1,13 @@
+---
+hint-format: 1
+---
+# Current theses
+
+## Thesis T-migrated-tools: Preserve reviewed project guidance
+Status: accepted
+Based-on: user-reviewed-contract-migration
+
+### Guidance
 <folder_context path="tools">
 
 <settled_decision name="Release-channel manifests come from immutable assets" id="channel_checksums">
@@ -65,3 +75,10 @@ is missing, its test is skipped, or the test command exits nonzero.
 </verification_and_unit_test_criteria>
 
 </folder_context>
+
+### Rationale
+Migrated from the pre-2.0 HINT source format without changing its guidance.
+
+# Investigations
+
+# Historical theses

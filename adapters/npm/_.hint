@@ -1,4 +1,14 @@
-# decision package.json receives precise dependency edits
+---
+hint-format: 1
+---
+# Current theses
+
+## Thesis T-migrated-adapters-npm: Preserve reviewed project guidance
+Status: accepted
+Based-on: user-reviewed-contract-migration
+
+### Guidance
+#### decision package.json receives precise dependency edits
 
 The npm adapter changes only the matching `dependencies` entry. Existing inline JSON keeps its
 surrounding bytes and unrelated dependencies; no whole-document pretty-print is allowed.
@@ -10,7 +20,7 @@ and `https://` selectors are not valid Yarn Git dependencies. A native `git://` 
 `git://` rather than becoming the invalid `git+git://` form.
 The adapter always writes `LockedDependency.Git` with the full `LockedDependency.Commit`.
 
-# decision npm pull materializes without lifecycle scripts
+#### decision npm pull materializes without lifecycle scripts
 
 Pull always invokes the detected manager and materializes the dependency, including when no
 native lock exists and when `node_modules` was deleted at an unchanged commit. npm uses
@@ -22,7 +32,7 @@ root declaration is still present, restores the original manifest bytes, then ap
 byte-preserving edit; this is required because ordinary `bun install` can retain an extraneous
 Git package in `node_modules`. Missing tools are errors, never fallback.
 
-# test npm adapter preservation
+#### test npm adapter preservation
 
 - Wire and unwire are idempotent and preserve unrelated inline JSON bytes.
 - Tampering with the manifest pin is drift even without `package-lock.json`.
@@ -30,3 +40,10 @@ Git package in `node_modules`. Missing tools are errors, never fallback.
 - Yarn Berry output carries a `git+` transport for HTTPS, SSH, and SCP-style inputs.
 - Inspect is offline and requires the selected manager lock to associate the root package with
   the full locked commit; the mere presence of `node_modules` or `.pnp.cjs` is insufficient.
+
+### Rationale
+Migrated from the pre-2.0 HINT source format without changing its guidance.
+
+# Investigations
+
+# Historical theses

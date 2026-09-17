@@ -1,16 +1,26 @@
-# module Maven checkout integration
+---
+hint-format: 1
+---
+# Current theses
+
+## Thesis T-migrated-adapters-maven: Preserve reviewed project guidance
+Status: accepted
+Based-on: user-reviewed-contract-migration
+
+### Guidance
+#### module Maven checkout integration
 
 Detect root `pom.xml` and consume Maven exports whose name is `group:artifact`. `Export.Path` is
 the consumer-root-relative POM or module directory in the one submodule checkout. This adapter
 does not clone, copy, or own that checkout.
 
-# decision Generated reactor plus precise root POM blocks
+#### decision Generated reactor plus precise root POM blocks
 
 The wholly owned `deps/git-a2a.maven/pom.xml` is a sorted aggregator of checkout module paths.
 The consumer POM receives one marked aggregator module and one marked dependency per dependency;
 existing XML outside markers stays byte-identical. Tool-created empty containers are removed.
 
-# invariant Reactor versions must match
+#### invariant Reactor versions must match
 
 The managed dependency uses `${project.version}` because Maven composite substitution does not
 exist. The consumer reactor and component artifact must publish the same version. Read-only
@@ -20,7 +30,14 @@ path. Pull verifies the checked-out module, writes the reactor integration, and 
 Remove validates the remaining reactor after deleting only owned integration; Inspect reports a
 missing module or POM.
 
-# test Golden lifecycle
+#### test Golden lifecycle
 
 Tests cover existing containers, read-only capability and coordinate validation, private editor
 idempotence, repair, Inspect, byte-restoring removal, sorted ownership, and missing modules.
+
+### Rationale
+Migrated from the pre-2.0 HINT source format without changing its guidance.
+
+# Investigations
+
+# Historical theses

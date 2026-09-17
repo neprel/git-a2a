@@ -1,4 +1,14 @@
-# decision Bundler git dependencies are explicit Gemfile entries
+---
+hint-format: 1
+---
+# Current theses
+
+## Thesis T-migrated-adapters-gem: Preserve reviewed project guidance
+Status: accepted
+Based-on: user-reviewed-contract-migration
+
+### Guidance
+#### decision Bundler git dependencies are explicit Gemfile entries
 
 The Gem adapter owns one top-level `gem` declaration in `Gemfile`. Wiring always uses
 `LockedDependency.Commit` as `ref`. An export subdirectory adds Bundler's native
@@ -7,14 +17,21 @@ is unchanged, so the exact revision is locked and installed. `Remove` deletes on
 root declaration and runs the same Bundler convergence, retaining unrelated and transitively
 required gems.
 
-# test Gem adapter
+#### test Gem adapter
 
 - Fixture/golden wiring is idempotent and preserves unrelated Ruby text and comments.
 - Drift checks both the normalized Git URL and locked revision.
 - Unwire removes only the named gem declaration.
 
-# decision Bundler lifecycle
+#### decision Bundler lifecycle
 
 `Pull` and `Remove` check `bundle` through the shared prerequisite contract before invoking it.
 `Inspect` is offline and requires one `GIT` stanza in `Gemfile.lock` to match the dependency
 remote, exact commit, and requested gem spec together. A commit in another stanza is not evidence.
+
+### Rationale
+Migrated from the pre-2.0 HINT source format without changing its guidance.
+
+# Investigations
+
+# Historical theses
