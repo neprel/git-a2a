@@ -32,6 +32,9 @@ git a2a pull lib-utils
 git a2a remove lib-utils
 ```
 
+Version 2.1.0 introduces `whose NAME` and removes the positional argument from `list`.
+Scripts using `list NAME --json` must use `list --json` and select the alias from the array.
+
 There are exactly six domain commands:
 
 | Command | Result |

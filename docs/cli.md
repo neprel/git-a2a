@@ -75,7 +75,7 @@ installed commit, saved adapter variants, declared agent, usable Agent Card refe
 provenance, surface path, and local problems. `--json` returns an array, including `[]` when the
 manifest has no dependencies. Positional arguments are invalid; use `whose NAME` for one owner.
 
-This is an incompatible CLI change for the next release: scripts using `list NAME` must use
+Since 2.1.0, this is an incompatible CLI change from 2.0.0: scripts using `list NAME` must use
 `list --json` and select the alias from the array when they need installed dependency state, or
 use `whose NAME` when they need ownership metadata.
 
