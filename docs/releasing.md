@@ -24,8 +24,13 @@ users update it through the channel that installed it.
 
 Run recovery from the current `main` workflow and pass the existing immutable tag. If its GitHub
 Release already exists, the workflow never rebuilds or uploads those assets and never overwrites an
-existing versioned GHCR image, npm package, or PyPI version. A missing GHCR version is assembled
-only from checksum-verified release archives.
+existing versioned GHCR image or npm package. A missing GHCR version is assembled only from
+checksum-verified release archives. PyPI recovery compares all six expected wheel filenames and
+checksums, uploads only missing wheels, and fails on registry errors or checksum conflicts.
+
+All tag-triggered releases and manually dispatched recoveries share one repository-wide publication
+lock and do not cancel the active run. The release policy is evaluated only after that lock is
+acquired, so a queued older recovery observes any newer release completed ahead of it.
 
 Mutable stable channels are promoted only when the target is at least the newest published stable
 release. Recovering an older tag therefore leaves GHCR `latest`, Homebrew, Scoop, and npm `latest`

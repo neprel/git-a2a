@@ -8,6 +8,9 @@ on:
         description: Existing immutable release tag to recover
         required: true
         type: string
+concurrency:
+  group: release-publication
+  cancel-in-progress: false
 env:
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 permissions: {}
@@ -307,27 +310,25 @@ jobs:
       url: https://pypi.org/p/git-a2a
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ env.RELEASE_TAG }}
-      - name: Check whether the immutable PyPI version already exists
-        id: package
-        run: |
-          version="${RELEASE_TAG#v}"
-          pypi_version=$(printf '%s' "$version" | sed -E 's/-rc\.([0-9]+)$/rc\1/')
-          exists=false
-          if curl --fail --silent --show-error "https://pypi.org/pypi/git-a2a/${pypi_version}/json" >/dev/null 2>&1; then exists=true; fi
-          echo "exists=$exists" >> "$GITHUB_OUTPUT"
       - run: gh release download "$RELEASE_TAG" --dir release-artifacts
-        if: steps.package.outputs.exists != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Build PyPI wheels
-        if: steps.package.outputs.exists != 'true'
         run: |
           version="${RELEASE_TAG#v}"
           pypi_version=$(printf '%s' "$version" | sed -E 's/-rc\.([0-9]+)$/rc\1/')
           python3 dist/pypi/build_wheels.py --artifacts release-artifacts --version "$pypi_version" --out wheelhouse
+      - name: Select only missing immutable PyPI wheels
+        id: package
+        run: |
+          version="${RELEASE_TAG#v}"
+          pypi_version=$(printf '%s' "$version" | sed -E 's/-rc\.([0-9]+)$/rc\1/')
+          python3 tools/pypi-recovery.py \
+            --wheelhouse wheelhouse \
+            --out missing-wheelhouse \
+            --version "$pypi_version" \
+            --github-output "$GITHUB_OUTPUT"
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
-        if: steps.package.outputs.exists != 'true'
+        if: steps.package.outputs.missing_count != '0'
         with:
-          packages-dir: wheelhouse/
+          packages-dir: missing-wheelhouse/

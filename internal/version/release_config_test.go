@@ -1,7 +1,11 @@
 package version
 
 import (
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -140,6 +144,160 @@ func TestReleaseRecoveryPolicySelectsSemanticNewestVersions(t *testing.T) {
 	}
 }
 
+func releasePromotion(t *testing.T, candidate, stable string) bool {
+	t.Helper()
+	cmd := exec.Command("python3", filepath.Join(repositoryRoot(t), "tools/release-policy.py"), "plan",
+		"--candidate", candidate,
+		"--latest-stable", stable,
+		"--release-exists", "true",
+	)
+	output, err := cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var plan struct {
+		PromoteStable bool `json:"promote_stable"`
+	}
+	if err := json.Unmarshal(output, &plan); err != nil {
+		t.Fatal(err)
+	}
+	return plan.PromoteStable
+}
+
+func TestReleasePublicationLockPreventsStalePromotion(t *testing.T) {
+	workflow, err := os.ReadFile(filepath.Join(repositoryRoot(t), ".github/workflows/release.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(workflow)
+	for _, want := range []string{"concurrency:\n  group: release-publication\n  cancel-in-progress: false", "needs.policy.outputs.promote_stable", "needs.policy.outputs.promote_prerelease"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("release workflow missing global publication safeguard %q", want)
+		}
+	}
+	if strings.Count(body, "needs.policy.outputs.promote_stable") < 3 {
+		t.Fatal("GHCR latest, Homebrew/Scoop, and npm latest must all use the locked stable policy")
+	}
+	if !strings.Contains(body, "PROMOTE_PRERELEASE: ${{ needs.policy.outputs.promote_prerelease }}") {
+		t.Fatal("npm next must use the locked prerelease policy")
+	}
+
+	for _, order := range [][]string{{"v2.0.0", "v2.1.0"}, {"v2.1.0", "v2.0.0"}} {
+		latestRelease := "v2.0.0"
+		stableChannel := "v2.0.0"
+		for _, candidate := range order {
+			promote := releasePromotion(t, candidate, latestRelease)
+			if promote {
+				stableChannel = candidate
+			}
+			if promote && candidate == "v2.1.0" {
+				latestRelease = candidate
+			}
+		}
+		if stableChannel != "v2.1.0" {
+			t.Fatalf("serialized order %v ended at %s", order, stableChannel)
+		}
+	}
+}
+
+func TestPyPIRecoverySelectsMissingWheels(t *testing.T) {
+	const version = "2.1.0"
+	platforms := []string{"macosx_10_15_x86_64", "macosx_11_0_arm64", "manylinux_2_17_x86_64", "manylinux_2_17_aarch64", "win_amd64", "win_arm64"}
+	type wheel struct {
+		filename string
+		digest   string
+	}
+	wheels := make([]wheel, 0, len(platforms))
+	wheelhouse := t.TempDir()
+	for _, platform := range platforms {
+		filename := fmt.Sprintf("git_a2a-%s-py3-none-%s.whl", version, platform)
+		content := []byte("wheel:" + platform)
+		if err := os.WriteFile(filepath.Join(wheelhouse, filename), content, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		digest := sha256.Sum256(content)
+		wheels = append(wheels, wheel{filename: filename, digest: fmt.Sprintf("%x", digest)})
+	}
+
+	metadata := func(published []wheel) []byte {
+		urls := make([]map[string]any, 0, len(published))
+		for _, item := range published {
+			urls = append(urls, map[string]any{"filename": item.filename, "digests": map[string]string{"sha256": item.digest}})
+		}
+		body, err := json.Marshal(map[string]any{"urls": urls})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return body
+	}
+
+	tests := []struct {
+		name        string
+		status      int
+		published   []wheel
+		wantMissing int
+		wantError   string
+		unavailable bool
+	}{
+		{name: "version absent", status: http.StatusNotFound, wantMissing: 6},
+		{name: "one wheel published", status: http.StatusOK, published: wheels[:1], wantMissing: 5},
+		{name: "all wheels published", status: http.StatusOK, published: wheels, wantMissing: 0},
+		{name: "checksum conflict", status: http.StatusOK, published: []wheel{{filename: wheels[0].filename, digest: strings.Repeat("0", 64)}}, wantError: "checksum conflict"},
+		{name: "registry unavailable", wantError: "registry request failed", unavailable: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+				response.WriteHeader(test.status)
+				if test.status == http.StatusOK {
+					_, _ = response.Write(metadata(test.published))
+				}
+			}))
+			if test.unavailable {
+				server.Close()
+			} else {
+				defer server.Close()
+			}
+			output := t.TempDir()
+			cmd := exec.Command("python3", filepath.Join(repositoryRoot(t), "tools/pypi-recovery.py"),
+				"--wheelhouse", wheelhouse,
+				"--out", output,
+				"--version", version,
+				"--metadata-url", server.URL,
+			)
+			combined, err := cmd.CombinedOutput()
+			if test.wantError != "" {
+				if err == nil || !strings.Contains(string(combined), test.wantError) {
+					t.Fatalf("expected %q, got err=%v output=%s", test.wantError, err, combined)
+				}
+				if entries, readErr := os.ReadDir(output); readErr != nil || len(entries) != 0 {
+					t.Fatalf("failed recovery populated upload directory: entries=%v err=%v", entries, readErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("select missing wheels: %v: %s", err, combined)
+			}
+			entries, err := os.ReadDir(output)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(entries) != test.wantMissing {
+				t.Fatalf("missing wheel count = %d, want %d; output=%s", len(entries), test.wantMissing, combined)
+			}
+			published := make(map[string]bool, len(test.published))
+			for _, item := range test.published {
+				published[item.filename] = true
+			}
+			for _, entry := range entries {
+				if published[entry.Name()] {
+					t.Fatalf("already published wheel was selected for upload: %s", entry.Name())
+				}
+			}
+		})
+	}
+}
+
 func TestReleaseConfigurationPreservesBinaryChannelsWithoutRemovedSubsystems(t *testing.T) {
 	root := repositoryRoot(t)
 	read := func(path string) string {
@@ -154,7 +312,7 @@ func TestReleaseConfigurationPreservesBinaryChannelsWithoutRemovedSubsystems(t *
 	ci := read(".github/workflows/ci.yml")
 	smoke := read(".github/workflows/release-smoke.yml")
 	goreleaser := read(".goreleaser.yaml")
-	for _, want := range []string{"contents: write", "packages: write", "id-token: write", "attestations: write", "npm publish", "pypi", "tools/release-channels.py", "tools/release-policy.py", "cosign sign --yes", "preserve_immutable", "promote_stable", "temporary_tag", "npm dist-tag rm", "npm dist-tag add", "docker manifest inspect"} {
+	for _, want := range []string{"contents: write", "packages: write", "id-token: write", "attestations: write", "npm publish", "pypi", "tools/release-channels.py", "tools/release-policy.py", "tools/pypi-recovery.py", "missing-wheelhouse", "cosign sign --yes", "preserve_immutable", "promote_stable", "temporary_tag", "npm dist-tag rm", "npm dist-tag add", "docker manifest inspect"} {
 		if !strings.Contains(workflow, want) {
 			t.Errorf("release workflow missing %q", want)
 		}
