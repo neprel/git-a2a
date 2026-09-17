@@ -8,3 +8,7 @@ component declares one responsible A2A Agent Card reference and may publish a tr
 - CLI: https://github.com/neprel/git-a2a/blob/main/docs/cli.md
 - Schema 2: https://git-a2a.com/schema/
 - Migration: https://github.com/neprel/git-a2a/blob/main/docs/migration-v2.md
+- Demo: https://git-a2a.com/#demo
+- Demo walkthrough: https://github.com/neprel/git-a2a-demo-acme-app#readme
+- Demo transcript: https://github.com/neprel/git-a2a-demo-acme-app/blob/main/docs/demo-transcript.md
+- Demo library: https://github.com/neprel/git-a2a-demo-acme-lib

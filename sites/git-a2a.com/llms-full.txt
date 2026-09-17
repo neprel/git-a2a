@@ -20,6 +20,30 @@ applied commit to `.git-a2a/agents/NAME/` and exposed by `list` as a usable loca
 Read the optional published surface, consult the responsible agent using an external A2A client,
 then consume its published changes with `pull NAME`.
 
+## End-to-end demo
+
+The ACME demo connects a component, discovers its responsible agent, sends a request through A2A,
+lets the owner change the library, runs `git-a2a pull`, and verifies the new result. Clone the app
+and library repositories next to each other. Docker with Compose is required:
+
+```sh
+git clone https://github.com/neprel/git-a2a-demo-acme-lib.git
+git clone https://github.com/neprel/git-a2a-demo-acme-app.git
+cd git-a2a-demo-acme-app
+./demo/run.sh
+DEMO_PROFILE=npm ./demo/run.sh
+```
+
+The agents are deterministic and need no LLM API keys. The demo uses real A2A transport,
+published git-a2a 2.0.0, and temporary local Git remotes. A separate demo client performs A2A
+communication; git-a2a manages dependency code and metadata. The agents are local to each run,
+not permanently available public services.
+
+Demo sources and evidence:
+- App and walkthrough: https://github.com/neprel/git-a2a-demo-acme-app#readme
+- Library: https://github.com/neprel/git-a2a-demo-acme-lib
+- Verified transcript: https://github.com/neprel/git-a2a-demo-acme-app/blob/main/docs/demo-transcript.md
+
 Canonical sources:
 - https://git-a2a.com/
 - https://github.com/neprel/git-a2a/blob/main/spec/README.md

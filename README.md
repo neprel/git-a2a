@@ -45,6 +45,32 @@ There are exactly five domain commands:
 component use the same resolved commit. Adapter and manager selection is durable: a later change
 to `PATH` or consumer marker files cannot silently switch it.
 
+## End-to-end demo
+
+The [ACME app walkthrough](https://github.com/neprel/git-a2a-demo-acme-app#readme) demonstrates
+the complete loop: connect a component, discover its responsible agent, send a request through
+A2A, let the owner change the library, run `git-a2a pull`, and observe the new result. The
+[app repository](https://github.com/neprel/git-a2a-demo-acme-app) and
+[library repository](https://github.com/neprel/git-a2a-demo-acme-lib) must be cloned next to each
+other. Docker with Compose is the only runtime requirement:
+
+```sh
+git clone https://github.com/neprel/git-a2a-demo-acme-lib.git
+git clone https://github.com/neprel/git-a2a-demo-acme-app.git
+cd git-a2a-demo-acme-app
+./demo/run.sh
+
+# Short npm-only profile
+DEMO_PROFILE=npm ./demo/run.sh
+```
+
+The demo uses deterministic agents without LLM API keys, real A2A transport, the published
+git-a2a 2.0.0, and temporary local Git remotes. The separate demo client performs A2A
+communication; git-a2a manages dependency code and metadata. The agents exist only for the local
+run and are not permanently available public services. See the
+[verified transcript](https://github.com/neprel/git-a2a-demo-acme-app/blob/main/docs/demo-transcript.md)
+for the recorded full-profile result.
+
 ## Component contract
 
 `a2amodule.yml` uses schema 2:
