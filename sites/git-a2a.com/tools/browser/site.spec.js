@@ -45,13 +45,12 @@ test.describe('reduced motion', () => {
   test('renders the complete current owner loop immediately', async ({ page }) => {
     await page.goto('/');
     const terminal = page.locator('#terminal-body');
-    await expect(terminal).toContainText('./demo/run.sh');
-    await expect(terminal).toContainText('app-agent:/workspace/app');
-    await expect(terminal).toContainText('git-a2a 2.0.0 (752eda1db35315592154e7928e61a8f18454d733, linux/arm64, channel=binary)');
-    await expect(terminal).toContainText('python /demo/a2a_client.py "$card" request-fallback --timeout 300');
-    await expect(terminal).toContainText('6746eb451157f4deb804bc22ffde673c6d1e6f20');
-    await expect(terminal).toContainText('7573a09fa73e98c11a589bfef9c196541f028f7a');
-    await expect(terminal).toContainText('PASS: 2 clean-volume run(s)');
+    for (const command of ['init --id my-app', 'add https://github.com/acme/utils', 'list utils', 'pull utils', 'remove utils']) {
+      await expect(terminal).toContainText(`git-a2a ${command}`);
+    }
+    await expect(terminal).toContainText('owner: utils-agent');
+    await expect(terminal).not.toContainText('demo/run.sh');
+    await expect(page.locator('.hero .panel-note').last()).toContainText('Illustrative session');
     await expect(terminal.locator('.caret')).toHaveCount(1);
   });
 
@@ -80,23 +79,22 @@ test.describe('reduced motion', () => {
 test.describe('static terminal fallback', () => {
   test.use({ javaScriptEnabled: false });
 
-  test('contains the same verified Docker context and evidence without JavaScript', async ({ page }) => {
+  test('shows the illustrative commands without JavaScript', async ({ page }) => {
     await page.goto('/');
     const terminal = page.locator('#terminal-body');
-    await expect(terminal).toContainText('./demo/run.sh');
-    await expect(terminal).toContainText('Docker Compose full profile · app-agent:/workspace/app');
-    await expect(terminal).toContainText('git-a2a add "$DEMO_GIT_URL" --name acme-lib-utils --ref "$DEMO_BRANCH"');
-    await expect(terminal).toContainText('runner verified bindings=submodule/git,cmake/cmake,golang/go,npm/npm,pypi/uv');
-    await expect(terminal).toContainText('PASS: owner A2A request, commit, Pull, and npm/uv/Go/CMake assertions');
-    await expect(terminal).not.toContainText('git-a2a init');
-    await expect(terminal).not.toContainText('python demo/a2a_client.py change');
+    await expect(terminal).toContainText('git-a2a init --id my-app');
+    await expect(terminal).toContainText('git-a2a remove utils');
+    await expect(terminal).toContainText('owner: utils-agent');
+    await expect(terminal).not.toContainText('demo/run.sh');
+    await expect(terminal).not.toContainText('Docker');
+
   });
 });
 
-test('terminal replay animates the verified sequence', async ({ page }) => {
+test('terminal replay animates the example sequence', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'replay' }).click();
-  await expect(page.locator('#terminal-body')).toContainText('Anonymous', { timeout: 15000 });
+  await expect(page.locator('#terminal-body')).toContainText('Removed utils from this project.', { timeout: 15000 });
 });
 
 test('install tabs support keyboard navigation', async ({ page }) => {
@@ -122,40 +120,39 @@ test('copy buttons announce copied state', async ({ page }) => {
   await expect(label).toHaveText('copy', { timeout: 1800 });
 });
 
-test('terminal copy provides the runnable host entrypoint', async ({ page, context }) => {
+test('terminal copy provides only the example commands', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'http://127.0.0.1:4173' });
   await page.goto('/');
-  const button = page.getByRole('button', { name: 'Copy the full demo run command' });
+  const button = page.getByRole('button', { name: 'Copy example commands' });
   const label = button.locator('[aria-live="polite"]');
-  await expect(button).toHaveAttribute('data-copy-command', './demo/run.sh');
   await button.click();
   await expect(label).toHaveText('copied');
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('./demo/run.sh');
-  await expect(label).toHaveText('copy run', { timeout: 1800 });
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("git-a2a init --id my-app\ngit-a2a add https://github.com/acme/utils\ngit-a2a list utils\ngit-a2a pull utils\ngit-a2a remove utils");
+  await expect(label).toHaveText('copy', { timeout: 1800 });
 });
 
 test('repeated terminal copy resets label restoration', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'http://127.0.0.1:4173' });
   await page.goto('/');
-  const button = page.getByRole('button', { name: 'Copy the full demo run command' });
+  const button = page.getByRole('button', { name: 'Copy example commands' });
   const label = button.locator('[aria-live="polite"]');
   await button.click();
   await page.waitForTimeout(800);
   await button.click();
   await page.waitForTimeout(800);
   await expect(label).toHaveText('copied');
-  await expect(label).toHaveText('copy run', { timeout: 900 });
+  await expect(label).toHaveText('copy', { timeout: 900 });
 });
 
 test('terminal replay does not cancel copy label restoration', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'http://127.0.0.1:4173' });
   await page.goto('/');
-  const copy = page.getByRole('button', { name: 'Copy the full demo run command' });
+  const copy = page.getByRole('button', { name: 'Copy example commands' });
   const label = copy.locator('[aria-live="polite"]');
   await copy.click();
   await page.getByRole('button', { name: 'replay' }).click();
   await expect(label).toHaveText('copied');
-  await expect(label).toHaveText('copy run', { timeout: 1800 });
+  await expect(label).toHaveText('copy', { timeout: 1800 });
 });
 
 test('demo section retains commands, boundaries, and evidence links', async ({ page }) => {

@@ -35,7 +35,7 @@
     let restoreLabel;
     button.addEventListener('click', async () => {
       const source = button.dataset.copy === 'terminal'
-        ? button.dataset.copyCommand || transcript.groups.map(group => group.command).join('\n')
+        ? transcript.groups.map(group => group.command).join('\n')
         : document.querySelector(button.dataset.copy).textContent;
       await copyText(source);
       label.textContent = 'copied';
