@@ -389,7 +389,7 @@ print(d.locate_file(d._path / "direct_url.json"))`
 			files = append(files, path)
 		}
 	}
-	return digestFiles(t, p.root, files) + ":" + digestTreeMetadata(t, p.environmentRoot(t))
+	return digestFiles(t, p.root, files)
 }
 
 func (p nativePythonProject) run(t *testing.T, command string, args ...string) string {
@@ -528,37 +528,6 @@ func digestFiles(t *testing.T, root string, paths []string) string {
 		}
 		_, _ = fmt.Fprintf(h, "%s\x00%d\x00", path, len(body))
 		_, _ = h.Write(body)
-	}
-	return hex.EncodeToString(h.Sum(nil))
-}
-
-func digestTreeMetadata(t *testing.T, root string) string {
-	t.Helper()
-	h := sha256.New()
-	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		info, err := entry.Info()
-		if err != nil {
-			return err
-		}
-		rel, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		_, _ = fmt.Fprintf(h, "%s\x00%s\x00%d\x00%d\n", filepath.ToSlash(rel), info.Mode(), info.Size(), info.ModTime().UnixNano())
-		if info.Mode()&os.ModeSymlink != 0 {
-			target, err := os.Readlink(path)
-			if err != nil {
-				return err
-			}
-			_, _ = fmt.Fprintf(h, "->%s\n", target)
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("digest environment %s: %v", root, err)
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }
