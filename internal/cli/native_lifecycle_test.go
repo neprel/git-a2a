@@ -109,6 +109,9 @@ func buildPublicCLI(t *testing.T) string {
 	_, file, _, _ := runtime.Caller(0)
 	repo := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
 	bin := filepath.Join(t.TempDir(), "git-a2a")
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
 	cmd := exec.Command("go", "build", "-o", bin, "./cmd/git-a2a")
 	cmd.Dir = repo
 	if output, err := cmd.CombinedOutput(); err != nil {

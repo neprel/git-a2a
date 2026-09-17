@@ -74,16 +74,26 @@ func (a Adapter) Inspect(ctx context.Context, root string, dep adapter.Dependenc
 // This stays offline and does not invoke clj merely to discover its cache.
 func gitlibCheckouts(name, commit string) ([]string, error) {
 	var homes []string
+	appendHome := func(home string) {
+		if home == "" {
+			return
+		}
+		for _, existing := range homes {
+			if existing == home {
+				return
+			}
+		}
+		homes = append(homes, home)
+	}
 	if current, err := user.Current(); err == nil && current.HomeDir != "" {
-		homes = append(homes, current.HomeDir)
+		appendHome(current.HomeDir)
 	}
 	home, err := os.UserHomeDir()
 	if err != nil && len(homes) == 0 {
 		return nil, err
 	}
-	if home != "" && (len(homes) == 0 || home != homes[0]) {
-		homes = append(homes, home)
-	}
+	appendHome(home)
+	appendHome(os.Getenv("HOME"))
 	checkouts := make([]string, 0, len(homes))
 	for _, candidate := range homes {
 		checkouts = append(checkouts, filepath.Join(candidate, ".gitlibs", "libs", filepath.FromSlash(name), commit))

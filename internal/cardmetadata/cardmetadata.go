@@ -255,7 +255,7 @@ func safeRelative(name, value string, allowDot bool) error {
 	if clean == "." && allowDot {
 		return nil
 	}
-	if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") || filepath.IsAbs(value) || strings.Contains(value, "\\") {
+	if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") || strings.HasPrefix(clean, "/") || filepath.IsAbs(value) || strings.Contains(value, "\\") {
 		return fmt.Errorf("%s must be a safe repository-relative path", name)
 	}
 	return nil

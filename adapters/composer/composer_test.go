@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -84,10 +85,7 @@ func TestRemoveUsesComposerSupportedDependencyFlag(t *testing.T) {
 	}
 	bin := t.TempDir()
 	log := filepath.Join(root, "composer.log")
-	script := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> " + log + "\n"
-	if err := os.WriteFile(filepath.Join(bin, "composer"), []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	writeCommandStub(t, bin, "composer", log)
 	t.Setenv("PATH", bin)
 	dep := adapter.Dependency{Git: "https://example.com/acme/lib.git", Ref: "main"}
 	exp := adapter.Export{Name: "acme/lib"}
@@ -99,6 +97,22 @@ func TestRemoveUsesComposerSupportedDependencyFlag(t *testing.T) {
 	if !strings.Contains(got, "remove acme/lib --update-with-dependencies ") {
 		t.Fatalf("composer command = %q", got)
 	}
+}
+
+func writeCommandStub(t *testing.T, bin, name, log string) {
+	t.Helper()
+	path := filepath.Join(bin, name)
+	body := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$COMMAND_LOG\"\n"
+	mode := os.FileMode(0o755)
+	if runtime.GOOS == "windows" {
+		path += ".cmd"
+		body = "@echo off\r\n>>\"%COMMAND_LOG%\" echo %*\r\n"
+		mode = 0o644
+	}
+	if err := os.WriteFile(path, []byte(body), mode); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("COMMAND_LOG", log)
 }
 
 func mustRead(t *testing.T, path string) []byte {

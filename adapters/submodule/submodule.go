@@ -440,7 +440,11 @@ func registeredSource(root, relative string) (section, source string, err error)
 	sections := parseGitmodules(body)
 	for name, values := range sections {
 		if filepath.ToSlash(filepath.Clean(values["path"])) == relative {
-			return name, values["url"], nil
+			out, configErr := adapter.CommandOutput(context.Background(), root, "git", "config", "-f", ".gitmodules", "--get", "submodule."+name+".url")
+			if configErr != nil {
+				return "", "", configErr
+			}
+			return name, strings.TrimSpace(string(out)), nil
 		}
 	}
 	return "", "", nil

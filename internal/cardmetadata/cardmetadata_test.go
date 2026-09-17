@@ -176,6 +176,7 @@ func TestPrepareReadsByteExactCardFromRequestedGitCommit(t *testing.T) {
 	runGit(t, source, "init", "-b", "main")
 	runGit(t, source, "config", "user.email", "test@example.com")
 	runGit(t, source, "config", "user.name", "Test")
+	runGit(t, source, "config", "core.autocrlf", "false")
 	cardPath := filepath.Join(source, "components", "lib", "cards", "owner.json")
 	first := []byte("{\r\n  \"version\": 1\r\n}\n")
 	if err := os.WriteFile(cardPath, first, 0o644); err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -128,10 +129,7 @@ func TestLifecycleUsesMaterializingPullAndPlanningRemove(t *testing.T) {
 			}
 			bin := t.TempDir()
 			log := filepath.Join(root, "manager.log")
-			script := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> " + log + "\n"
-			if err := os.WriteFile(filepath.Join(bin, tc.tool), []byte(script), 0o755); err != nil {
-				t.Fatal(err)
-			}
+			writeCommandStub(t, bin, tc.tool, log)
 			t.Setenv("PATH", bin)
 			dep := adapter.Dependency{Git: "https://example.com/acme/lib.git"}
 			exp := adapter.Export{Name: "acme-lib"}
@@ -143,13 +141,29 @@ func TestLifecycleUsesMaterializingPullAndPlanningRemove(t *testing.T) {
 			if _, err := a.Remove(context.Background(), root, dep, exp, locked); err != nil {
 				t.Fatal(err)
 			}
-			got := string(mustRead(t, log))
+			got := strings.ReplaceAll(string(mustRead(t, log)), "\r\n", "\n")
 			want := "--version\n" + tc.pullArgs + "\n--version\n" + tc.removeArgs + "\n"
 			if got != want {
 				t.Fatalf("manager commands = %q, want %q", got, want)
 			}
 		})
 	}
+}
+
+func writeCommandStub(t *testing.T, bin, name, log string) {
+	t.Helper()
+	path := filepath.Join(bin, name)
+	body := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$COMMAND_LOG\"\n"
+	mode := os.FileMode(0o755)
+	if runtime.GOOS == "windows" {
+		path += ".cmd"
+		body = "@echo off\r\n>>\"%COMMAND_LOG%\" echo %*\r\n"
+		mode = 0o644
+	}
+	if err := os.WriteFile(path, []byte(body), mode); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("COMMAND_LOG", log)
 }
 
 func mustRead(t *testing.T, path string) []byte {
