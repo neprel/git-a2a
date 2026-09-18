@@ -35,8 +35,11 @@ acquired, so a queued older recovery observes any newer release completed ahead 
 Mutable stable channels are promoted only when the target is at least the newest published stable
 release. Recovering an older tag therefore leaves GHCR `latest`, Homebrew, Scoop, and npm `latest`
 unchanged. A prerelease never changes those stable channels; npm `next` moves only to an equal or
-newer prerelease. Missing npm packages are first published under a temporary recovery tag, which is
-removed before any eligible `latest` or `next` promotion.
+newer prerelease. New npm packages are published directly under the eligible `latest` or `next` tag using
+GitHub OIDC. Older-version recovery uses a permanent `release-VERSION` tag and does not modify
+stable or prerelease tags. OIDC does not authorize separate dist-tag mutations: an existing
+version with an incorrect tag requires an authenticated maintainer to retag it, or a new release.
+The npm job fails visibly if an eligible channel does not point to the expected version.
 
 ## Verification
 

@@ -233,7 +233,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: python3 dist/npm/build_packages.py --artifacts release-artifacts --version "${RELEASE_TAG#v}" --out npm-packages
-      - run: node --test tools/npm-dist-tags.test.mjs
       - name: Publish platform packages and launcher
         env:
           PROMOTE_STABLE: ${{ needs.policy.outputs.promote_stable }}
@@ -241,39 +240,39 @@ jobs:
         run: |
           set -euo pipefail
           version="${RELEASE_TAG#v}"
-          temporary_tag="recovery-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          # OIDC authorizes publish, not separate dist-tag mutations.
+          publication_tag="release-${version}"
+          if [ "$PROMOTE_STABLE" = true ]; then
+            publication_tag=latest
+          elif [ "$PROMOTE_PRERELEASE" = true ]; then
+            publication_tag=next
+          fi
           publish_if_missing() {
             local package_dir="$1"
-            local package_name package_version
+            local package_name package_version current_tag
             package_name="$(node -p "require('./${package_dir}/package.json').name")"
             package_version="$(node -p "require('./${package_dir}/package.json').version")"
             if npm view "${package_name}@${package_version}" version >/dev/null 2>&1; then
               echo "${package_name}@${package_version} already exists; leaving it unchanged"
-              return
+            else
+              npm publish "./${package_dir}" --access public --tag "$publication_tag"
             fi
-            npm publish "./${package_dir}" --access public --tag "$temporary_tag"
             for attempt in $(seq 1 120); do
               if npm view "${package_name}@${package_version}" version >/dev/null 2>&1; then break; fi
               [ "$attempt" -lt 120 ] || { echo "npm registry did not expose ${package_name}@${package_version}" >&2; exit 1; }
               sleep 5
             done
-          }
-          promote() {
-            local package_dir="$1"
-            local npm_tag="$2"
-            local package_name
-            package_name="$(node -p "require('./${package_dir}/package.json').name")"
-            node tools/npm-dist-tags.mjs "$package_name" "$version" "$npm_tag"
+            if [ "$publication_tag" = latest ] || [ "$publication_tag" = next ]; then
+              for attempt in $(seq 1 120); do
+                current_tag=$(npm view "$package_name" "dist-tags.$publication_tag")
+                if [ "$current_tag" = "$version" ]; then return; fi
+                [ "$attempt" -lt 120 ] || { echo "npm $publication_tag does not point to $version; OIDC cannot retag an existing version" >&2; exit 1; }
+                sleep 5
+              done
+            fi
           }
           for package in npm-packages/darwin-* npm-packages/linux-* npm-packages/windows-*; do publish_if_missing "$package"; done
           publish_if_missing npm-packages/git-a2a
-          if [ "$PROMOTE_STABLE" = true ]; then
-            for package in npm-packages/darwin-* npm-packages/linux-* npm-packages/windows-* npm-packages/git-a2a; do promote "$package" latest; done
-          elif [ "$PROMOTE_PRERELEASE" = true ]; then
-            for package in npm-packages/darwin-* npm-packages/linux-* npm-packages/windows-* npm-packages/git-a2a; do promote "$package" next; done
-          else
-            for package in npm-packages/darwin-* npm-packages/linux-* npm-packages/windows-* npm-packages/git-a2a; do promote "$package" none; done
-          fi
   attest:
     needs: goreleaser
     runs-on: ubuntu-latest
