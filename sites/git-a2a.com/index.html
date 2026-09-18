@@ -35,10 +35,8 @@
 <main>
   <section class="hero"><div class="container">
     <div class="hero-copy">
-      <div class="eyebrow"><span class="eyebrow-dot"></span>schema 2 · six commands · native adapters</div>
-      <h1>Import the component.<br>Know the agent responsible for it.</h1>
+      <h1>Import components.<br>Meet their A2A agents.</h1>
       <p class="hero-lead">git-a2a is a cross-platform component dependency manager. It applies code through the consumer's own tools and carries the owning Agent Card and optional published surface at the same Git revision.</p>
-      <div class="chips hero-chips"><span class="pill">one commit</span><span class="pill">saved adapter + variant</span><span class="pill">Agent Card</span><span class="pill">published surface</span><span class="pill">native managers</span><span class="pill">submodule adapter</span></div>
       <div class="actions"><a class="button primary" href="#install">Install v2.1.1</a><a class="button secondary" href="spec/">Read the spec</a><a class="button secondary" href="#demo">Run the demo</a></div>
       <p class="panel-note">One agent is responsible for one repository. An external A2A client performs communication; git-a2a manages dependency code and metadata.</p>
     </div>
@@ -62,15 +60,17 @@
     </div>
   </div></section>
 
-  <section class="section" id="commands"><div class="container"><div class="section-head"><h2>Six commands, one adapter lifecycle</h2><p class="section-lead">The selected adapter and concrete package-manager variant are saved on add and reused for pull and remove.</p></div><div class="card-grid">
-    <article class="feature-card"><p>Create a minimal schema 2 component declaration.</p><code tabindex="0">git-a2a init [--id ID] [--description TEXT]</code></article>
-    <article class="feature-card"><p>Resolve one revision, apply every matching adapter, and retain the owner and surface.</p><code tabindex="0">git-a2a add SOURCE [--name NAME] [--ref REF]</code></article>
-    <article class="feature-card"><p>Update every dependency—or only one—through its saved adapter and variant.</p><code tabindex="0">git-a2a pull [NAME]</code></article>
-    <article class="feature-card"><p>Remove only the selected dependency's owned integration and materialization.</p><code tabindex="0">git-a2a remove NAME</code></article>
-    <article class="feature-card"><p>Inspect every direct dependency, commit, adapter, and local problem without network or mutation.</p><code tabindex="0">git-a2a list [--json]</code></article>
-    <article class="feature-card"><p>Find one dependency's responsible agent, usable Agent Card reference, and available surface locally.</p><code tabindex="0">git-a2a whose NAME [--json]</code></article>
-    <article class="feature-card"><p>Submodule follows the same lifecycle as every other adapter; build integrations share its checkout.</p><code tabindex="0">adapter: submodule · variant: git</code></article>
-  </div></div></section>
+  <section class="section" id="commands"><div class="container">
+    <div class="section-head"><h2>Six simple commands</h2><p class="section-lead">Add components, find their owners, and keep dependencies up to date.</p></div>
+    <dl class="command-list">
+      <div><dt><code>git a2a init</code></dt><dd>Set up git-a2a in your repository.</dd></div>
+      <div><dt><code>git a2a add SOURCE</code></dt><dd>Add a component and discover its agent and any published documentation.</dd></div>
+      <div><dt><code>git a2a list [--json]</code></dt><dd>See all your dependencies.</dd></div>
+      <div><dt><code>git a2a whose NAME [--json]</code></dt><dd>Find the responsible agent and its Agent Card.</dd></div>
+      <div><dt><code>git a2a pull [NAME]</code></dt><dd>Update all dependencies, or just one, using their saved package managers.</dd></div>
+      <div><dt><code>git a2a remove NAME</code></dt><dd>Remove a dependency from your project.</dd></div>
+    </dl>
+  </div></section>
 
   <section class="section alt" id="manifest"><div class="container"><div class="section-head"><h2>The schema 2 manifest</h2><p class="section-lead">One component, at most one responsible external agent, an optional readable surface, and direct dependencies.</p></div><div class="manifest-layout">
     <div class="code-panel"><div class="code-head">a2amodule.yml<button class="copy-button" type="button" data-copy="#manifest-yaml"><span aria-live="polite">copy</span></button></div><pre class="yaml" id="manifest-yaml" tabindex="0"><span class="key">schema:</span> <span class="value">2</span>

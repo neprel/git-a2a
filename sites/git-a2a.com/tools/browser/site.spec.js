@@ -3,7 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { pathToFileURL } from 'node:url';
 
 test('all documentation pages render from file URLs', async ({ page }) => {
-  for (const [path, heading] of [['../../index.html', 'Import the component.'], ['../../schema/index.html', 'Schema 2'], ['../../spec/index.html', 'Schema 2 specification']]) {
+  for (const [path, heading] of [['../../index.html', 'Import components.'], ['../../schema/index.html', 'Schema 2'], ['../../spec/index.html', 'Schema 2 specification']]) {
     await page.goto(pathToFileURL(new URL(path, import.meta.url).pathname).href);
     await expect(page.getByRole('heading', { level: 1 })).toContainText(heading);
   }
