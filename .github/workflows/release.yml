@@ -216,14 +216,13 @@ jobs:
   npm:
     needs: [policy, goreleaser]
     runs-on: ubuntu-latest
-    continue-on-error: true
     permissions:
       contents: read
       id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ env.RELEASE_TAG }}
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
@@ -234,6 +233,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: python3 dist/npm/build_packages.py --artifacts release-artifacts --version "${RELEASE_TAG#v}" --out npm-packages
+      - run: node --test tools/npm-dist-tags.test.mjs
       - name: Publish platform packages and launcher
         env:
           PROMOTE_STABLE: ${{ needs.policy.outputs.promote_stable }}
@@ -242,7 +242,6 @@ jobs:
           set -euo pipefail
           version="${RELEASE_TAG#v}"
           temporary_tag="recovery-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          published_packages=()
           publish_if_missing() {
             local package_dir="$1"
             local package_name package_version
@@ -258,14 +257,13 @@ jobs:
               [ "$attempt" -lt 120 ] || { echo "npm registry did not expose ${package_name}@${package_version}" >&2; exit 1; }
               sleep 5
             done
-            published_packages+=("$package_name")
           }
           promote() {
             local package_dir="$1"
             local npm_tag="$2"
             local package_name
             package_name="$(node -p "require('./${package_dir}/package.json').name")"
-            npm dist-tag add "${package_name}@${version}" "$npm_tag"
+            node tools/npm-dist-tags.mjs "$package_name" "$version" "$npm_tag"
           }
           for package in npm-packages/darwin-* npm-packages/linux-* npm-packages/windows-*; do publish_if_missing "$package"; done
           publish_if_missing npm-packages/git-a2a
@@ -274,11 +272,8 @@ jobs:
           elif [ "$PROMOTE_PRERELEASE" = true ]; then
             for package in npm-packages/darwin-* npm-packages/linux-* npm-packages/windows-* npm-packages/git-a2a; do promote "$package" next; done
           else
-            echo "older release: published missing immutable npm versions without changing dist-tags"
+            for package in npm-packages/darwin-* npm-packages/linux-* npm-packages/windows-* npm-packages/git-a2a; do promote "$package" none; done
           fi
-          for package_name in "${published_packages[@]}"; do
-            npm dist-tag rm "$package_name" "$temporary_tag"
-          done
   attest:
     needs: goreleaser
     runs-on: ubuntu-latest
