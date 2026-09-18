@@ -47,7 +47,8 @@
     });
   });
 
-  const tabs = [...document.querySelectorAll('[role="tab"]')];
+  document.querySelectorAll('[role="tablist"]').forEach(tablist => {
+  const tabs = [...tablist.querySelectorAll('[role="tab"]')];
   const activate = tab => {
     tabs.forEach(item => {
       const selected = item === tab;
@@ -66,6 +67,8 @@
       activate(tabs[next]);
       tabs[next].focus();
     });
+  });
+
   });
 
   const body = document.getElementById('terminal-body');

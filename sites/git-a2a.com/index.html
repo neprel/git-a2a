@@ -18,7 +18,7 @@
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="preload" href="fonts/ibm-plex-sans-400-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/jetbrains-mono-400-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="assets/site.css">
+  <link rel="stylesheet" href="assets/site.css?v=commands-tabs-1">
   <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"https://git-a2a.com/#website","url":"https://git-a2a.com/","name":"git-a2a","description":"A cross-platform component dependency manager that keeps code and its responsible agent aligned."},{"@type":"SoftwareApplication","@id":"https://git-a2a.com/#software","name":"git-a2a","url":"https://git-a2a.com/","softwareVersion":"2.1.1","applicationCategory":"DeveloperApplication","operatingSystem":["Linux","macOS","Windows"],"isAccessibleForFree":true,"license":"https://github.com/neprel/git-a2a/blob/main/LICENSE","downloadUrl":"https://github.com/neprel/git-a2a/releases","sameAs":"https://github.com/neprel/git-a2a"}]}</script>
 </head>
 <body>
@@ -62,14 +62,22 @@
 
   <section class="section" id="commands"><div class="container">
     <div class="section-head"><h2>Commands</h2><p class="section-lead">Add components, find their owners, and keep dependencies up to date.</p></div>
-    <dl class="command-list">
-      <div><dt><span class="command-number" aria-hidden="true">01</span><code><span class="command-prefix">git a2a </span><span class="command-name">init</span></code></dt><dd>Set up git-a2a in your repository.</dd></div>
-      <div><dt><span class="command-number" aria-hidden="true">02</span><code><span class="command-prefix">git a2a </span><span class="command-name">add SOURCE</span></code></dt><dd>Add a component and discover its agent and any published documentation.</dd></div>
-      <div><dt><span class="command-number" aria-hidden="true">03</span><code><span class="command-prefix">git a2a </span><span class="command-name">list [--json]</span></code></dt><dd>See all your dependencies.</dd></div>
-      <div><dt><span class="command-number" aria-hidden="true">04</span><code><span class="command-prefix">git a2a </span><span class="command-name">whose NAME [--json]</span></code></dt><dd>Find the responsible agent and its Agent Card.</dd></div>
-      <div><dt><span class="command-number" aria-hidden="true">05</span><code><span class="command-prefix">git a2a </span><span class="command-name">pull [NAME]</span></code></dt><dd>Update all dependencies, or just one, using their saved package managers.</dd></div>
-      <div><dt><span class="command-number" aria-hidden="true">06</span><code><span class="command-prefix">git a2a </span><span class="command-name">remove NAME</span></code></dt><dd>Remove a dependency from your project.</dd></div>
-    </dl>
+    <div class="install-panel">
+      <div class="tablist" role="tablist" aria-label="Commands">
+<button role="tab" id="command-tab-init" aria-selected="true" aria-controls="command-panel-init" tabindex="0">init</button>
+<button role="tab" id="command-tab-add" aria-selected="false" aria-controls="command-panel-add" tabindex="-1">add</button>
+<button role="tab" id="command-tab-list" aria-selected="false" aria-controls="command-panel-list" tabindex="-1">list</button>
+<button role="tab" id="command-tab-whose" aria-selected="false" aria-controls="command-panel-whose" tabindex="-1">whose</button>
+<button role="tab" id="command-tab-pull" aria-selected="false" aria-controls="command-panel-pull" tabindex="-1">pull</button>
+<button role="tab" id="command-tab-remove" aria-selected="false" aria-controls="command-panel-remove" tabindex="-1">remove</button>
+</div>
+<div class="tabpanel" id="command-panel-init" role="tabpanel" aria-labelledby="command-tab-init"><div class="command-row"><pre tabindex="0" id="command-init">git a2a init</pre><button class="copy-button" type="button" data-copy="#command-init"><span aria-live="polite">copy</span></button></div><p class="panel-note">Set up git-a2a in your repository.</p></div>
+<div class="tabpanel" id="command-panel-add" role="tabpanel" aria-labelledby="command-tab-add" hidden><div class="command-row"><pre tabindex="0" id="command-add">git a2a add SOURCE</pre><button class="copy-button" type="button" data-copy="#command-add"><span aria-live="polite">copy</span></button></div><p class="panel-note">Add a component from its Git repository, along with its agent and any published documentation.</p></div>
+<div class="tabpanel" id="command-panel-list" role="tabpanel" aria-labelledby="command-tab-list" hidden><div class="command-row"><pre tabindex="0" id="command-list">git a2a list [--json]</pre><button class="copy-button" type="button" data-copy="#command-list"><span aria-live="polite">copy</span></button></div><p class="panel-note">See all your dependencies. Use --json for structured output.</p></div>
+<div class="tabpanel" id="command-panel-whose" role="tabpanel" aria-labelledby="command-tab-whose" hidden><div class="command-row"><pre tabindex="0" id="command-whose">git a2a whose NAME [--json]</pre><button class="copy-button" type="button" data-copy="#command-whose"><span aria-live="polite">copy</span></button></div><p class="panel-note">Find the agent responsible for a dependency and its Agent Card.</p></div>
+<div class="tabpanel" id="command-panel-pull" role="tabpanel" aria-labelledby="command-tab-pull" hidden><div class="command-row"><pre tabindex="0" id="command-pull">git a2a pull [NAME]</pre><button class="copy-button" type="button" data-copy="#command-pull"><span aria-live="polite">copy</span></button></div><p class="panel-note">Update all dependencies, or name one to update just that component.</p></div>
+<div class="tabpanel" id="command-panel-remove" role="tabpanel" aria-labelledby="command-tab-remove" hidden><div class="command-row"><pre tabindex="0" id="command-remove">git a2a remove NAME</pre><button class="copy-button" type="button" data-copy="#command-remove"><span aria-live="polite">copy</span></button></div><p class="panel-note">Remove a dependency from your project.</p></div>
+    </div>
   </div></section>
 
   <section class="section alt" id="manifest"><div class="container"><div class="section-head"><h2>The schema 2 manifest</h2><p class="section-lead">One component, at most one responsible external agent, an optional readable surface, and direct dependencies.</p></div><div class="manifest-layout">
@@ -119,6 +127,6 @@ scoop install git-a2a</pre><button class="copy-button" type="button" data-copy="
 </main>
 <footer class="site-footer"><div class="footer-grid"><div><span class="wordmark"><span class="git">git-</span><span class="a2a">a2a</span></span><p class="footer-note">Independent open-source tooling for Git component dependencies and A2A Agent Card references.</p></div><nav class="footer-links" aria-label="Project"><a href="https://github.com/neprel/git-a2a">GitHub</a><a href="spec/">Specification</a><a href="schema/">Schema 2</a><a href="https://github.com/neprel/git-a2a/tree/main/docs">Documentation</a></nav><nav class="footer-links" aria-label="Resources"><a href="https://github.com/neprel/git-a2a/releases">Releases</a><a href="https://github.com/neprel/git-a2a/blob/main/docs/migration-v2.md">Schema 1 migration</a><a href="https://github.com/neprel/git-a2a-demo-acme-app#readme">Demo walkthrough</a><a href="https://github.com/neprel/git-a2a-demo-acme-app/blob/main/docs/demo-transcript.md">Verified transcript</a></nav><div class="license">License MIT</div></div></footer>
 <script id="transcript-data" type="application/json">{"timing":{"initial":300,"character":22,"afterCommand":250,"betweenOutput":160,"betweenGroups":450},"groups":[{"command":"git-a2a init --id my-app","stdout":"Created a2amodule.yml.\n","stderr":"","render":[{"stream":"stdout","classes":["dim"]}]},{"command":"git-a2a add https://github.com/acme/utils","stdout":"utils added through npm.\n","stderr":"","render":[{"stream":"stdout","classes":["dim"]}]},{"command":"git-a2a list","stdout":"utils \u00b7 acme-utils \u00b7 npm/npm\n","stderr":"","render":[{"stream":"stdout","classes":["dim"]}]},{"command":"git-a2a whose utils","stdout":"agent: utils-agent\ncard: .git-a2a/agents/utils/agent-card.json\nsurface: .git-a2a/surfaces/utils\n","stderr":"","render":[{"stream":"stdout","classes":["dim","dim","dim"]}]},{"command":"git-a2a pull utils","stdout":"Updated code, Agent Card and surface.\n","stderr":"","render":[{"stream":"stdout","classes":["dim"]}]},{"command":"git-a2a remove utils","stdout":"Removed utils from this project.\n","stderr":"","render":[{"stream":"stdout","classes":["dim"]}]}]}</script>
-<script src="assets/site.js"></script>
+<script src="assets/site.js?v=commands-tabs-1"></script>
 </body>
 </html>

@@ -101,7 +101,7 @@ test('terminal replay animates the example sequence', async ({ page }) => {
 
 test('install tabs support keyboard navigation', async ({ page }) => {
   await page.goto('/#install');
-  const tabs = page.getByRole('tab');
+  const tabs = page.locator('#install').getByRole('tab');
   await tabs.nth(0).focus();
   await page.keyboard.press('ArrowRight');
   await expect(tabs.nth(1)).toBeFocused();
@@ -188,4 +188,23 @@ test('landing has no serious accessibility violations', async ({ page }) => {
   await page.goto('/');
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations.filter(violation => violation.impact === 'serious')).toEqual([]);
+});
+
+ test('command tabs and copy work independently of install tabs', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'http://127.0.0.1:4173' });
+  await page.goto('/#commands');
+  const tabs = page.locator('#commands').getByRole('tab');
+  await tabs.first().focus();
+  await page.keyboard.press('End');
+  await expect(tabs.last()).toBeFocused();
+  await expect(page.locator('#command-panel-remove')).toBeVisible();
+  await expect(page.locator('#panel-sh')).toBeVisible();
+  await page.locator('[data-copy="#command-remove"]').click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('git a2a remove NAME');
+  await page.locator('#tab-go').click();
+  await expect(page.locator('#panel-go')).toBeVisible();
+  await expect(page.locator('#command-panel-remove')).toBeVisible();
+  await tabs.first().click();
+  await expect(page.locator('#command-panel-init')).toBeVisible();
+  await expect(page.locator('#panel-go')).toBeVisible();
 });
