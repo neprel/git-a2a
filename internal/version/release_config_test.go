@@ -312,7 +312,7 @@ func TestReleaseConfigurationPreservesBinaryChannelsWithoutRemovedSubsystems(t *
 	ci := read(".github/workflows/ci.yml")
 	smoke := read(".github/workflows/release-smoke.yml")
 	goreleaser := read(".goreleaser.yaml")
-	for _, want := range []string{"contents: write", "packages: write", "id-token: write", "attestations: write", "npm publish", "pypi", "tools/release-channels.py", "tools/release-policy.py", "tools/pypi-recovery.py", "missing-wheelhouse", "cosign sign --yes", "preserve_immutable", "promote_stable", "temporary_tag", "npm dist-tag rm", "npm dist-tag add", "docker manifest inspect"} {
+	for _, want := range []string{"contents: write", "packages: write", "id-token: write", "attestations: write", "npm publish", "pypi", "tools/release-channels.py", "tools/release-policy.py", "tools/pypi-recovery.py", "missing-wheelhouse", "cosign sign --yes", "preserve_immutable", "promote_stable", "temporary_tag", "node tools/npm-dist-tags.mjs", "node --test tools/npm-dist-tags.test.mjs", "docker manifest inspect"} {
 		if !strings.Contains(workflow, want) {
 			t.Errorf("release workflow missing %q", want)
 		}
